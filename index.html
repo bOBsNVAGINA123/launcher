@@ -247,7 +247,8 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
           <h3 class="sec">Bid strategy</h3>
           <div class="row">
             <div class="field" style="flex:2"><label>Strategy</label><select id="bidSel" onchange="bidChanged()">
-              <option value="volume">Highest volume (no cap — default)</option>
+              <option value="volume">Highest volume (Meta default)</option>
+              <option value="highest_value">Highest value — maximize conversion value</option>
               <option value="cost_cap">Cost per result goal (CPP)</option>
               <option value="min_roas">ROAS goal</option>
               <option value="bid_cap">Bid cap</option>
@@ -288,7 +289,25 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
             <div class="field"><label>Advantage+ audience</label><select id="advAud"><option value="1">On (recommended)</option><option value="0">Off (hard limits)</option></select></div>
           </div>
           <div class="row" id="aboBudgetRow" style="display:none">
-            <div class="field"><label>Audience budget (<span id="curLabel3">EGP</span>) — ABO</label><input id="aboAmt" type="number" placeholder="500" oninput="paint()"></div>
+            <div class="field"><label>Ad set budget (<span id="curLabel3">EGP</span>) — ABO</label><input id="aboAmt" type="number" placeholder="500" oninput="paint()"></div>
+          </div>
+          <div class="row" id="cboSpendRow">
+            <div class="field"><label>CBO: daily min spend (optional)</label><input id="minSpend" type="number" placeholder="Meta decides"></div>
+            <div class="field"><label>CBO: daily max spend (optional)</label><input id="maxSpend" type="number" placeholder="no cap"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Include custom audiences</label><select id="incAud" multiple size="4"><option value="">pick account first</option></select></div>
+            <div class="field"><label>Exclude custom audiences</label><select id="excAud" multiple size="4"><option value="">pick account first</option></select></div>
+          </div>
+          <div class="hint" style="margin-bottom:10px">Hold cmd (Mac) / ctrl to select several. Leave empty = broad, Meta default.</div>
+          <div class="row">
+            <div class="field"><label>Attribution setting</label><select id="attrSel">
+              <option value="">Meta default (7-day click, 1-day view)</option>
+              <option value="7c1v">7-day click + 1-day view</option>
+              <option value="7c">7-day click only</option>
+              <option value="1c1v">1-day click + 1-day view</option>
+              <option value="1c">1-day click only</option>
+            </select></div>
           </div>
           <div class="hint">Placements: Advantage+ (all). Targeting stays broad — the pixel does the work.</div>
         </div>
@@ -383,6 +402,9 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
     <div id="console"></div>
   </aside>
 </div>
+
+<!-- media viewer -->
+<div class="modal" id="viewer" onclick="if(event.target.id==='viewer')closeViewer()"><div id="viewerBody" style="max-width:92vw;max-height:92vh"></div></div>
 
 <!-- settings modal -->
 <div class="modal" id="modal"><div class="mbox">
@@ -629,7 +651,7 @@ function renderMedia(){
     else pv=icon;
     d.innerHTML=`<div class="tag">${m.src==='drive'?'DRIVE':'LOCAL'} ${m.kind.toUpperCase()}</div>
       <div class="x" onclick="S.media.splice(${i},1);renderMedia();paint()">×</div>
-      <div class="prev">${pv}</div>
+      <div class="prev" style="cursor:zoom-in" onclick="openViewer(${i})">${pv}</div>
       <div id="mst-${m.uiId}" class="state ${m.stateCls||''}" style="display:${m.state?'block':'none'}">${m.state||''}</div>
       <div class="meta"><div class="nm" title="${esc(m.name)}">${esc(m.name)}</div><div class="mt">${m.size?(m.size/1048576).toFixed(1)+' MB':'from Drive'}</div></div>
       <input class="linkin" placeholder="Ad name" value="${esc(m.adName||'')}" oninput="S.media[${i}].adName=this.value" style="margin-bottom:4px">
@@ -710,6 +732,23 @@ async function importDrive(auto){
   if(!auto)box.value='';
 }
 
+/* ============================ MEDIA VIEWER ============================ */
+function openViewer(i){
+  const m=S.media[i];if(!m)return;
+  const b=document.getElementById('viewerBody');
+  if(m.kind==='image'){
+    const src=m.preview||(m.driveId?('https://drive.google.com/thumbnail?id='+m.driveId+'&sz=w2000'):'');
+    b.innerHTML='<img src="'+src+'" style="max-width:92vw;max-height:92vh;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.4)">';
+  } else if(m.file){
+    if(!m.vurl)m.vurl=URL.createObjectURL(m.file);
+    b.innerHTML='<video src="'+m.vurl+'" controls autoplay style="max-width:92vw;max-height:92vh;border-radius:14px;background:#000"></video>';
+  } else if(m.driveId){
+    b.innerHTML='<iframe src="https://drive.google.com/file/d/'+m.driveId+'/preview" style="width:82vw;height:82vh;border:0;border-radius:14px;background:#000" allow="autoplay"></iframe>';
+  } else return;
+  document.getElementById('viewer').classList.add('show');
+}
+function closeViewer(){const v=document.getElementById('viewer');v.classList.remove('show');document.getElementById('viewerBody').innerHTML=''}
+
 /* ============================ GOOGLE SIGN-IN (Drive) ============================ */
 let gTok=null;
 function gSignIn(){
@@ -735,7 +774,7 @@ async function pickAccount(){
   document.getElementById('adsetList').innerHTML='<div class="hint">Pick a campaign in step 2, or define a new audience below.</div>';
   paint();
   log('Loading '+S.acctName+'…','busy');
-  loadCampaigns(); loadPages(); loadPixels(); loadCopies();
+  loadCampaigns(); loadPages(); loadPixels(); loadCopies(); loadAudiences();
 }
 async function loadCampaigns(){
   try{
@@ -772,6 +811,16 @@ async function loadPixels(){
     const sel=document.getElementById('newAdsetPixel');
     sel.innerHTML=S.pixels.length?S.pixels.map(p=>`<option value="${p.id}">${esc(p.name||p.id)}</option>`).join(''):'<option value="">No pixel on account</option>';
   }catch(e){log('Pixels: '+e.message,'err')}
+}
+async function loadAudiences(){
+  try{
+    const j=await gget(`act_${S.acct}/customaudiences?fields=id,name,subtype,approximate_count_lower_bound&limit=200`);
+    const list=(j.data||[]);
+    const opts=list.map(a=>`<option value="${a.id}">${esc(a.name||a.id)}${a.subtype?' · '+a.subtype.toLowerCase():''}</option>`).join('');
+    document.getElementById('incAud').innerHTML=opts||'<option value="">no custom audiences on this account</option>';
+    document.getElementById('excAud').innerHTML=opts||'<option value="">no custom audiences on this account</option>';
+    log(list.length+' custom audiences synced','ok');
+  }catch(e){log('Audiences: '+e.message,'err')}
 }
 async function pickCampaign(c,el){
   document.querySelectorAll('#campaignList .lrow').forEach(x=>x.classList.remove('sel'));
@@ -821,7 +870,7 @@ function bidChanged(){
   document.getElementById('bidGoalLbl').innerHTML=(v==='bid_cap'?'Bid cap':'Cost per result')+' (<span>'+S.currency+'</span>)';
   document.getElementById('roasGoalWrap').style.display=v==='min_roas'?'block':'none';
   document.getElementById('roasNote').style.display=v==='min_roas'?'block':'none';
-  if(v==='min_roas'){const g=document.getElementById('goalSel'); if(g&&[...g.options].some(o=>o.value==='VALUE')) g.value='VALUE'}
+  if(v==='min_roas'||v==='highest_value'){const g=document.getElementById('goalSel'); if(g&&[...g.options].some(o=>o.value==='VALUE')){g.value='VALUE';goalChanged()}}
   paint();
 }
 function activeObjective(){
@@ -848,6 +897,7 @@ function goalChanged(){
   paint();
 }
 function refreshAdsetConditionals(){
+  const cs=document.getElementById('cboSpendRow');if(cs)cs.style.display=activeCBO()?'flex':'none';
   document.getElementById('aboBudgetRow').style.display=activeCBO()?'none':'flex';
   document.getElementById('aboHint').style.display=activeCBO()?'none':'block';
 }
@@ -961,7 +1011,7 @@ function validate(){
 function paint(){
   const v=validate();
   const nc=S.campMode==='new';
-  const bidTxt={volume:'Highest volume',cost_cap:'Cost per result '+(val('bidGoalAmt')||'?')+' '+S.currency,min_roas:'ROAS floor '+(val('roasGoalAmt')||'?')+'x',bid_cap:'Bid cap '+(val('bidGoalAmt')||'?')+' '+S.currency}[val('bidSel')||'volume'];
+  const bidTxt={volume:'Highest volume',highest_value:'Highest value',cost_cap:'Cost per result '+(val('bidGoalAmt')||'?')+' '+S.currency,min_roas:'ROAS floor '+(val('roasGoalAmt')||'?')+'x',bid_cap:'Bid cap '+(val('bidGoalAmt')||'?')+' '+S.currency}[val('bidSel')||'volume'];
   const campLine=nc? (val('newCampName')?`NEW · ${val('newCampName')} · ${activeCBO()?(val('budgetAmt')||'?')+' '+S.currency+'/'+val('budgetType')+' CBO':'ABO'} · ${bidTxt}`:'') : (S.campName? S.campName+(S.campMeta?` · ${S.campMeta.cbo?'CBO':'ABO'}`:'') :'');
   const asNames=[...S.selAdsets.map(a=>a.name)];
   if(S.newAdset&&val('newAdsetName')) asNames.push('NEW '+val('newAdsetName'));
@@ -1267,7 +1317,17 @@ async function launch(){
       const aMin=parseInt(val('ageMin'))||18, aMax=parseInt(val('ageMax'))||65;
       if(document.getElementById('advAud').value==='1'){targeting.targeting_automation={advantage_audience:1};if(aMin>18)targeting.age_min=aMin;if(aMax<65)targeting.age_max=aMax}
       else {targeting.targeting_automation={advantage_audience:0};targeting.age_min=aMin;targeting.age_max=aMax}
+      const incA=[...document.getElementById('incAud').selectedOptions].map(o=>o.value).filter(Boolean);
+      const excA=[...document.getElementById('excAud').selectedOptions].map(o=>o.value).filter(Boolean);
+      if(incA.length)targeting.custom_audiences=incA.map(id=>({id}));
+      if(excA.length)targeting.excluded_custom_audiences=excA.map(id=>({id}));
       const pl={name:nm,campaign_id:campId,status:'PAUSED',billing_event:'IMPRESSIONS',optimization_goal:goal,targeting:JSON.stringify(targeting)};
+      const AT={'7c1v':[{event_type:'CLICK_THROUGH',window_days:7},{event_type:'VIEW_THROUGH',window_days:1}],'7c':[{event_type:'CLICK_THROUGH',window_days:7}],'1c1v':[{event_type:'CLICK_THROUGH',window_days:1},{event_type:'VIEW_THROUGH',window_days:1}],'1c':[{event_type:'CLICK_THROUGH',window_days:1}]};
+      const at=val('attrSel'); if(at&&AT[at]) pl.attribution_spec=JSON.stringify(AT[at]);
+      if(cbo){
+        if(val('minSpend'))pl.daily_min_spend_target=minor(val('minSpend'));
+        if(val('maxSpend'))pl.daily_spend_cap=minor(val('maxSpend'));
+      }
       if(goalNeedsPixel()&&px){
         const po={pixel_id:px};
         if(goal!=='LANDING_PAGE_VIEWS') po.custom_event_type=goal==='VALUE'?'PURCHASE':val('eventSel');
