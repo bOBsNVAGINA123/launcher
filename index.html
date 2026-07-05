@@ -1457,6 +1457,114 @@ if(cfg.meta){whoAmI().then(syncAll)} else {setTimeout(()=>{log('Hit Continue wit
 </script>
 
 <script>
+/* ===== INLINE EDITOR: edit a video right inside the media grid ===== */
+async function csEnsureFile(m){
+  if(m.file)return;
+  if(m.src==='gdrive'&&gTok){const r=await fetch('https://www.googleapis.com/drive/v3/files/'+m.driveId+'?alt=media',{headers:{Authorization:'Bearer '+gTok}});if(!r.ok)throw new Error('Drive download failed (HTTP '+r.status+')');m.file=new File([await r.blob()],m.name);return}
+  if(m.url){const b=await proxyFetchBlob(m.url);m.file=new File([b],m.name);return}
+  throw new Error('no downloadable source');
+}
+function closeInline(){const p=document.getElementById('ied');if(p)p.remove()}
+async function inlineEdit(i){
+  const m=S.media[i];if(!m||m.kind!=='video')return;
+  closeInline();
+  const cards=document.querySelectorAll('#mediaGrid .vcard');
+  const card=cards[i];if(!card)return;
+  const p=document.createElement('div');
+  p.id='ied';
+  p.style.cssText='grid-column:1/-1;background:#fff;border:2px solid var(--blue);border-radius:14px;padding:16px;box-shadow:0 6px 24px rgba(8,102,255,.15)';
+  p.innerHTML='<div style="font-weight:700;margin-bottom:10px">✂ Editing: '+esc(m.name)+' <button onclick="closeInline()" style="float:right;color:var(--dim);font-size:18px">×</button></div><div id="iedBody" class="hint">loading video…</div>';
+  card.after(p);
+  try{ if(!m.file){p.querySelector('#iedBody').textContent='downloading from Drive… (first edit only)';await csEnsureFile(m)} }
+  catch(e){p.querySelector('#iedBody').textContent='⚠ '+e.message;return}
+  if(!m.vurl)m.vurl=URL.createObjectURL(m.file);
+  p.querySelector('#iedBody').outerHTML=`
+   <div style="display:flex;gap:16px;flex-wrap:wrap">
+    <video id="iedV" src="${m.vurl}" controls playsinline style="width:330px;max-width:100%;max-height:320px;background:#000;border-radius:10px"></video>
+    <div style="flex:1;min-width:280px">
+      <div class="row" style="align-items:flex-end">
+        <div class="field"><label>Start (s)</label><input id="iedIn" type="number" min="0" step="0.1" value="0"></div>
+        <button class="btn" style="margin-bottom:14px" onclick="document.getElementById('iedIn').value=(document.getElementById('iedV').currentTime).toFixed(1)">⇤ playhead</button>
+        <div class="field"><label>End (s)</label><input id="iedOut" type="number" min="0" step="0.1" value="0"></div>
+        <button class="btn" style="margin-bottom:14px" onclick="document.getElementById('iedOut').value=(document.getElementById('iedV').currentTime).toFixed(1)">playhead ⇥</button>
+      </div>
+      <div class="row">
+        <div class="field"><label>Speed</label><select id="iedSp"><option>0.25</option><option>0.5</option><option>0.75</option><option selected>1</option><option>1.25</option><option>1.5</option><option>2</option><option>3</option></select></div>
+        <div class="field"><label>Original sound</label><select id="iedMute"><option value="keep">Keep</option><option value="mute">Mute</option></select></div>
+        <div class="field"><label>Music (optional)</label><input id="iedMus" type="file" accept="audio/*,video/*" style="padding:7px"></div>
+      </div>
+      <div class="row" style="margin-top:4px">
+        <button class="btn primary" id="iedSaveNew">💾 Save as new clip</button>
+        <button class="btn" id="iedReplace">Replace this file</button>
+        <button class="btn" onclick="closeInline()">Cancel</button>
+      </div>
+      <div id="iedProgWrap" style="display:none;height:8px;background:#e4e6eb;border-radius:5px;margin-top:12px;overflow:hidden"><div id="iedProg" style="height:100%;width:0%;background:var(--blue);transition:width .2s"></div></div>
+      <div id="iedStat" class="hint" style="margin-top:8px">Play the video, park the playhead where the cut starts, hit ⇤ playhead. Same for the end. Rendering happens in real time — a 10s cut takes 10s.</div>
+    </div>
+   </div>`;
+  const v=p.querySelector('#iedV');
+  v.onloadedmetadata=()=>{p.querySelector('#iedOut').value=(v.duration||0).toFixed(1)};
+  if(v.readyState>=1)p.querySelector('#iedOut').value=(v.duration||0).toFixed(1);
+  const go=async(replace)=>{
+    const inT=Math.max(0,parseFloat(p.querySelector('#iedIn').value)||0);
+    const outT=parseFloat(p.querySelector('#iedOut').value)||v.duration;
+    const sp=parseFloat(p.querySelector('#iedSp').value)||1;
+    const mute=p.querySelector('#iedMute').value==='mute';
+    const mus=p.querySelector('#iedMus').files[0]||null;
+    if(outT<=inT){p.querySelector('#iedStat').textContent='⚠ End must be after start';return}
+    p.querySelectorAll('button').forEach(b=>b.disabled=true);
+    p.querySelector('#iedProgWrap').style.display='block';
+    const stat=p.querySelector('#iedStat'), bar=p.querySelector('#iedProg');
+    try{
+      const f=await renderInline(m,{inT,outT,sp,mute,mus},(pc,msg)=>{bar.style.width=pc+'%';stat.textContent=msg+' '+pc+'%'});
+      const nm={kind:'video',src:'local',file:f,name:f.name,size:f.size,link:m.link||'',adName:f.name.replace(/\.[^.]+$/,'')};
+      if(replace){const old=S.media[S.media.indexOf(m)];Object.assign(old,nm,{id:undefined,hash:undefined,thumb:undefined,vurl:undefined,preview:undefined,driveId:undefined,url:undefined})}
+      else S.media.push(nm);
+      S.prepared=false;
+      closeInline();sortMedia();renderMedia();paint();
+      log((replace?'Replaced with':'Added')+' edited clip: '+f.name+' ('+(f.size/1048576).toFixed(1)+' MB)','ok');
+    }catch(e){stat.textContent='⚠ '+e.message;p.querySelectorAll('button').forEach(b=>b.disabled=false)}
+  };
+  p.querySelector('#iedSaveNew').onclick=()=>go(false);
+  p.querySelector('#iedReplace').onclick=()=>go(true);
+}
+async function renderInline(m,o,prog){
+  const v=document.createElement('video');v.src=m.vurl;v.playsInline=true;v.preload='auto';
+  await new Promise(r=>{v.onloadedmetadata=r;setTimeout(r,4000)});
+  const W=v.videoWidth||1080,H=v.videoHeight||1920;
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const cx=cv.getContext('2d');
+  CS_AC=CS_AC||new (window.AudioContext||window.webkitAudioContext)();await CS_AC.resume();
+  const dest=CS_AC.createMediaStreamDestination();
+  if(!o.mute){try{const ms=CS_AC.createMediaElementSource(v);ms.connect(dest)}catch(e){}}
+  else v.muted=true;
+  let musicStop=null;
+  if(o.mus){
+    const g=CS_AC.createGain();g.gain.value=.85;g.connect(dest);
+    try{const buf=await CS_AC.decodeAudioData(await o.mus.arrayBuffer());const src=CS_AC.createBufferSource();src.buffer=buf;src.loop=true;src.connect(g);src.start();musicStop=()=>{try{src.stop()}catch(e){}}}
+    catch(e){const mv=document.createElement('video');mv.src=URL.createObjectURL(o.mus);mv.loop=true;mv.playsInline=true;await new Promise(r=>{mv.onloadedmetadata=r;setTimeout(r,3000)});const ms2=CS_AC.createMediaElementSource(mv);ms2.connect(g);mv.play();musicStop=()=>{try{mv.pause()}catch(e){}}}
+  }
+  const stream=cv.captureStream(30);
+  dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
+  const mime=['video/mp4;codecs=avc1','video/webm;codecs=vp9,opus','video/webm'].find(x=>MediaRecorder.isTypeSupported(x))||'video/webm';
+  const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8000000});
+  const chunks=[];rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+  rec.start(500);
+  v.currentTime=o.inT;v.playbackRate=o.sp;
+  await v.play().catch(()=>{});
+  await new Promise(res=>{const span=Math.max(.1,o.outT-o.inT);
+    const draw=()=>{
+      if(v.currentTime>=o.outT||v.ended){v.pause();res();return}
+      cx.drawImage(v,0,0,W,H);
+      prog(Math.min(99,Math.round((v.currentTime-o.inT)/span*100)),'rendering');
+      requestAnimationFrame(draw)};draw()});
+  if(musicStop)musicStop();
+  await new Promise(res=>{rec.onstop=res;rec.stop()});
+  prog(100,'done');
+  const blob=new Blob(chunks,{type:rec.mimeType});
+  const ext=rec.mimeType.includes('mp4')?'mp4':'webm';
+  return new File([blob],m.name.replace(/\.[^.]+$/,'')+'_edit_'+Date.now()+'.'+ext,{type:blob.type});
+}
+
 /* ===== CLIP STUDIO (in-launcher editor) + send photos to Content Studio ===== */
 const CS={clips:[],music:null,musicVol:.8,useClipAudio:false,aspect:'9:16',fit:'cover',running:false,stop:false};
 const CS_DIMS={'9:16':[1080,1920],'1:1':[1080,1080],'4:5':[1080,1350],'16:9':[1920,1080]};
@@ -1466,7 +1574,7 @@ function bridgeDB(name){return new Promise((res,rej)=>{const r=indexedDB.open(na
 
 async function editMedia(i){
   const m=S.media[i];if(!m)return;
-  if(m.kind==='video'){openCS();csStat('loading '+m.name+'…');try{await csLoadMedia(m);csPaint();csStat('')}catch(e){csStat('⚠ '+e.message)}}
+  if(m.kind==='video'){inlineEdit(i)}
   else{
     try{
       let blob=m.file;
