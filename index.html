@@ -64,7 +64,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-top:16px}
 .vcard{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;box-shadow:var(--sh)}
 .vcard .prev{height:110px;background:#f5f6f7;display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--dim);overflow:hidden}
-.vcard .prev img{width:100%;height:100%;object-fit:cover}
+.vcard .prev img,.vcard .prev video{width:100%;height:100%;object-fit:cover}
 .vcard .meta{padding:9px 11px 11px}
 .vcard .nm{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vcard .mt{font-size:11px;color:var(--dim);margin-top:1px}
@@ -176,7 +176,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
     <div id="syncState">not synced</div>
     <div class="step active" data-pane="media"><div class="n">1</div><div><div class="lbl">Videos & photos</div><div class="sub2" id="ss-media">add your files</div></div></div>
     <div class="step" data-pane="camp"><div class="n">2</div><div><div class="lbl">Campaign</div><div class="sub2" id="ss-camp">where the ads go</div></div></div>
-    <div class="step" data-pane="adsets"><div class="n">3</div><div><div class="lbl">Audience</div><div class="sub2" id="ss-adsets">who sees them</div></div></div>
+    <div class="step" data-pane="adsets"><div class="n">3</div><div><div class="lbl">Ad sets</div><div class="sub2" id="ss-adsets">who sees them</div></div></div>
     <div class="step" data-pane="ad"><div class="n">4</div><div><div class="lbl">Ad content</div><div class="sub2" id="ss-ad">what the ad says</div></div></div>
     <div class="step" data-pane="review"><div class="n">5</div><div><div class="lbl">Preview & launch</div><div class="sub2" id="ss-review">see it, ship it</div></div></div>
     <div class="spacer"></div>
@@ -201,7 +201,10 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
         <h3 class="sec" style="margin-top:0">Import from Google Drive</h3>
         <div class="hint" style="margin-bottom:8px">Paste a folder link or file links, one per line. The folder must be shared as <b>Anyone with the link</b>. Meta downloads Drive videos on its own servers — nothing heavy moves through your browser.</div>
         <textarea id="driveLinks" rows="2" placeholder="https://drive.google.com/drive/folders/..."></textarea>
-        <div style="margin-top:10px"><button class="btn primary" onclick="importDrive()">Import from Drive</button> <span id="driveState" class="hint"></span></div>
+        <div style="margin-top:10px"><button class="btn primary" onclick="importDrive()">Import from Drive</button> <button class="btn" onclick="gSignIn()">Sign in with Google</button> <span id="gState" class="hint"></span></div>
+        <div id="driveProgWrap" style="display:none;height:8px;background:#e4e6eb;border-radius:5px;margin-top:10px;overflow:hidden"><div id="driveProg" style="height:100%;width:0%;background:var(--blue);transition:width .25s"></div></div>
+        <div id="driveState" class="hint" style="margin-top:6px"></div>
+        <div id="driveMeta" class="hint" style="margin-top:2px"></div>
       </div>
 
       <div class="grid" id="mediaGrid"></div>
@@ -260,13 +263,13 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
 
     <!-- ================= STEP 3: AD SETS ================= -->
     <section class="pane" id="pane-adsets">
-      <h2>Audience</h2>
+      <h2>Ad sets</h2>
       <div class="sub">Every audience (ad set) you tick gets a copy of every ad. Add a new one if you need it.</div>
       <div class="card">
         <div id="adsetExistZone">
           <div class="list" id="adsetList"><div class="hint">Pick a campaign in step 2 to load its audiences — or create a new one below.</div></div>
         </div>
-        <div style="margin-top:14px"><button class="btn" id="newAdsetToggle" onclick="toggleNewAdset()">+ New audience</button></div>
+        <div style="margin-top:14px"><button class="btn primary" id="newAdsetToggle" onclick="toggleNewAdset()">+ Create new ad set</button></div>
         <div id="newAdsetBox" style="display:none;margin-top:16px">
           <div class="row">
             <div class="field" style="flex:2"><label>Audience name</label><input id="newAdsetName" placeholder="Egypt Broad" oninput="paint()"></div>
@@ -389,6 +392,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
   <div class="field"><label>Meta App ID</label><input id="cfgAppId" class="mono" placeholder="e.g. 1234567890123456"></div>
   <div class="field"><button class="btn primary" style="width:100%" onclick="fbLogin()">Continue with Facebook</button></div>
   <div class="field"><label>Advanced: manual access token (skip login)</label><input id="cfgMeta" type="password" class="mono" placeholder="optional"></div>
+  <div class="field"><label>Google Client ID (optional — unlocks private Drive folders)</label><input id="cfgGoogleId" class="mono" placeholder="xxxx.apps.googleusercontent.com"></div>
   <div class="field"><label>Supabase URL (optional, launch history)</label><input id="cfgSbUrl" placeholder="https://xxxx.supabase.co" class="mono"></div>
   <div class="field"><label>Supabase anon key (optional)</label><input id="cfgSbKey" type="password" class="mono"></div>
   <div class="mfoot"><button class="btn" onclick="closeSettings()">Cancel</button><button class="btn primary" onclick="saveSettings()">Save & Sync</button></div>
@@ -437,7 +441,7 @@ const cfg={meta:'',appId:'1765090894530277',sbUrl:'',sbKey:''};
 
 /* Objective -> performance goals (label, value, needsPixel) */
 const GOALS={
-  OUTCOME_SALES:[['Conversions','OFFSITE_CONVERSIONS',1],['Conversion value (ROAS)','VALUE',1],['Landing page views','LANDING_PAGE_VIEWS',1],['Link clicks','LINK_CLICKS',0],['Impressions','IMPRESSIONS',0],['Reach','REACH',0]],
+  OUTCOME_SALES:[['Maximize conversions (Meta default)','OFFSITE_CONVERSIONS',1],['Maximize conversion value — ROAS','VALUE',1],['Landing page views (NOT purchases!)','LANDING_PAGE_VIEWS',1],['Link clicks (NOT purchases!)','LINK_CLICKS',0],['Impressions','IMPRESSIONS',0],['Reach','REACH',0]],
   OUTCOME_TRAFFIC:[['Link clicks','LINK_CLICKS',0],['Landing page views','LANDING_PAGE_VIEWS',1],['Impressions','IMPRESSIONS',0],['Reach','REACH',0],['Conversations','CONVERSATIONS',0]],
   OUTCOME_ENGAGEMENT:[['ThruPlay','THRUPLAY',0],['Post engagement','POST_ENGAGEMENT',0],['Video views','VIDEO_VIEWS',0],['Page likes','PAGE_LIKES',0],['Link clicks','LINK_CLICKS',0],['Conversions','OFFSITE_CONVERSIONS',1]],
   OUTCOME_LEADS:[['Conversions','OFFSITE_CONVERSIONS',1],['Landing page views','LANDING_PAGE_VIEWS',1],['Link clicks','LINK_CLICKS',0],['Conversion value (ROAS)','VALUE',1]],
@@ -451,6 +455,7 @@ function openSettings(){
   document.getElementById('cfgMeta').value=cfg.meta||'';
   document.getElementById('cfgAppId').value=cfg.appId||'';
   document.getElementById('cfgSbUrl').value=cfg.sbUrl||'';
+  document.getElementById('cfgGoogleId').value=cfg.gClientId||'';
   document.getElementById('cfgSbKey').value=cfg.sbKey||'';
   document.getElementById('modal').classList.add('show');
 }
@@ -460,6 +465,7 @@ function saveSettings(){
   cfg.appId=document.getElementById('cfgAppId').value.trim();
   cfg.sbUrl=document.getElementById('cfgSbUrl').value.trim().replace(/\/$/,'');
   cfg.sbKey=document.getElementById('cfgSbKey').value.trim();
+  cfg.gClientId=document.getElementById('cfgGoogleId').value.trim();
   localStorage.setItem('launcher_cfg',JSON.stringify(cfg));
   closeSettings(); syncAll();
 }
@@ -600,7 +606,7 @@ function addFiles(list){
   [...list].forEach(f=>{
     const k=kindOf(f.name,f.type); if(!k) return;
     if(S.media.some(x=>x.name===f.name&&x.size===f.size)) return;
-    const m={kind:k,src:'local',file:f,name:f.name,size:f.size,link:''};
+    const m={kind:k,src:'local',file:f,name:f.name,size:f.size,link:'',adName:f.name.replace(/\.[^.]+$/,'')};
     if(k==='image'){m.preview=URL.createObjectURL(f)}
     S.media.push(m);
   });
@@ -616,12 +622,17 @@ function renderMedia(){
     const d=document.createElement('div');
     d.className='vcard';
     const icon=m.kind==='video'?'▶':'●';
-    const pv=m.preview?`<img src="${m.preview}">`:icon;
+    let pv;
+    if(m.preview) pv=`<img src="${m.preview}">`;
+    else if(m.driveId) pv=`<img loading="lazy" src="https://drive.google.com/thumbnail?id=${m.driveId}&sz=w400" onerror="this.replaceWith('▶')">`;
+    else if(m.kind==='video'&&m.file){if(!m.vurl)m.vurl=URL.createObjectURL(m.file);pv=`<video src="${m.vurl}" muted preload="metadata"></video>`}
+    else pv=icon;
     d.innerHTML=`<div class="tag">${m.src==='drive'?'DRIVE':'LOCAL'} ${m.kind.toUpperCase()}</div>
       <div class="x" onclick="S.media.splice(${i},1);renderMedia();paint()">×</div>
       <div class="prev">${pv}</div>
       <div id="mst-${m.uiId}" class="state ${m.stateCls||''}" style="display:${m.state?'block':'none'}">${m.state||''}</div>
       <div class="meta"><div class="nm" title="${esc(m.name)}">${esc(m.name)}</div><div class="mt">${m.size?(m.size/1048576).toFixed(1)+' MB':'from Drive'}</div></div>
+      <input class="linkin" placeholder="Ad name" value="${esc(m.adName||'')}" oninput="S.media[${i}].adName=this.value" style="margin-bottom:4px">
       <input class="linkin" placeholder="Custom link (optional)" value="${esc(m.link||'')}" oninput="S.media[${i}].link=this.value.trim();paint()">`;
     g.appendChild(d);
   });
@@ -629,40 +640,88 @@ function renderMedia(){
 
 /* ============================ GOOGLE DRIVE IMPORT ============================ */
 function driveDirect(id){return `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`}
-async function importDrive(){
-  const raw=document.getElementById('driveLinks').value.trim();
-  const st=document.getElementById('driveState');
-  if(!raw){st.textContent='Paste a link first.';return}
-  st.textContent='Reading Drive…';
-  let added=0, failed=0;
+async function importDrive(auto){
+  const box=document.getElementById('driveLinks');
+  const raw=auto?(cfg.driveFolders||[]).join('\n'):box.value.trim();
+  const st=document.getElementById('driveState'), meta=document.getElementById('driveMeta');
+  const pw=document.getElementById('driveProgWrap'), pb=document.getElementById('driveProg');
+  if(!raw){st.textContent=auto?'':'Paste a link first.';return}
+  const t0=performance.now();
+  pw.style.display='block';pb.style.width='2%';
+  st.textContent=auto?'Auto-checking saved Drive folders…':'Reading Drive…';
+  let added=0, failed=0, folders=0;
   const lines=raw.split(/\s+/).filter(Boolean);
-  for(const line of lines){
+  for(let li=0;li<lines.length;li++){
+    const line=lines[li];
+    const setP=f=>{pb.style.width=Math.round(((li+f)/lines.length)*100)+'%'};
+    setP(0.1);
     const fm=line.match(/\/folders\/([\w-]{15,})/);
     if(fm){
+      folders++;
+      cfg.driveFolders=cfg.driveFolders||[];
+      if(!cfg.driveFolders.includes(line)){cfg.driveFolders.push(line);localStorage.setItem('launcher_cfg',JSON.stringify(cfg))}
       try{
-        const html=await proxyFetchText(`https://drive.google.com/embeddedfolderview?id=${fm[1]}#list`);
-        const re=/id="entry-([\w-]+)"[\s\S]*?flip-entry-title">([^<]+)</g;
-        let mt, n=0;
-        while((mt=re.exec(html))!==null){
-          const id=mt[1], name=mt[2].trim(), k=kindOf(name,'');
-          if(!k) continue;
-          if(S.media.some(x=>x.driveId===id)) continue;
-          S.media.push({kind:k,src:'drive',driveId:id,url:driveDirect(id),name,link:''}); n++; added++;
+        if(gTok){ /* signed-in: full listing incl. private */
+          let pageToken='',n=0;
+          do{
+            const r=await fetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent("'"+fm[1]+"' in parents and trashed=false")+'&pageSize=1000&fields=nextPageToken,files(id,name,mimeType)'+(pageToken?'&pageToken='+pageToken:''),{headers:{Authorization:'Bearer '+gTok}});
+            const j=await r.json();
+            if(j.error) throw new Error(j.error.message);
+            (j.files||[]).forEach(fl=>{
+              const k=kindOf(fl.name,fl.mimeType); if(!k)return;
+              if(S.media.some(x=>x.driveId===fl.id))return;
+              S.media.push({kind:k,src:'gdrive',driveId:fl.id,name:fl.name,link:'',adName:fl.name.replace(/\.[^.]+$/,'')}); n++; added++;
+            });
+            pageToken=j.nextPageToken||'';
+          }while(pageToken);
+          if(!n&&!added&&!auto) st.textContent='Folder read (signed in) but no new videos/images.';
+        } else {
+          const html=await proxyFetchText(`https://drive.google.com/embeddedfolderview?id=${fm[1]}#list`);
+          const re=/id="entry-([\w-]+)"[\s\S]*?flip-entry-title">([^<]+)</g;
+          let mt, n=0;
+          while((mt=re.exec(html))!==null){
+            const id=mt[1], name=mt[2].trim(), k=kindOf(name,'');
+            if(!k) continue;
+            if(S.media.some(x=>x.driveId===id)) continue;
+            S.media.push({kind:k,src:'drive',driveId:id,url:driveDirect(id),name,link:'',adName:name.replace(/\.[^.]+$/,'')}); n++; added++;
+          }
+          if(!n&&added===0&&!auto){st.textContent='Folder read but no videos/images found. Is it shared as Anyone with the link? (Or Sign in with Google for private folders.)'}
         }
-        if(!n&&added===0){st.textContent='Folder read but no videos/images found. Is it shared as Anyone with the link?'}
       }catch(e){failed++;log('Drive folder: '+e.message,'err')}
+      setP(1);
       continue;
     }
     const im=line.match(/(?:file\/d\/|[?&]id=)([A-Za-z0-9_-]{15,})/);
     if(im){
       const id=im[1];
-      if(S.media.some(x=>x.driveId===id)) continue;
-      S.media.push({kind:'video',src:'drive',driveId:id,url:driveDirect(id),name:'drive-file-'+id.slice(0,6)+'.mp4',link:''});
-      added++;
+      if(!S.media.some(x=>x.driveId===id)){
+        S.media.push({kind:'video',src:gTok?'gdrive':'drive',driveId:id,url:driveDirect(id),name:'drive-file-'+id.slice(0,6)+'.mp4',link:'',adName:'drive-'+id.slice(0,6)});
+        added++;
+      }
     }
+    setP(1);
   }
+  pb.style.width='100%';
   sortMedia(); renderMedia(); paint();
-  st.textContent=added? '✓ '+added+' file(s) imported.'+(failed?' Some failed — check the activity log.':'') : (failed?'Import failed — share the folder as Anyone with the link and retry.':'No usable links found.');
+  const secs=((performance.now()-t0)/1000).toFixed(1);
+  st.textContent=added? '✓ '+added+' file(s) imported.'+(failed?' Some failed — check the activity log.':'') : (auto?'✓ No new files in saved folders.':(failed?'Import failed — share the folder as Anyone with the link, or Sign in with Google.':'No usable links found.'));
+  meta.textContent=folders+' folder(s) checked · +'+added+' new · '+secs+'s · last check '+new Date().toLocaleTimeString();
+  setTimeout(()=>{pw.style.display='none';pb.style.width='0%'},1500);
+  if(!auto)box.value='';
+}
+
+/* ============================ GOOGLE SIGN-IN (Drive) ============================ */
+let gTok=null;
+function gSignIn(){
+  if(!cfg.gClientId){openSettings();log('Google sign-in needs a (free) Google Client ID — paste it in Settings. Ask Claude to create one for you.','err');return}
+  const go=()=>{
+    const tc=google.accounts.oauth2.initTokenClient({client_id:cfg.gClientId,scope:'https://www.googleapis.com/auth/drive.readonly',
+      callback:t=>{if(t.access_token){gTok=t.access_token;document.getElementById('gState').textContent='✓ Google connected — private folders unlocked';log('Google Drive connected','ok');if((cfg.driveFolders||[]).length)importDrive(true)}}});
+    tc.requestAccessToken();
+  };
+  if(window.google&&google.accounts){go();return}
+  const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=go;
+  s.onerror=()=>log('Could not load Google sign-in','err');document.head.appendChild(s);
 }
 
 /* ============================ CAMPAIGN (STEP 2) ============================ */
@@ -795,7 +854,7 @@ function refreshAdsetConditionals(){
 function toggleNewAdset(){
   S.newAdset=!S.newAdset;
   document.getElementById('newAdsetBox').style.display=S.newAdset?'block':'none';
-  document.getElementById('newAdsetToggle').textContent=S.newAdset?'− Remove new audience':'+ New audience';
+  document.getElementById('newAdsetToggle').textContent=S.newAdset?'− Remove new ad set':'+ Create new ad set';
   if(S.newAdset) refreshGoalOptions();
   refreshAdsetConditionals(); paint();
 }
@@ -892,7 +951,10 @@ function validate(){
   S.media.forEach(m=>{if(m.link&&!/^https?:\/\//i.test(m.link)) issues.push('Custom link on "'+m.name+'" must start with https://')});
   if(S.format==='carousel'&&S.media.length<2) issues.push('Carousel needs at least 2 files');
   if(S.format==='carousel'&&S.media.length>10) issues.push('Carousel max is 10 cards — remove '+(S.media.length-10));
-  return {issues,lights,ready:issues.length===0&&!S.launching};
+  const warns=[];
+  if(S.newAdset&&val('newAdsetName')&&activeObjective()==='OUTCOME_SALES'&&['LANDING_PAGE_VIEWS','LINK_CLICKS','IMPRESSIONS','REACH'].includes(newAdsetGoal()))
+    warns.push('Performance goal is "'+(document.getElementById('goalSel').selectedOptions[0]||{}).text+'" — that optimizes for VIEWS/CLICKS, not purchases. Meta default for Sales is Maximize conversions.');
+  return {issues,warns,lights,ready:issues.length===0&&!S.launching};
 }
 
 /* ============================ SUMMARY / PAINT ============================ */
@@ -921,7 +983,7 @@ function paint(){
   document.getElementById('checklist').innerHTML=rows.map(([k,vv,set])=>
     `<div class="ck${set&&vv?' set':''}"><div class="ic">${set&&vv?'✓':''}</div><div class="tx"><b>${k}</b><span title="${esc(vv)}">${esc(vv)||'—'}</span></div></div>`).join('');
   const iz=document.getElementById('issues');
-  iz.innerHTML=v.issues.slice(0,6).map(x=>`<div class="issue">${esc(x)}</div>`).join('');
+  iz.innerHTML=v.issues.slice(0,6).map(x=>`<div class="issue">${esc(x)}</div>`).join('')+(v.warns||[]).map(x=>`<div class="issue" style="background:#fdeaec;color:#a11430">⚠ ${esc(x)}</div>`).join('');
   const btn=document.getElementById('launchBtn');
   btn.disabled=!v.ready; btn.classList.toggle('armed',v.ready);
   btn.textContent=v.ready?'🚀 LAUNCH '+nAds+' AD'+(nAds>1?'S':''):'LAUNCH';
@@ -1011,6 +1073,19 @@ async function prepareMedia(useOverlay){
     if(S.media.some(m=>m.kind==='video')) loTask('proc','Meta processes the videos','usually 10–60s per video');
   }
   for(const m of S.media){
+    if(m.src==='gdrive'&&!m.file&&m.driveId){
+      if(!gTok) throw new Error('Google session expired — hit Sign in with Google again');
+      if(useOverlay)loStart('up-'+m.uiId,'downloading from Drive');
+      setMediaState(m,'Drive download 0%');
+      const r=await fetch('https://www.googleapis.com/drive/v3/files/'+m.driveId+'?alt=media',{headers:{Authorization:'Bearer '+gTok}});
+      if(!r.ok) throw new Error('Drive download failed for '+m.name+' (HTTP '+r.status+')');
+      const total=+r.headers.get('content-length')||0;
+      const reader=r.body.getReader(); const chunks=[]; let got=0;
+      while(true){const {done,value}=await reader.read(); if(done)break; chunks.push(value); got+=value.length;
+        if(total){const p=Math.round(got/total*100);setMediaState(m,'Drive download '+p+'%');if(useOverlay)loPct('up-'+m.uiId,Math.round(p/2))}}
+      m.file=new File(chunks,m.name); m.size=got; m.src='local';
+      setMediaState(m,'downloaded ✓','ok');
+    }
     if(m.kind==='video'&&!m.id){
       if(useOverlay)loStart('up-'+m.uiId);
       setMediaState(m,'uploading 0%');
@@ -1104,7 +1179,7 @@ function specCarousel(){
 }
 function builtSpecs(){
   if(S.format==='carousel') return [{name:'carousel-'+S.media.length+'-cards',spec:specCarousel()}];
-  return S.media.map(m=>({name:m.name.replace(/\.[^.]+$/,''),spec:specForMedia(m)}));
+  return S.media.map(m=>({name:(m.adName&&m.adName.trim())||m.name.replace(/\.[^.]+$/,''),spec:specForMedia(m)}));
 }
 
 /* ============================ PREVIEW (ALL OF THEM) ============================ */
@@ -1296,7 +1371,23 @@ async function whoAmI(){
 captureToken();
 loadCfg();
 refreshGoalOptions();
+toggleNewAdset(); /* create-ad-set box open by default */
 paint();
+/* import creatives sent from the Content Studio */
+(async()=>{try{
+  const db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+  const items=await new Promise(res=>{const out=[];const c=db.transaction('inbox').objectStore('inbox').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){out.push(cu.value);cu.continue()}else res(out)}});
+  if(items.length){
+    items.forEach(it=>{const f=new File([it.blob],it.name,{type:'image/png'});
+      if(S.media.some(x=>x.name===it.name))return;
+      S.media.push({kind:'image',src:'local',file:f,name:it.name,size:f.size,link:'',adName:it.name.replace(/\.[^.]+$/,''),preview:URL.createObjectURL(f)});});
+    sortMedia();renderMedia();paint();
+    log(items.length+' creative(s) imported from Content Studio','ok');
+    await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').clear();t.oncomplete=res});
+  }
+}catch(e){}})();
+/* auto-recheck saved Drive folders */
+if((cfg.driveFolders||[]).length) setTimeout(()=>importDrive(true),800);
 if(cfg.meta){whoAmI().then(syncAll)} else {setTimeout(()=>{log('Hit Continue with Facebook to load everything','busy');openSettings()},400)}
 </script>
 </body>

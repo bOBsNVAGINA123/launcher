@@ -4619,5 +4619,29 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
 })();
 </script>
 
+<script>
+/* ===== Send creative straight to the Launcher ===== */
+(function(){
+ function init(){
+  const sb=document.getElementById('saveBtn');
+  if(!sb||document.getElementById('toLauncherBtn'))return;
+  const b=document.createElement('button');
+  b.id='toLauncherBtn';b.className=sb.className;b.textContent='→ Launcher';b.title='Render this creative and drop it into the Launcher media list';
+  sb.parentNode.insertBefore(b,sb.nextSibling);
+  b.onclick=async()=>{
+   try{
+    if(typeof busyShow==='function'){busyShow('Sending to Launcher');busySet(.3)}
+    const c=await capture(ACTIVE,3);
+    const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+    const db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+    await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').put({name:ACTIVE+'_'+state.aspect+'_'+Date.now()+'.png',blob:blob,t:Date.now()});t.oncomplete=res});
+    if(typeof busySet==='function')busySet(1,'Sent — open the Launcher, it lands in Media automatically');
+   }catch(e){alert('Send to Launcher failed: '+e.message)}
+   finally{if(typeof busyHide==='function')setTimeout(busyHide,900)}
+  };
+ }
+ window.addEventListener('load',init);setTimeout(init,1500);
+})();
+</script>
 </body>
 </html>
