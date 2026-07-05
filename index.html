@@ -1458,10 +1458,27 @@ if(cfg.meta){whoAmI().then(syncAll)} else {setTimeout(()=>{log('Hit Continue wit
 
 <script>
 /* ===== INLINE EDITOR: edit a video right inside the media grid ===== */
-async function csEnsureFile(m){
+async function streamToFile(resp,name,onPct){
+  const total=+resp.headers.get('content-length')||0;
+  const reader=resp.body.getReader();const chunks=[];let got=0;
+  while(true){const{done,value}=await reader.read();if(done)break;chunks.push(value);got+=value.length;
+    if(onPct)onPct(total?Math.min(99,Math.round(got/total*100)):null,got)}
+  return new File(chunks,name);
+}
+async function csEnsureFile(m,onPct){
   if(m.file)return;
-  if(m.src==='gdrive'&&gTok){const r=await fetch('https://www.googleapis.com/drive/v3/files/'+m.driveId+'?alt=media',{headers:{Authorization:'Bearer '+gTok}});if(!r.ok)throw new Error('Drive download failed (HTTP '+r.status+')');m.file=new File([await r.blob()],m.name);return}
-  if(m.url){const b=await proxyFetchBlob(m.url);m.file=new File([b],m.name);return}
+  if(m.src==='gdrive'&&gTok){
+    const r=await fetch('https://www.googleapis.com/drive/v3/files/'+m.driveId+'?alt=media',{headers:{Authorization:'Bearer '+gTok}});
+    if(!r.ok)throw new Error('Drive download failed (HTTP '+r.status+')');
+    m.file=await streamToFile(r,m.name,onPct);return;
+  }
+  if(m.url){
+    let last;
+    for(const p of PROXIES){
+      try{const r=await fetch(p(m.url));if(r.ok){m.file=await streamToFile(r,m.name,onPct);return}last=new Error('proxy HTTP '+r.status)}catch(e){last=e}
+    }
+    throw new Error((last?last.message+' — ':'')+'Drive blocked the direct download. Hit "Sign in with Google" (step 1) and edit again — signed-in downloads always work.');
+  }
   throw new Error('no downloadable source');
 }
 function closeInline(){const p=document.getElementById('ied');if(p)p.remove()}
@@ -1475,7 +1492,8 @@ async function inlineEdit(i){
   p.style.cssText='grid-column:1/-1;background:#fff;border:2px solid var(--blue);border-radius:14px;padding:16px;box-shadow:0 6px 24px rgba(8,102,255,.15)';
   p.innerHTML='<div style="font-weight:700;margin-bottom:10px">✂ Editing: '+esc(m.name)+' <button onclick="closeInline()" style="float:right;color:var(--dim);font-size:18px">×</button></div><div id="iedBody" class="hint">loading video…</div>';
   card.after(p);
-  try{ if(!m.file){p.querySelector('#iedBody').textContent='downloading from Drive… (first edit only)';await csEnsureFile(m)} }
+  try{ if(!m.file){const bd=p.querySelector('#iedBody');bd.textContent='downloading from Drive… (first edit only)';
+    await csEnsureFile(m,(pc,got)=>{bd.textContent='downloading from Drive… '+(pc!==null?pc+'%':(got/1048576).toFixed(1)+' MB')+' (first edit only)'});} }
   catch(e){p.querySelector('#iedBody').textContent='⚠ '+e.message;return}
   if(!m.vurl)m.vurl=URL.createObjectURL(m.file);
   p.querySelector('#iedBody').outerHTML=`
@@ -1591,8 +1609,7 @@ async function csLoadMedia(m){
   let file=m.file;
   if(!file){
     if(m.src==='gdrive'&&gTok){const r=await fetch('https://www.googleapis.com/drive/v3/files/'+m.driveId+'?alt=media',{headers:{Authorization:'Bearer '+gTok}});if(!r.ok)throw new Error('Drive download failed (HTTP '+r.status+')');file=new File([await r.blob()],m.name)}
-    else if(m.url){csStat('downloading '+m.name+' from Drive…');const b=await proxyFetchBlob(m.url);file=new File([b],m.name)}
-    else throw new Error('no downloadable source for '+m.name);
+    else{await csEnsureFile(m,(pc,got)=>csStat('downloading '+m.name+' '+(pc!==null?pc+'%':(got/1048576).toFixed(1)+' MB')));file=m.file}
     m.file=file;
   }
   await csAddClip(file);
