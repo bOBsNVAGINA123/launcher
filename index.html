@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Launcher</title>
+<style>
+:root{
+  --bg:#0D1012; --panel:#15191C; --panel2:#1B2024; --line:#262D32;
+  --ink:#E9EDEF; --mut:#8A959C; --dim:#5A646B;
+  --amber:#FFB224; --amber-dim:#8A6212;
+  --ok:#5BD9A3; --err:#FF6B5E; --busy:#6FB3FF;
+  --mono:'SF Mono','JetBrains Mono',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,'Inter',Segoe UI,sans-serif;height:100vh;overflow:hidden}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font:inherit;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:8px 10px;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
+::placeholder{color:var(--dim)}
+.mono{font-family:var(--mono);font-size:12px}
+
+#app{display:grid;grid-template-columns:200px 1fr 350px;height:100vh}
+@media(max-width:980px){#app{grid-template-columns:1fr}#steps,#rail{display:none}}
+
+/* left */
+#steps{border-right:1px solid var(--line);padding:20px 0;display:flex;flex-direction:column}
+#logo{padding:0 20px 6px;font-weight:800;letter-spacing:-.02em;font-size:16px}
+#logo span{color:var(--amber)}
+#syncState{padding:0 20px 18px;font-family:var(--mono);font-size:10px;color:var(--dim)}
+#syncState.on{color:var(--ok)}
+.step{display:flex;gap:12px;align-items:center;padding:12px 20px;color:var(--mut);cursor:pointer;border-left:2px solid transparent}
+.step .n{font-family:var(--mono);font-size:11px;width:22px;height:22px;border:1px solid var(--line);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step.active{color:var(--ink);border-left-color:var(--amber)}
+.step.active .n{border-color:var(--amber);color:var(--amber)}
+#steps .spacer{flex:1}
+#settingsBtn{margin:0 20px;padding:9px;border:1px solid var(--line);border-radius:6px;color:var(--mut);text-align:center}
+#settingsBtn:hover{color:var(--ink);border-color:var(--mut)}
+
+/* center */
+#canvas{overflow-y:auto;padding:28px 32px}
+.pane{display:none;max-width:760px}
+.pane.show{display:block}
+h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
+.sub{color:var(--mut);margin-bottom:20px;font-size:13px}
+.row{display:flex;gap:10px;margin-bottom:12px}
+.row>*{flex:1}
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:5px}
+.field{margin-bottom:14px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:9px 16px;color:var(--ink)}
+.btn:hover{border-color:var(--mut)}
+.btn.primary{background:var(--amber);color:#111;font-weight:700;border-color:var(--amber)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.hint{font-size:12px;color:var(--dim);margin-top:6px}
+
+#drop{border:2px dashed var(--line);border-radius:12px;padding:44px 20px;text-align:center;color:var(--mut);cursor:pointer;transition:.15s}
+#drop:hover,#drop.over{border-color:var(--amber);color:var(--ink);background:#16130c}
+#drop .big{font-size:16px;font-weight:700;margin-bottom:4px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-top:16px}
+.vcard{background:var(--panel);border:1px solid var(--amber);border-radius:8px;padding:12px;position:relative}
+.vcard .nm{font-weight:600;font-size:13px;margin-bottom:4px;word-break:break-all;padding-right:20px}
+.vcard .mt{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.vcard .x{position:absolute;top:8px;right:10px;color:var(--dim);font-size:15px}
+.vcard .x:hover{color:var(--err)}
+
+.list{display:flex;flex-direction:column;gap:8px}
+.lrow{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.lrow:hover{border-color:var(--mut)}
+.lrow.sel{border-color:var(--amber);background:#1d1a12}
+.lrow .l{min-width:0}
+.lrow .nm{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lrow .mt{font-family:var(--mono);font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:20px;border:1px solid var(--line);color:var(--mut);flex-shrink:0}
+.badge.on{color:var(--ok);border-color:var(--ok)}
+.badge.off{color:var(--dim)}
+
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tab{padding:7px 14px;border:1px solid var(--line);border-radius:6px;color:var(--mut);font-size:13px}
+.tab.on{color:var(--ink);border-color:var(--amber)}
+.copyitem{white-space:pre-wrap;font-size:12px;color:var(--mut);max-height:60px;overflow:hidden}
+.lrow.sel .copyitem{color:var(--ink)}
+.utmchip{font-family:var(--mono);font-size:11px;padding:4px 8px;border:1px solid var(--line);border-radius:5px;color:var(--busy);margin:0 6px 6px 0;display:inline-block;cursor:pointer}
+.utmchip:hover{border-color:var(--busy)}
+#utmPreview{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;word-break:break-all;color:var(--busy)}
+
+/* right */
+#rail{border-left:1px solid var(--line);display:flex;flex-direction:column;background:#0A0D0F}
+#rail h3{padding:20px 20px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--amber)}
+#manifest{flex:1;overflow-y:auto;padding:8px 20px;font-family:var(--mono);font-size:11.5px;line-height:1.9}
+.mline{color:var(--dim)}
+.mline b{color:var(--mut);font-weight:400}
+.mline.set{color:var(--ink)}
+.mline.set b{color:var(--amber)}
+#launchWrap{padding:16px 20px;border-top:1px solid var(--line)}
+#launchBtn{width:100%;padding:14px;background:var(--amber);color:#111;font-weight:800;font-size:15px;border-radius:8px;letter-spacing:.02em}
+#launchBtn:disabled{background:var(--amber-dim);color:#3a2f14}
+#console{max-height:220px;overflow-y:auto;padding:10px 20px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;line-height:1.7;display:none}
+#console.show{display:block}
+.cl{color:var(--mut)} .cl.ok{color:var(--ok)} .cl.err{color:var(--err)} .cl.busy{color:var(--busy)}
+
+/* modal */
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:50}
+#modal.show{display:flex}
+#modalBox{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:500px;max-width:92vw;max-height:88vh;overflow-y:auto;padding:24px}
+#modalBox h2{margin-bottom:14px}
+.mfoot{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.note{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:12px;color:var(--mut);margin-bottom:14px}
+.note code{color:var(--busy);font-family:var(--mono);word-break:break-all}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <nav id="steps">
+    <div id="logo">LAUNCH<span>ER</span></div>
+    <div id="syncState">not synced</div>
+    <div class="step active" data-pane="videos"><div class="n">1</div><div>Videos</div></div>
+    <div class="step" data-pane="dest"><div class="n">2</div><div>Destination</div></div>
+    <div class="step" data-pane="copy"><div class="n">3</div><div>Copy</div></div>
+    <div class="step" data-pane="track"><div class="n">4</div><div>Tracking</div></div>
+    <div class="spacer"></div>
+    <button id="settingsBtn" onclick="openSettings()">Settings</button>
+  </nav>
+
+  <main id="canvas">
+
+    <section class="pane show" id="pane-videos">
+      <h2>Videos</h2>
+      <div class="sub">Drag files straight from Finder. They upload from this browser to Meta - no Drive, no keys.</div>
+      <div id="drop" onclick="document.getElementById('fileInput').click()">
+        <div class="big">Drop videos here</div>
+        <div>or click to pick files (mp4, mov)</div>
+      </div>
+      <input type="file" id="fileInput" accept="video/*" multiple style="display:none">
+      <div class="grid" id="videoGrid"></div>
+    </section>
+
+    <section class="pane" id="pane-dest">
+      <h2>Destination</h2>
+      <div class="sub">All accounts synced live. Pick one, import into an existing campaign or create new.</div>
+      <div class="field"><label>Ad account</label><select id="acctSel" onchange="pickAccount()"><option value="">Syncing...</option></select></div>
+
+      <div class="tabs"><button class="tab on" id="tabExistC" onclick="destMode('exist')">Existing campaign</button><button class="tab" id="tabNewC" onclick="destMode('new')">Create new campaign</button></div>
+
+      <div id="destExist"><div class="list" id="campaignList"><div class="hint">Pick an account.</div></div></div>
+      <div id="destNew" style="display:none">
+        <div class="row">
+          <div class="field"><label>Campaign name</label><input id="newCampName" placeholder="claud script 2"></div>
+          <div class="field"><label>CBO daily budget (<span id="curLabel">EGP</span>)</label><input id="newCampBudget" type="number" placeholder="1000"></div>
+        </div>
+      </div>
+
+      <div id="adsetZone" style="margin-top:22px;display:none">
+        <h2 style="font-size:16px">Ad sets</h2>
+        <div class="sub">Every selected ad set gets a copy of every ad.</div>
+        <div class="list" id="adsetList"></div>
+        <div style="margin-top:10px"><button class="btn" onclick="toggleNewAdset()">+ New ad set</button></div>
+        <div id="newAdsetBox" style="display:none;margin-top:12px">
+          <div class="row">
+            <div class="field"><label>Ad set name</label><input id="newAdsetName" placeholder="Egypt Broad"></div>
+            <div class="field"><label>Country</label><input id="newAdsetCountry" value="EG" maxlength="2"></div>
+            <div class="field"><label>Pixel</label><select id="newAdsetPixel"><option value="">Pick account first</option></select></div>
+          </div>
+          <div class="hint">Broad targeting, purchase optimization, paused. CBO parent carries the budget.</div>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:18px"><label>Facebook page for the ads</label><select id="pageSel" onchange="S.page=this.value;paint()"><option value="">Pick account first</option></select></div>
+    </section>
+
+    <section class="pane" id="pane-copy">
+      <h2>Copy</h2>
+      <div class="sub">Everything already running in this account, deduped. Click to reuse, or write new.</div>
+
+      <label>Primary text <span id="bodyCount" class="mono" style="color:var(--dim)"></span></label>
+      <div class="tabs"><button class="tab on" id="tabBodyExist" onclick="copyMode('body','exist')">Existing</button><button class="tab" id="tabBodyNew" onclick="copyMode('body','new')">New</button></div>
+      <div class="list" id="bodyList" style="max-height:260px;overflow-y:auto"><div class="hint">Pick an account in Destination and copies sync automatically.</div></div>
+      <textarea id="bodyNew" rows="5" style="display:none" placeholder="Write new primary text" oninput="S.body=this.value;S.bodyLabel='new';paint()"></textarea>
+
+      <div style="height:18px"></div>
+      <label>Headline <span id="titleCount" class="mono" style="color:var(--dim)"></span></label>
+      <div class="tabs"><button class="tab on" id="tabTitleExist" onclick="copyMode('title','exist')">Existing</button><button class="tab" id="tabTitleNew" onclick="copyMode('title','new')">New</button></div>
+      <div class="list" id="titleList" style="max-height:180px;overflow-y:auto"><div class="hint">Same - auto-synced.</div></div>
+      <input id="titleNew" style="display:none" placeholder="Write new headline" oninput="S.title=this.value;S.titleLabel='new';paint()">
+
+      <div style="height:18px"></div>
+      <div class="row">
+        <div class="field"><label>Link URL</label><input id="linkUrl" placeholder="https://goplaymore.com/" oninput="S.link=this.value;paint()"></div>
+        <div class="field"><label>CTA</label><select id="ctaSel" onchange="S.cta=this.value;paint()">
+          <option>SHOP_NOW</option><option>LEARN_MORE</option><option>ORDER_NOW</option><option>BUY_NOW</option><option>SIGN_UP</option><option>GET_OFFER</option>
+        </select></div>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-track">
+      <h2>Tracking</h2>
+      <div class="sub">UTM parameters appended to every ad. Click a chip to insert a dynamic macro into the focused field.</div>
+      <div>
+        <span class="utmchip" onclick="ins('{{campaign.name}}')">{{campaign.name}}</span>
+        <span class="utmchip" onclick="ins('{{adset.name}}')">{{adset.name}}</span>
+        <span class="utmchip" onclick="ins('{{ad.name}}')">{{ad.name}}</span>
+        <span class="utmchip" onclick="ins('{{site_source_name}}')">{{site_source_name}}</span>
+        <span class="utmchip" onclick="ins('{{placement}}')">{{placement}}</span>
+      </div>
+      <div style="height:10px"></div>
+      <div class="row">
+        <div class="field"><label>utm_source</label><input class="utm" id="utm_source" value="facebook"></div>
+        <div class="field"><label>utm_medium</label><input class="utm" id="utm_medium" value="paid"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>utm_campaign</label><input class="utm" id="utm_campaign" value="{{campaign.name}}"></div>
+        <div class="field"><label>utm_content</label><input class="utm" id="utm_content" value="{{ad.name}}"></div>
+      </div>
+      <label>url_tags preview</label>
+      <div id="utmPreview" class="mono"></div>
+    </section>
+  </main>
+
+  <aside id="rail">
+    <h3>Launch manifest</h3>
+    <div id="manifest"></div>
+    <div id="console"></div>
+    <div id="launchWrap"><button id="launchBtn" disabled onclick="launch()">LAUNCH</button></div>
+  </aside>
+</div>
+
+<div id="modal"><div id="modalBox">
+  <h2>Sign in</h2>
+  <div class="note">One-time: paste your Meta App ID (a public number, not a secret). After that, login is one click, forever.</div>
+  <div class="field"><label>Meta App ID</label><input id="cfgAppId" class="mono" placeholder="e.g. 1234567890123456"></div>
+  <div class="field"><button class="btn primary" style="width:100%" onclick="fbLogin()">Continue with Facebook</button></div>
+  <div class="field"><label>Advanced: manual access token (skip login)</label><input id="cfgMeta" type="password" class="mono" placeholder="optional"></div>
+  <div class="field"><label>Supabase URL (optional, for launch history)</label><input id="cfgSbUrl" placeholder="https://xxxx.supabase.co" class="mono"></div>
+  <div class="field"><label>Supabase anon key (optional)</label><input id="cfgSbKey" type="password" class="mono"></div>
+  <div class="note">Supabase, run once in SQL editor:<br><code>create table launches (id bigserial primary key, created_at timestamptz default now(), account_id text, campaign_id text, campaign_name text, adset_ids jsonb, ad_ids jsonb, videos jsonb, body text, headline text, link text, url_tags text);<br>alter table launches enable row level security;<br>create policy "anon all" on launches for all using (true) with check (true);</code></div>
+  <div class="mfoot"><button class="btn" onclick="closeSettings()">Cancel</button><button class="btn primary" onclick="saveSettings()">Save & Sync</button></div>
+</div></div>
+
+<script>
+/* ============================ STATE ============================ */
+const GRAPH='https://graph.facebook.com/v21.0';
+const S={
+  files:[],                      // File objects
+  accounts:[], acct:null, acctName:'', currency:'EGP',
+  campMode:'exist', camp:null, campName:'', newCamp:false,
+  adsets:[], selAdsets:[], newAdset:false,
+  pages:[], page:'', pixels:[],
+  bodies:[], titles:[],
+  body:'', bodyLabel:'', title:'', titleLabel:'',
+  link:'', cta:'SHOP_NOW',
+  launching:false
+};
+const cfg={meta:'',appId:'1765090894530277',sbUrl:'',sbKey:''};
+
+/* ============================ SETTINGS ============================ */
+function loadCfg(){try{Object.assign(cfg,JSON.parse(localStorage.getItem('launcher_cfg')||'{}'))}catch(e){}}
+function openSettings(){
+  document.getElementById('cfgMeta').value=cfg.meta||'';
+  document.getElementById('cfgAppId').value=cfg.appId||'';
+  document.getElementById('cfgSbUrl').value=cfg.sbUrl||'';
+  document.getElementById('cfgSbKey').value=cfg.sbKey||'';
+  document.getElementById('modal').classList.add('show');
+}
+function closeSettings(){document.getElementById('modal').classList.remove('show')}
+function saveSettings(){
+  cfg.meta=document.getElementById('cfgMeta').value.trim()||cfg.meta;
+  cfg.appId=document.getElementById('cfgAppId').value.trim();
+  cfg.sbUrl=document.getElementById('cfgSbUrl').value.trim().replace(/\/$/,'');
+  cfg.sbKey=document.getElementById('cfgSbKey').value.trim();
+  localStorage.setItem('launcher_cfg',JSON.stringify(cfg));
+  closeSettings(); syncAll();
+}
+
+/* ============================ FULL SYNC ============================ */
+async function syncAll(){
+  if(!cfg.meta) return;
+  const st=document.getElementById('syncState');
+  st.textContent='syncing...'; st.classList.remove('on');
+  try{
+    const j=await gget('me/adaccounts?fields=name,account_id,currency,account_status&limit=200');
+    S.accounts=(j.data||[]).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    const sel=document.getElementById('acctSel');
+    sel.innerHTML='<option value="">Pick an account</option>'+S.accounts.map(a=>`<option value="${a.account_id}">${a.name||a.account_id} (${a.currency})</option>`).join('');
+    st.textContent=S.accounts.length+' accounts live'; st.classList.add('on');
+    log('Synced '+S.accounts.length+' ad accounts','ok');
+  }catch(e){st.textContent='sync failed';log('Sync: '+e.message,'err')}
+}
+
+/* ============================ NAV ============================ */
+document.querySelectorAll('.step').forEach(s=>s.onclick=()=>{
+  document.querySelectorAll('.step').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(x=>x.classList.remove('show'));
+  s.classList.add('active');
+  document.getElementById('pane-'+s.dataset.pane).classList.add('show');
+});
+
+/* ============================ VIDEOS: DRAG & DROP ============================ */
+const drop=document.getElementById('drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
+document.getElementById('fileInput').addEventListener('change',e=>addFiles(e.target.files));
+function addFiles(list){
+  [...list].forEach(f=>{
+    if(!f.type.startsWith('video/')&&!/\.(mp4|mov|avi)$/i.test(f.name)) return;
+    if(S.files.some(x=>x.name===f.name&&x.size===f.size)) return;
+    S.files.push(f);
+  });
+  S.files.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+  renderFiles(); paint();
+}
+function renderFiles(){
+  const g=document.getElementById('videoGrid'); g.innerHTML='';
+  S.files.forEach((f,i)=>{
+    const d=document.createElement('div');
+    d.className='vcard';
+    d.innerHTML=`<div class="x" onclick="S.files.splice(${i},1);renderFiles();paint()">\u00d7</div><div class="nm">${esc(f.name)}</div><div class="mt">${(f.size/1048576).toFixed(1)} MB</div>`;
+    g.appendChild(d);
+  });
+}
+
+/* ============================ META HELPERS ============================ */
+async function gget(path){
+  const sep=path.includes('?')?'&':'?';
+  const r=await fetch(`${GRAPH}/${path}${sep}access_token=${cfg.meta}`);
+  const j=await r.json();
+  if(j.error){
+    if(j.error.code===190){cfg.meta='';log('Login expired - hit Continue with Facebook','err');openSettings()}
+    throw new Error(j.error.message);
+  }
+  return j;
+}
+async function gpost(path,payload){
+  const body=new URLSearchParams({...payload,access_token:cfg.meta});
+  const r=await fetch(`${GRAPH}/${path}`,{method:'POST',body});
+  const j=await r.json();
+  if(j.error) throw new Error(j.error.message);
+  return j;
+}
+function uploadVideo(acct,file,onProgress){
+  return new Promise((resolve,reject)=>{
+    const fd=new FormData();
+    fd.append('source',file);
+    fd.append('name',file.name.replace(/\.(mp4|mov|avi)$/i,''));
+    fd.append('access_token',cfg.meta);
+    const xhr=new XMLHttpRequest();
+    xhr.open('POST',`${GRAPH}/act_${acct}/advideos`);
+    xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(Math.round(e.loaded/e.total*100))};
+    xhr.onload=()=>{
+      try{const j=JSON.parse(xhr.responseText);
+        j.error?reject(new Error(j.error.message)):resolve(j);
+      }catch(e){reject(new Error('Bad response'))}
+    };
+    xhr.onerror=()=>reject(new Error('Network error during upload'));
+    xhr.send(fd);
+  });
+}
+
+/* ============================ DESTINATION ============================ */
+async function pickAccount(){
+  const sel=document.getElementById('acctSel');
+  S.acct=sel.value; if(!S.acct){paint();return}
+  const a=S.accounts.find(x=>x.account_id===S.acct);
+  S.acctName=a?(a.name||S.acct):S.acct; S.currency=a?a.currency:'';
+  document.getElementById('curLabel').textContent=S.currency;
+  S.camp=null;S.campName='';S.selAdsets=[];S.adsets=[];S.page='';
+  document.getElementById('adsetZone').style.display='none';
+  paint();
+  log('Loading '+S.acctName+'...','busy');
+  // parallel live sync: campaigns, pages, pixels, copies
+  loadCampaigns(); loadPages(); loadPixels(); loadCopies();
+}
+async function loadCampaigns(){
+  try{
+    const j=await gget(`act_${S.acct}/campaigns?fields=name,effective_status,objective&limit=150`);
+    const L=document.getElementById('campaignList'); L.innerHTML='';
+    const data=(j.data||[]).sort((a,b)=>(a.effective_status==='ACTIVE'?0:1)-(b.effective_status==='ACTIVE'?0:1));
+    if(!data.length) L.innerHTML='<div class="hint">No campaigns. Use Create new.</div>';
+    data.forEach(c=>{
+      const d=document.createElement('div');
+      d.className='lrow';
+      d.innerHTML=`<div class="l"><div class="nm">${esc(c.name)}</div><div class="mt">${c.id} \u00b7 ${c.objective||''}</div></div><span class="badge ${c.effective_status==='ACTIVE'?'on':'off'}">${c.effective_status}</span>`;
+      d.onclick=()=>pickCampaign(c,d);
+      L.appendChild(d);
+    });
+    log(data.length+' campaigns','ok');
+  }catch(e){log('Campaigns: '+e.message,'err')}
+}
+async function loadPages(){
+  try{
+    let pages=[];
+    try{const j=await gget(`act_${S.acct}/promote_pages?fields=id,name&limit=25`);pages=j.data||[]}catch(e){}
+    if(!pages.length){try{const j=await gget('me/accounts?fields=id,name&limit=50');pages=j.data||[]}catch(e){}}
+    S.pages=pages;
+    const sel=document.getElementById('pageSel');
+    sel.innerHTML=pages.length?pages.map(p=>`<option value="${p.id}">${esc(p.name||p.id)}</option>`).join(''):'<option value="">No page found - paste ID in console</option>';
+    if(pages.length){S.page=pages[0].id;paint()}
+  }catch(e){log('Pages: '+e.message,'err')}
+}
+async function loadPixels(){
+  try{
+    const j=await gget(`act_${S.acct}/adspixels?fields=id,name&limit=25`);
+    S.pixels=j.data||[];
+    const sel=document.getElementById('newAdsetPixel');
+    sel.innerHTML=S.pixels.length?S.pixels.map(p=>`<option value="${p.id}">${esc(p.name||p.id)}</option>`).join(''):'<option value="">No pixel on account</option>';
+  }catch(e){log('Pixels: '+e.message,'err')}
+}
+async function pickCampaign(c,el){
+  document.querySelectorAll('#campaignList .lrow').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel');
+  S.camp=c.id;S.campName=c.name;S.newCamp=false;S.selAdsets=[];
+  paint(); await loadAdsets(c.id);
+}
+async function loadAdsets(cid){
+  document.getElementById('adsetZone').style.display='block';
+  const L=document.getElementById('adsetList'); L.innerHTML='<div class="hint">Loading ad sets...</div>';
+  try{
+    const j=await gget(`${cid}/adsets?fields=name,effective_status,optimization_goal&limit=100`);
+    S.adsets=j.data||[]; L.innerHTML='';
+    if(!S.adsets.length) L.innerHTML='<div class="hint">No ad sets here. Create one below.</div>';
+    S.adsets.forEach(as=>{
+      const d=document.createElement('div');
+      d.className='lrow';
+      d.innerHTML=`<div class="l"><div class="nm">${esc(as.name)}</div><div class="mt">${as.id} \u00b7 ${as.optimization_goal||''}</div></div><span class="badge ${as.effective_status==='ACTIVE'?'on':'off'}">${as.effective_status}</span>`;
+      d.onclick=()=>{
+        const i=S.selAdsets.findIndex(x=>x.id===as.id);
+        i>=0?S.selAdsets.splice(i,1):S.selAdsets.push({id:as.id,name:as.name});
+        d.classList.toggle('sel'); paint();
+      };
+      L.appendChild(d);
+    });
+  }catch(e){L.innerHTML='<div class="hint">'+esc(e.message)+'</div>'}
+}
+function destMode(m){
+  S.campMode=m; S.newCamp=(m==='new');
+  document.getElementById('tabExistC').classList.toggle('on',m==='exist');
+  document.getElementById('tabNewC').classList.toggle('on',m==='new');
+  document.getElementById('destExist').style.display=m==='exist'?'block':'none';
+  document.getElementById('destNew').style.display=m==='new'?'block':'none';
+  if(m==='new'){S.camp=null;S.selAdsets=[];S.newAdset=true;
+    document.getElementById('adsetZone').style.display='block';
+    document.getElementById('adsetList').innerHTML='<div class="hint">New campaign starts empty. Define the new ad set below.</div>';
+    document.getElementById('newAdsetBox').style.display='block';
+  }
+  paint();
+}
+function toggleNewAdset(){
+  S.newAdset=!S.newAdset;
+  document.getElementById('newAdsetBox').style.display=S.newAdset?'block':'none';
+  paint();
+}
+document.addEventListener('input',e=>{
+  if(['newCampName','newCampBudget','newAdsetName','newAdsetCountry'].includes(e.target.id))paint();
+});
+
+/* ============================ COPY ============================ */
+async function loadCopies(){
+  try{
+    const j=await gget(`act_${S.acct}/adcreatives?fields=body,title&limit=250`);
+    const bodies=new Set(), titles=new Set();
+    (j.data||[]).forEach(c=>{if(c.body&&c.body.trim())bodies.add(c.body.trim()); if(c.title&&c.title.trim())titles.add(c.title.trim());});
+    S.bodies=[...bodies]; S.titles=[...titles];
+    document.getElementById('bodyCount').textContent='('+S.bodies.length+' in account)';
+    document.getElementById('titleCount').textContent='('+S.titles.length+' in account)';
+    renderCopyList('bodyList',S.bodies,'body'); renderCopyList('titleList',S.titles,'title');
+    log(S.bodies.length+' texts, '+S.titles.length+' headlines synced','ok');
+  }catch(e){log('Copy: '+e.message,'err')}
+}
+function renderCopyList(elId,items,kind){
+  const L=document.getElementById(elId); L.innerHTML='';
+  if(!items.length){L.innerHTML='<div class="hint">Nothing in this account yet. Use the New tab.</div>';return}
+  items.forEach(t=>{
+    const d=document.createElement('div');
+    d.className='lrow';
+    d.innerHTML=`<div class="l"><div class="copyitem">${esc(t)}</div></div>`;
+    d.onclick=()=>{
+      L.querySelectorAll('.lrow').forEach(x=>x.classList.remove('sel')); d.classList.add('sel');
+      if(kind==='body'){S.body=t;S.bodyLabel='existing'} else {S.title=t;S.titleLabel='existing'}
+      paint();
+    };
+    L.appendChild(d);
+  });
+}
+function copyMode(kind,m){
+  const ex=document.getElementById(kind==='body'?'tabBodyExist':'tabTitleExist');
+  const nw=document.getElementById(kind==='body'?'tabBodyNew':'tabTitleNew');
+  ex.classList.toggle('on',m==='exist'); nw.classList.toggle('on',m==='new');
+  document.getElementById(kind==='body'?'bodyList':'titleList').style.display=m==='exist'?'flex':'none';
+  document.getElementById(kind==='body'?'bodyNew':'titleNew').style.display=m==='new'?'block':'none';
+}
+
+/* ============================ UTM ============================ */
+let lastUtm=null;
+document.querySelectorAll('.utm').forEach(i=>{i.addEventListener('focus',()=>lastUtm=i);i.addEventListener('input',paint)});
+function ins(macro){if(lastUtm){lastUtm.value+=macro;paint()}}
+function urlTags(){
+  return ['utm_source','utm_medium','utm_campaign','utm_content']
+    .map(k=>({k,v:document.getElementById(k).value.trim()}))
+    .filter(x=>x.v).map(x=>`${x.k}=${x.v}`).join('&');
+}
+
+/* ============================ MANIFEST ============================ */
+function paint(){
+  const m=document.getElementById('manifest');
+  const nc=S.newCamp;
+  const campLine=nc? (val('newCampName')?`NEW: ${val('newCampName')} @ ${val('newCampBudget')||'?'} ${S.currency}/day CBO`:'') : (S.campName||'');
+  const asNames=[...S.selAdsets.map(a=>a.name)];
+  if(S.newAdset&&val('newAdsetName')) asNames.push('NEW: '+val('newAdsetName'));
+  const pg=S.pages.find(p=>p.id===S.page);
+  const rows=[
+    ['videos', S.files.length? S.files.map(f=>f.name).join(', ') : ''],
+    ['account', S.acctName? `${S.acctName} \u00b7 act_${S.acct}` : ''],
+    ['campaign', campLine],
+    ['ad_sets', asNames.join(', ')],
+    ['page', pg?(pg.name||pg.id):''],
+    ['primary', S.body? `[${S.bodyLabel}] `+S.body.slice(0,60).replace(/\n/g,' ')+(S.body.length>60?'\u2026':'') : ''],
+    ['headline', S.title? `[${S.titleLabel}] `+S.title : ''],
+    ['link', S.link||''],
+    ['cta', S.cta],
+    ['url_tags', urlTags()]
+  ];
+  m.innerHTML=rows.map(([k,v])=>`<div class="mline${v?' set':''}"><b>${k}:</b> ${esc(v)||'\u2014'}</div>`).join('');
+  document.getElementById('utmPreview').textContent=urlTags()||'(empty)';
+  const ready = S.files.length && S.acct && S.page
+    && (S.camp || (nc&&val('newCampName')&&val('newCampBudget')))
+    && (S.selAdsets.length || (S.newAdset&&val('newAdsetName')&&document.getElementById('newAdsetPixel').value))
+    && S.body && S.link && !S.launching;
+  document.getElementById('launchBtn').disabled=!ready;
+}
+function val(id){return document.getElementById(id).value.trim()}
+
+/* ============================ LAUNCH ============================ */
+function log(t,cls){const c=document.getElementById('console');c.classList.add('show');const d=document.createElement('div');d.className='cl '+(cls||'');d.textContent=t;c.appendChild(d);c.scrollTop=c.scrollHeight}
+async function launch(){
+  S.launching=true;paint();
+  const btn=document.getElementById('launchBtn');btn.textContent='LAUNCHING...';
+  try{
+    let campId=S.camp, campName=S.campName;
+    if(S.newCamp){
+      campName=val('newCampName');
+      const bud=Math.round(parseFloat(val('newCampBudget'))*100);
+      log('Creating campaign '+campName,'busy');
+      const c=await gpost(`act_${S.acct}/campaigns`,{name:campName,objective:'OUTCOME_SALES',status:'PAUSED',special_ad_categories:'[]',daily_budget:bud,bid_strategy:'LOWEST_COST_WITHOUT_CAP'});
+      campId=c.id; log('Campaign '+campId,'ok');
+    }
+    const targets=[...S.selAdsets];
+    if(S.newAdset&&val('newAdsetName')){
+      const nm=val('newAdsetName');
+      const cc=(val('newAdsetCountry')||'EG').toUpperCase();
+      const px=document.getElementById('newAdsetPixel').value;
+      log('Creating ad set '+nm,'busy');
+      const as=await gpost(`act_${S.acct}/adsets`,{
+        name:nm,campaign_id:campId,status:'PAUSED',billing_event:'IMPRESSIONS',
+        optimization_goal:'OFFSITE_CONVERSIONS',
+        promoted_object:JSON.stringify({pixel_id:px,custom_event_type:'PURCHASE'}),
+        targeting:JSON.stringify({geo_locations:{countries:[cc]},targeting_automation:{advantage_audience:1}})
+      });
+      targets.push({id:as.id,name:nm}); log('Ad set '+as.id,'ok');
+    }
+    // upload files direct from browser
+    const uploaded=[];
+    for(const f of S.files){
+      log('Uploading '+f.name+' 0%','busy');
+      const c=document.getElementById('console');
+      const line=c.lastChild;
+      const up=await uploadVideo(S.acct,f,p=>{line.textContent='Uploading '+f.name+' '+p+'%'});
+      line.textContent=f.name+' -> '+up.id; line.className='cl ok';
+      uploaded.push({name:f.name,videoId:up.id});
+    }
+    log('Waiting for Meta processing...','busy');
+    const deadline=Date.now()+12*60*1000;
+    const pend=[...uploaded];
+    while(pend.length&&Date.now()<deadline){
+      await new Promise(r=>setTimeout(r,12000));
+      for(let i=pend.length-1;i>=0;i--){
+        try{
+          const st=await gget(`${pend[i].videoId}?fields=status`);
+          const vs=st.status?st.status.video_status:'';
+          if(vs==='ready'){log(pend[i].name+' READY','ok');pend.splice(i,1)}
+          else if(vs==='error'){log(pend[i].name+' PROCESSING ERROR - skipped','err');
+            uploaded.splice(uploaded.findIndex(u=>u.videoId===pend[i].videoId),1);pend.splice(i,1)}
+        }catch(e){}
+      }
+    }
+    const tags=urlTags();
+    const adIds=[];
+    for(const v of uploaded){
+      const adName=v.name.replace(/\.(mp4|mov|avi)$/i,'');
+      const spec={page_id:S.page,video_data:{video_id:v.videoId,message:S.body,call_to_action:{type:S.cta,value:{link:S.link}}}};
+      if(S.title) spec.video_data.title=S.title;
+      const cr=await gpost(`act_${S.acct}/adcreatives`,{name:adName+' creative',object_story_spec:JSON.stringify(spec),...(tags?{url_tags:tags}:{})});
+      for(const t of targets){
+        const ad=await gpost(`act_${S.acct}/ads`,{name:adName,adset_id:t.id,creative:JSON.stringify({creative_id:cr.id}),status:'PAUSED'});
+        adIds.push(ad.id);
+        log(adName+' -> '+t.name+' PAUSED','ok');
+      }
+    }
+    log('DONE. '+adIds.length+' ads created, all paused.','ok');
+    saveLaunch(campId,campName,targets,adIds,uploaded,tags);
+  }catch(e){log('LAUNCH FAILED: '+e.message,'err')}
+  S.launching=false;btn.textContent='LAUNCH';paint();
+}
+
+/* ============================ SUPABASE ============================ */
+async function saveLaunch(campId,campName,targets,adIds,vids,tags){
+  if(!cfg.sbUrl||!cfg.sbKey) return;
+  try{
+    await fetch(`${cfg.sbUrl}/rest/v1/launches`,{
+      method:'POST',
+      headers:{apikey:cfg.sbKey,Authorization:'Bearer '+cfg.sbKey,'Content-Type':'application/json',Prefer:'return=minimal'},
+      body:JSON.stringify({account_id:S.acct,campaign_id:campId,campaign_name:campName,
+        adset_ids:targets,ad_ids:adIds,videos:vids,
+        body:S.body,headline:S.title,link:S.link,url_tags:tags})
+    });
+    log('Launch saved to Supabase','ok');
+  }catch(e){log('Supabase save failed: '+e.message,'err')}
+}
+
+/* ============================ UTIL ============================ */
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+/* ============================ FACEBOOK LOGIN ============================ */
+function fbLogin(){
+  const appId=document.getElementById('cfgAppId')?document.getElementById('cfgAppId').value.trim()||cfg.appId:cfg.appId;
+  if(!appId){log('Paste your Meta App ID first (Settings)','err');return openSettings()}
+  cfg.appId=appId;localStorage.setItem('launcher_cfg',JSON.stringify(cfg));
+  const redirect=encodeURIComponent(location.origin+location.pathname);
+  location.href=`https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirect}&response_type=token&config_id=1580267003752638`;
+}
+function captureToken(){
+  if(location.hash.includes('access_token=')){
+    const p=new URLSearchParams(location.hash.slice(1));
+    const t=p.get('access_token');
+    if(t){cfg.meta=t;localStorage.setItem('launcher_cfg',JSON.stringify(cfg));
+      history.replaceState(null,'',location.pathname);
+      log('Logged in with Facebook','ok');
+    }
+  }
+}
+async function whoAmI(){
+  try{
+    const j=await gget('me?fields=name');
+    const el=document.getElementById('syncState');
+    el.textContent=j.name+' \u00b7 syncing...';
+  }catch(e){
+    if(/expired|invalid|2500|190/i.test(e.message)){
+      log('Session expired. One click to log back in.','err');
+      cfg.meta='';openSettings();
+    }
+  }
+}
+captureToken();
+loadCfg();paint();
+if(location.hash.includes('access_token')){captureToken()}
+if(cfg.meta){whoAmI().then(syncAll)} else {setTimeout(()=>{log('Hit Continue with Facebook to load everything','busy');openSettings()},400)}
+</script>
+</body>
+</html>
