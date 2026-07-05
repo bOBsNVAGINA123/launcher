@@ -4475,7 +4475,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   const PROX=[u=>u,u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
   const LS='studio_collections';
   let COLS=[];try{COLS=JSON.parse(localStorage.getItem(LS)||'[]')}catch(e){}
-  let FOLDERS=[];const sel=new Set();
+  let FOLDERS=[];let INBOX=[];const sel=new Set();
   const idb=()=>new Promise((res,rej)=>{const r=indexedDB.open('studio_sync',1);r.onupgradeneeded=()=>r.result.createObjectStore('f');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
   const idbAll=async()=>{const db=await idb();return new Promise(res=>{const out=[];const c=db.transaction('f').objectStore('f').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){out.push({key:cu.key,handle:cu.value});cu.continue()}else res(out)}})};
   const idbPut=async(k,v)=>{const db=await idb();return new Promise(res=>{const t=db.transaction('f','readwrite');t.objectStore('f').put(v,k);t.oncomplete=res})};
@@ -4555,7 +4555,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   const box=document.createElement('div');box.id='syncLib';box.style.cssText='margin:0 0 14px;padding:10px;border:1px solid #2b3040;border-radius:10px;background:#101218';
   box.innerHTML='<div class="lbl" style="display:flex;justify-content:space-between;align-items:center">Synced library <span id="syAgo" style="font-size:9px;color:#6b7280;text-transform:none;letter-spacing:0"></span></div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><input id="syUrl" placeholder="paste a collection or Drive folder link…" style="flex:1;background:#14161c;color:#e8e9ec;border:1px solid #262a33;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;min-width:0"><button id="syAddCol" class="btn ghost" style="flex-shrink:0">Sync</button></div>'
-   +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syAddFol" class="btn ghost" style="flex:1">+ Folder (auto-syncs)</button><button id="syRe" class="btn ghost" style="flex:1">↻ Re-sync all</button></div>'
+   +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syAddDrive" class="btn ghost" style="flex:1">📁 Import Drive folder</button><button id="syAddFol" class="btn ghost" style="flex:1">+ Local folder</button><button id="syRe" class="btn ghost" style="flex-shrink:0">↻</button></div>'
    +'<div id="sySources" style="margin-bottom:6px"></div>'
    +'<input id="sySearch" placeholder="search…" style="width:100%;background:#14161c;color:#e8e9ec;border:1px solid #262a33;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;margin-bottom:6px">'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syLoadSel" class="btn ghost" style="flex:1">Add selected</button><button id="syLoadAll" class="btn ghost" style="flex:1">Load all shown</button></div>'
@@ -4570,6 +4570,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    const q=(document.getElementById('sySearch').value||'').toLowerCase();
    const out=[];
    COLS.forEach(c=>{if(FILTER&&FILTER!=='col_'+c.handle)return;c.products.forEach(p=>{if(!q||p.title.toLowerCase().indexOf(q)>=0)out.push({title:p.title,img:p.img,thumb:p.img,key:'c'+c.handle+p.img})})});
+   if(!FILTER||FILTER==='inbox')INBOX.forEach(it=>{if(!q||it.title.toLowerCase().indexOf(q)>=0)out.push(it)});
    FOLDERS.forEach(f=>{if(FILTER&&FILTER!=='fol_'+f.key)return;(f.files||[]).forEach(fl=>{if(!q||fl.name.toLowerCase().indexOf(q)>=0)out.push({title:fl.name,file:fl,thumb:null,key:'f'+f.key+fl.name+fl.size})})});
    return out;
   }
@@ -4578,6 +4579,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   function paintSources(){
    document.getElementById('sySources').innerHTML=
     COLS.map(c=>'<div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;padding:3px 0"><span style="cursor:pointer;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'+(FILTER==='col_'+c.handle?'#7ea2ff':'#aeb4bf')+'" data-flt="col_'+c.handle+'">🛒 '+c.name+' · '+c.products.length+'</span><span style="color:#6b7280">'+ago(c.last)+'</span><span style="cursor:pointer" data-rc="'+c.handle+'">↻</span><span style="cursor:pointer;color:#874" data-xc="'+c.handle+'">×</span></div>').join('')
+   +(INBOX.length?'<div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;padding:3px 0"><span style="cursor:pointer;flex:1;color:'+(FILTER==='inbox'?'#7ea2ff':'#aeb4bf')+'" data-flt="inbox">🚀 From Launcher · '+INBOX.length+'</span></div>':'')
    +FOLDERS.map(f=>'<div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;padding:3px 0"><span style="cursor:pointer;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'+(FILTER==='fol_'+f.key?'#7ea2ff':'#aeb4bf')+'" data-flt="fol_'+f.key+'">📁 '+f.name+' · '+(f.stale?'<i style="color:#c90">reconnect</i>':(f.files||[]).length)+'</span><span style="color:#6b7280">'+ago(f.last)+'</span><span style="cursor:pointer" data-rf="'+f.key+'">↻</span><span style="cursor:pointer;color:#874" data-xf="'+f.key+'">×</span></div>').join('');
    const S=document.getElementById('sySources');
    S.querySelectorAll('[data-flt]').forEach(el=>el.onclick=()=>{FILTER=FILTER===el.dataset.flt?'':el.dataset.flt;paintSources();paintGrid()});
@@ -4606,6 +4608,13 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    catch(e){stat('⚠ '+e.message)}
   };
   document.getElementById('syAddFol').onclick=addFolder;
+  document.getElementById('syAddDrive').onclick=async()=>{
+   let u=document.getElementById('syUrl').value.trim();
+   if(!/\/folders\//.test(u)) u=prompt('Paste the Google Drive FOLDER link (shared as "Anyone with the link"):')||'';
+   if(!/\/folders\//.test(u)){if(u)stat('that is not a Drive folder link');return}
+   document.getElementById('syUrl').value=u;
+   document.getElementById('syAddCol').click();
+  };
   document.getElementById('syRe').onclick=async()=>{stat('re-syncing everything…');for(const c of COLS){try{Object.assign(c,await fetchAny(c.url))}catch(e){}}saveCols();for(const f of FOLDERS)await syncFolder(f);paintSources();paintGrid();stat('all sources synced')};
   document.getElementById('syLoadSel').onclick=async()=>{
    const picked=SHOWN.filter(it=>sel.has(it.key));if(!picked.length){stat('tap items to select first');return}
@@ -4620,6 +4629,15 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
 
   /* ---------- boot: paint cache, then auto-resync in background ---------- */
   paintSources();paintGrid();
+  (async()=>{try{
+    const db=await new Promise((res,rej)=>{const r=indexedDB.open('studio_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+    const items=await new Promise(res=>{const out=[];const c=db.transaction('inbox').objectStore('inbox').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){out.push(cu.value);cu.continue()}else res(out)}});
+    if(items.length){
+      items.forEach((it,i)=>INBOX.push({title:it.name,file:new File([it.blob],it.name),thumb:null,key:'inbox_'+i+'_'+it.name}));
+      paintSources();paintGrid();stat(items.length+' photo(s) arrived from the Launcher');
+      await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').clear();t.oncomplete=res});
+    }
+  }catch(e){}})();
   (async()=>{
    try{const rows=await idbAll();
     for(const r of rows){const f={key:r.key,name:r.handle.name,handle:r.handle,files:[],last:0,stale:true};FOLDERS.push(f);

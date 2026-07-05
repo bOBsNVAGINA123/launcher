@@ -196,6 +196,10 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
         <div>or click to choose files — mp4, mov, jpg, png, webp</div>
       </div>
       <input type="file" id="fileInput" accept="video/*,image/*" multiple style="display:none">
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn" onclick="openCS()">✂ Edit videos — trim · music · speed · merge</button>
+        <span class="hint" style="align-self:center">or hit ✎ on any file below</span>
+      </div>
 
       <div class="card" style="margin-top:16px">
         <h3 class="sec" style="margin-top:0">Import from Google Drive</h3>
@@ -651,6 +655,7 @@ function renderMedia(){
     else pv=icon;
     d.innerHTML=`<div class="tag">${m.src==='drive'?'DRIVE':'LOCAL'} ${m.kind.toUpperCase()}</div>
       <div class="x" onclick="S.media.splice(${i},1);renderMedia();paint()">×</div>
+      <div class="x" style="right:34px;background:rgba(8,102,255,.85)" title="Edit" onclick="editMedia(${i})">✎</div>
       <div class="prev" style="cursor:zoom-in" onclick="openViewer(${i})">${pv}</div>
       <div id="mst-${m.uiId}" class="state ${m.stateCls||''}" style="display:${m.state?'block':'none'}">${m.state||''}</div>
       <div class="meta"><div class="nm" title="${esc(m.name)}">${esc(m.name)}</div><div class="mt">${m.size?(m.size/1048576).toFixed(1)+' MB':'from Drive'}</div></div>
@@ -1450,5 +1455,187 @@ paint();
 if((cfg.driveFolders||[]).length) setTimeout(()=>importDrive(true),800);
 if(cfg.meta){whoAmI().then(syncAll)} else {setTimeout(()=>{log('Hit Continue with Facebook to load everything','busy');openSettings()},400)}
 </script>
+
+<script>
+/* ===== CLIP STUDIO (in-launcher editor) + send photos to Content Studio ===== */
+const CS={clips:[],music:null,musicVol:.8,useClipAudio:false,aspect:'9:16',fit:'cover',running:false,stop:false};
+const CS_DIMS={'9:16':[1080,1920],'1:1':[1080,1080],'4:5':[1080,1350],'16:9':[1920,1080]};
+function csStat(m){const s=document.getElementById('csStat');if(s)s.textContent=m}
+function csFmt(s){return (Math.round(s*10)/10).toFixed(1)+'s'}
+function bridgeDB(name){return new Promise((res,rej)=>{const r=indexedDB.open(name,1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+
+async function editMedia(i){
+  const m=S.media[i];if(!m)return;
+  if(m.kind==='video'){openCS();csStat('loading '+m.name+'…');try{await csLoadMedia(m);csPaint();csStat('')}catch(e){csStat('⚠ '+e.message)}}
+  else{
+    try{
+      let blob=m.file;
+      if(!blob&&m.driveId) blob=await proxyFetchBlob('https://drive.google.com/thumbnail?id='+m.driveId+'&sz=w2000');
+      if(!blob){log('No image data to edit','err');return}
+      const db=await bridgeDB('studio_bridge');
+      await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').put({name:m.name,blob});t.oncomplete=res});
+      log('"'+m.name+'" sent to the Content Studio — open Content Studio (left menu) and it lands in the Synced library automatically','ok');
+      alert('Sent to Content Studio ✓\\nOpen the Content Studio (left menu) — the photo is waiting in the Synced library.');
+    }catch(e){log('Send failed: '+e.message,'err')}
+  }
+}
+async function csLoadMedia(m){
+  let file=m.file;
+  if(!file){
+    if(m.src==='gdrive'&&gTok){const r=await fetch('https://www.googleapis.com/drive/v3/files/'+m.driveId+'?alt=media',{headers:{Authorization:'Bearer '+gTok}});if(!r.ok)throw new Error('Drive download failed (HTTP '+r.status+')');file=new File([await r.blob()],m.name)}
+    else if(m.url){csStat('downloading '+m.name+' from Drive…');const b=await proxyFetchBlob(m.url);file=new File([b],m.name)}
+    else throw new Error('no downloadable source for '+m.name);
+    m.file=file;
+  }
+  await csAddClip(file);
+}
+function openCS(){
+  let o=document.getElementById('csOverlay');
+  if(o){o.style.display='flex';csPaint();return}
+  o=document.createElement('div');o.id='csOverlay';
+  o.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(14,16,20,.98);display:flex;color:#e8e9ec';
+  o.innerHTML=`
+   <div style="width:430px;flex-shrink:0;overflow-y:auto;padding:18px;border-right:1px solid #2a2f3a">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <b style="font-size:16px">✂ Clip Studio</b>
+      <button onclick="CS.stop=true;document.getElementById('csOverlay').style.display='none'" style="background:none;border:none;color:#8b8f98;font-size:22px;cursor:pointer">×</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <button id="csAdd" style="flex:1;background:#0866ff;color:#fff;border:none;border-radius:9px;padding:11px;font-weight:700;cursor:pointer">+ Add footage</button>
+      <button id="csFromMedia" style="flex:1;background:#1d222b;color:#e8e9ec;border:1px solid #333;border-radius:9px;padding:11px;cursor:pointer">Add from your media</button>
+    </div>
+    <input type="file" id="csIn" accept="video/*" multiple style="display:none">
+    <div id="csList" style="margin:10px 0"></div>
+    <div style="border-top:1px solid #2a2f3a;padding-top:12px;margin-top:6px">
+      <div style="font-size:11px;color:#8b8f98;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Music</div>
+      <button id="csMusicBtn" style="width:100%;background:#1d222b;color:#e8e9ec;border:1px solid #333;border-radius:8px;padding:9px;cursor:pointer">🎵 Load music — audio or any video file</button>
+      <input type="file" id="csMusicIn" accept="audio/*,video/*" style="display:none">
+      <div id="csMusicName" style="font-size:11px;color:#9fe6a0;margin:6px 0"></div>
+      <label style="font-size:12px;display:flex;align-items:center;gap:8px;margin:6px 0">Volume <input id="csMusicVol" type="range" min="0" max="100" value="80" style="flex:1"></label>
+      <label style="font-size:12px;display:flex;align-items:center;gap:8px;margin:6px 0"><input type="checkbox" id="csClipAudio" style="width:15px;height:15px"> Keep the clips' own audio too</label>
+    </div>
+    <div style="border-top:1px solid #2a2f3a;padding-top:12px;margin-top:10px;display:flex;gap:8px">
+      <select id="csAspect" style="flex:1;background:#1d222b;color:#e8e9ec;border:1px solid #333;border-radius:8px;padding:8px"><option>9:16</option><option>1:1</option><option>4:5</option><option>16:9</option></select>
+      <select id="csFit" style="flex:1;background:#1d222b;color:#e8e9ec;border:1px solid #333;border-radius:8px;padding:8px"><option value="cover">Fill (crop)</option><option value="contain">Fit (bars)</option></select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button id="csPlay" style="flex:1;background:#1d222b;color:#e8e9ec;border:1px solid #333;border-radius:9px;padding:12px;font-weight:700;cursor:pointer">▶ Preview</button>
+      <button id="csExport" style="flex:1;background:#31a24c;color:#fff;border:none;border-radius:9px;padding:12px;font-weight:800;cursor:pointer">⬇ Export → media list</button>
+    </div>
+    <div id="csStat" style="font-size:12px;color:#f7b928;margin-top:10px;min-height:16px"></div>
+    <div style="font-size:11px;color:#6b7280;margin-top:8px;line-height:1.5">Trim with start/end. ▲▼ moves a clip forward/backward. Speed 0.25× slows down, 3× speeds up. Export records in real time and drops the result straight into your media list, ready to launch.</div>
+   </div>
+   <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:20px"><canvas id="csCanvas" style="max-width:100%;max-height:100%;background:#000;border-radius:12px"></canvas></div>`;
+  document.body.appendChild(o);
+  document.getElementById('csAdd').onclick=()=>document.getElementById('csIn').click();
+  document.getElementById('csIn').onchange=async e=>{for(const f of e.target.files)await csAddClip(f);e.target.value='';csPaint()};
+  document.getElementById('csFromMedia').onclick=async()=>{
+    const vids=S.media.filter(m=>m.kind==='video');
+    if(!vids.length){csStat('no videos in your media list yet');return}
+    for(const m of vids){try{csStat('loading '+m.name+'…');await csLoadMedia(m)}catch(e){csStat('⚠ '+m.name+': '+e.message)}}
+    csPaint();csStat(vids.length+' video(s) loaded from your media');
+  };
+  document.getElementById('csMusicBtn').onclick=()=>document.getElementById('csMusicIn').click();
+  document.getElementById('csMusicIn').onchange=e=>{const f=e.target.files[0];if(!f)return;CS.music=f;document.getElementById('csMusicName').textContent='✓ '+f.name+' — its audio becomes the soundtrack';e.target.value=''};
+  document.getElementById('csMusicVol').oninput=e=>CS.musicVol=e.target.value/100;
+  document.getElementById('csClipAudio').onchange=e=>CS.useClipAudio=e.target.checked;
+  document.getElementById('csAspect').onchange=e=>{CS.aspect=e.target.value;csSize()};
+  document.getElementById('csFit').onchange=e=>CS.fit=e.target.value;
+  document.getElementById('csPlay').onclick=()=>csRun(false);
+  document.getElementById('csExport').onclick=()=>csRun(true);
+  csSize();csPaint();
+}
+function csSize(){const c=document.getElementById('csCanvas');const [W,H]=CS_DIMS[CS.aspect];c.width=W;c.height=H}
+async function csAddClip(f){
+  const url=URL.createObjectURL(f);
+  const v=document.createElement('video');v.src=url;v.muted=true;v.playsInline=true;v.preload='auto';
+  await new Promise(r=>{v.onloadedmetadata=r;setTimeout(r,4000)});
+  CS.clips.push({file:f,name:f.name,url,v,dur:v.duration||0,in:0,out:Math.round((v.duration||0)*10)/10,speed:1});
+}
+function csPaint(){
+  const L=document.getElementById('csList');if(!L)return;
+  if(!CS.clips.length){L.innerHTML='<div style="font-size:12px;color:#6b7280;padding:10px;border:1px dashed #333;border-radius:8px;text-align:center">No footage yet — add videos, or "Add from your media"</div>';return}
+  L.innerHTML=CS.clips.map((c,i)=>`<div style="background:#161a22;border:1px solid #2a2f3a;border-radius:10px;padding:10px;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <b style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i+1}. ${esc(c.name)}</b>
+      <span style="font-size:10px;color:#6b7280">${csFmt(c.dur)}</span>
+      <button data-up="${i}" style="background:none;border:1px solid #333;color:#e8e9ec;border-radius:6px;cursor:pointer;padding:2px 7px">▲</button>
+      <button data-dn="${i}" style="background:none;border:1px solid #333;color:#e8e9ec;border-radius:6px;cursor:pointer;padding:2px 7px">▼</button>
+      <button data-x="${i}" style="background:none;border:1px solid #533;color:#f87171;border-radius:6px;cursor:pointer;padding:2px 7px">×</button>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;font-size:11px;color:#8b8f98;flex-wrap:wrap">
+      start <input data-in="${i}" type="number" min="0" step="0.1" value="${c.in}" style="width:62px;background:#1d222b;color:#e8e9ec;border:1px solid #333;border-radius:6px;padding:4px">
+      end <input data-out="${i}" type="number" min="0" step="0.1" value="${c.out}" style="width:62px;background:#1d222b;color:#e8e9ec;border:1px solid #333;border-radius:6px;padding:4px">
+      speed <select data-sp="${i}" style="background:#1d222b;color:#e8e9ec;border:1px solid #333;border-radius:6px;padding:4px">${[0.25,0.5,0.75,1,1.25,1.5,2,3].map(s=>`<option ${s===c.speed?'selected':''}>${s}</option>`).join('')}</select>×
+    </div>
+   </div>`).join('')+`<div style="font-size:11px;color:#8b8f98;text-align:right">total ≈ ${csFmt(CS.clips.reduce((a,c)=>a+Math.max(0,(c.out-c.in)/c.speed),0))}</div>`;
+  L.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{const i=+b.dataset.up;if(i>0){[CS.clips[i-1],CS.clips[i]]=[CS.clips[i],CS.clips[i-1]];csPaint()}});
+  L.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{const i=+b.dataset.dn;if(i<CS.clips.length-1){[CS.clips[i+1],CS.clips[i]]=[CS.clips[i],CS.clips[i+1]];csPaint()}});
+  L.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{CS.clips.splice(+b.dataset.x,1);csPaint()});
+  L.querySelectorAll('[data-in]').forEach(x=>x.onchange=()=>{const c=CS.clips[+x.dataset.in];c.in=Math.max(0,+x.value||0);csPaint()});
+  L.querySelectorAll('[data-out]').forEach(x=>x.onchange=()=>{const c=CS.clips[+x.dataset.out];c.out=Math.min(c.dur,+x.value||c.dur);csPaint()});
+  L.querySelectorAll('[data-sp]').forEach(x=>x.onchange=()=>{CS.clips[+x.dataset.sp].speed=+x.value;csPaint()});
+}
+let CS_AC=null;
+async function csRun(record){
+  if(CS.running){CS.stop=true;csStat('stopping…');return}
+  if(!CS.clips.length){csStat('add footage first');return}
+  CS.running=true;CS.stop=false;
+  const btn=document.getElementById(record?'csExport':'csPlay');const orig=btn.textContent;btn.textContent='■ Stop';
+  const cv=document.getElementById('csCanvas');csSize();const cx=cv.getContext('2d');
+  const [W,H]=CS_DIMS[CS.aspect];
+  try{
+    CS_AC=CS_AC||new (window.AudioContext||window.webkitAudioContext)();await CS_AC.resume();
+    const dest=CS_AC.createMediaStreamDestination();
+    const mon=CS_AC.createGain();mon.connect(CS_AC.destination);
+    let musicStop=null;
+    if(CS.music){
+      const g=CS_AC.createGain();g.gain.value=CS.musicVol;g.connect(dest);g.connect(mon);
+      try{const buf=await CS_AC.decodeAudioData(await CS.music.arrayBuffer());const src=CS_AC.createBufferSource();src.buffer=buf;src.loop=true;src.connect(g);src.start();musicStop=()=>{try{src.stop()}catch(e){}}}
+      catch(e){const mv=document.createElement('video');mv.src=URL.createObjectURL(CS.music);mv.loop=true;mv.playsInline=true;await new Promise(r=>{mv.onloadedmetadata=r;setTimeout(r,3000)});const ms=CS_AC.createMediaElementSource(mv);ms.connect(g);mv.play();musicStop=()=>{try{mv.pause()}catch(e){}}}
+    }
+    let rec=null,chunks=[];
+    if(record){
+      const stream=cv.captureStream(30);
+      dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
+      const mime=['video/mp4;codecs=avc1','video/webm;codecs=vp9,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m))||'video/webm';
+      rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8000000});
+      rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+      rec.start(500);
+    }
+    for(let ci=0;ci<CS.clips.length&&!CS.stop;ci++){
+      const c=CS.clips[ci];const v=c.v;
+      csStat((record?'recording':'previewing')+' clip '+(ci+1)+' of '+CS.clips.length+' — '+c.name);
+      v.muted=!CS.useClipAudio;
+      if(CS.useClipAudio&&!c.node){try{c.node=CS_AC.createMediaElementSource(v);const cg=CS_AC.createGain();c.node.connect(cg);cg.connect(dest);cg.connect(mon)}catch(e){}}
+      v.currentTime=c.in;v.playbackRate=c.speed;
+      await v.play().catch(()=>{});
+      await new Promise(res=>{const draw=()=>{
+        if(CS.stop||v.currentTime>=c.out||v.ended){v.pause();res();return}
+        const vw=v.videoWidth,vh=v.videoHeight;
+        cx.fillStyle='#000';cx.fillRect(0,0,W,H);
+        const r=CS.fit==='cover'?Math.max(W/vw,H/vh):Math.min(W/vw,H/vh);
+        cx.drawImage(v,(W-vw*r)/2,(H-vh*r)/2,vw*r,vh*r);
+        requestAnimationFrame(draw)};draw()});
+    }
+    if(musicStop)musicStop();
+    if(rec){
+      await new Promise(res=>{rec.onstop=res;rec.stop()});
+      const blob=new Blob(chunks,{type:rec.mimeType});
+      const ext=rec.mimeType.includes('mp4')?'mp4':'webm';
+      const name='edited_'+Date.now()+'.'+ext;
+      const f=new File([blob],name,{type:blob.type});
+      S.media.push({kind:'video',src:'local',file:f,name,size:f.size,link:'',adName:name.replace(/\\.[^.]+$/,'')});
+      sortMedia();renderMedia();paint();
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
+      csStat('✓ '+(blob.size/1048576).toFixed(1)+' MB '+ext.toUpperCase()+' — added to your media list (and downloaded)');
+      log('Edited video added to media: '+name,'ok');
+    } else csStat(CS.stop?'stopped':'✓ preview done');
+  }catch(e){csStat('⚠ '+e.message)}
+  CS.clips.forEach(c=>{try{c.v.pause()}catch(e){}});
+  CS.running=false;CS.stop=false;btn.textContent=orig;
+}
+</script>
+
 </body>
 </html>
