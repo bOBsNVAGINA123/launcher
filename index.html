@@ -4,109 +4,140 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Launcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0D1012; --panel:#15191C; --panel2:#1B2024; --line:#262D32;
-  --ink:#E9EDEF; --mut:#8A959C; --dim:#5A646B;
-  --amber:#FFB224; --amber-dim:#8A6212;
-  --ok:#5BD9A3; --err:#FF6B5E; --busy:#6FB3FF;
-  --mono:'SF Mono','JetBrains Mono',Consolas,monospace;
+  --bg:#000; --bg2:#0a0a0a; --panel:#0d0d0d; --panel2:#161616; --card:#101010;
+  --line:#222; --line2:#333; --ink:#fafafa; --mut:#9a9a9a; --dim:#5e5e5e;
+  --amber:#FFB224; --amber2:#8A6212; --ok:#4ADE80; --err:#FF5C5C; --busy:#6FB3FF;
+  --mono:'JetBrains Mono',monospace; --disp:'Archivo',sans-serif;
+  --r:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,'Inter',Segoe UI,sans-serif;height:100vh;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font:14px/1.55 'DM Sans',-apple-system,sans-serif;height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased}
 button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
-input,select,textarea{font:inherit;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:8px 10px;width:100%}
+input,select,textarea{font:inherit;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:9px 11px;width:100%}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber)}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9a9a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px}
 ::placeholder{color:var(--dim)}
+a{color:var(--busy)}
 .mono{font-family:var(--mono);font-size:12px}
 
-#app{display:grid;grid-template-columns:200px 1fr 350px;height:100vh}
-@media(max-width:980px){#app{grid-template-columns:1fr}#steps,#rail{display:none}}
+#app{display:grid;grid-template-columns:216px 1fr 360px;height:100vh}
+@media(max-width:1100px){#app{grid-template-columns:1fr}#steps,#rail{display:none}}
 
-/* left */
-#steps{border-right:1px solid var(--line);padding:20px 0;display:flex;flex-direction:column}
-#logo{padding:0 20px 6px;font-weight:800;letter-spacing:-.02em;font-size:16px}
+/* ============ LEFT: STEPS ============ */
+#steps{border-right:1px solid var(--line);padding:22px 0;display:flex;flex-direction:column;background:var(--bg2)}
+#logo{padding:0 20px 4px;font-family:var(--disp);font-weight:900;letter-spacing:-.02em;font-size:17px}
 #logo span{color:var(--amber)}
-#syncState{padding:0 20px 18px;font-family:var(--mono);font-size:10px;color:var(--dim)}
+#syncState{padding:0 20px 22px;font-family:var(--mono);font-size:10px;color:var(--dim)}
 #syncState.on{color:var(--ok)}
-.step{display:flex;gap:12px;align-items:center;padding:12px 20px;color:var(--mut);cursor:pointer;border-left:2px solid transparent}
-.step .n{font-family:var(--mono);font-size:11px;width:22px;height:22px;border:1px solid var(--line);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step{display:flex;gap:12px;align-items:center;padding:11px 20px;color:var(--mut);cursor:pointer;border-left:2px solid transparent;position:relative}
+.step .n{font-family:var(--mono);font-size:11px;width:24px;height:24px;border:1px solid var(--line2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--bg)}
+.step:not(:last-of-type) .n::after{content:'';position:absolute;left:31px;top:35px;width:1px;height:12px;background:var(--line)}
 .step.active{color:var(--ink);border-left-color:var(--amber)}
 .step.active .n{border-color:var(--amber);color:var(--amber)}
+.step.done .n{border-color:var(--ok);color:var(--ok)}
+.step .lbl{font-weight:500}
+.step .sub2{font-size:10.5px;color:var(--dim);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
 #steps .spacer{flex:1}
-#settingsBtn{margin:0 20px;padding:9px;border:1px solid var(--line);border-radius:6px;color:var(--mut);text-align:center}
-#settingsBtn:hover{color:var(--ink);border-color:var(--mut)}
+.navlink{margin:4px 20px 0;padding:9px;border:1px solid var(--line);border-radius:8px;color:var(--mut);text-align:center;display:block;text-decoration:none;font-size:13px}
+.navlink:hover{color:var(--ink);border-color:var(--line2)}
 
-/* center */
-#canvas{overflow-y:auto;padding:28px 32px}
-.pane{display:none;max-width:760px}
+/* ============ CENTER ============ */
+#canvas{overflow-y:auto;padding:30px 34px 80px}
+.pane{display:none;max-width:780px}
 .pane.show{display:block}
-h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
-.sub{color:var(--mut);margin-bottom:20px;font-size:13px}
+h2{font-family:var(--disp);font-size:22px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px}
+.sub{color:var(--mut);margin-bottom:22px;font-size:13px}
+h3.sec{font-family:var(--disp);font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--amber);margin:26px 0 10px}
 .row{display:flex;gap:10px;margin-bottom:12px}
 .row>*{flex:1}
-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:5px}
+label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--mut);margin-bottom:5px;font-weight:500}
 .field{margin-bottom:14px}
-.btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:9px 16px;color:var(--ink)}
+.btn{background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:9px 16px;color:var(--ink)}
 .btn:hover{border-color:var(--mut)}
 .btn.primary{background:var(--amber);color:#111;font-weight:700;border-color:var(--amber)}
+.btn.primary:hover{filter:brightness(1.08)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .hint{font-size:12px;color:var(--dim);margin-top:6px}
+.warn{font-size:12px;color:var(--amber);margin-top:6px}
+.seg{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.seg button{padding:8px 15px;border:1px solid var(--line);border-radius:8px;color:var(--mut);font-size:13px}
+.seg button.on{color:var(--ink);border-color:var(--amber);background:#1a1408}
 
-#drop{border:2px dashed var(--line);border-radius:12px;padding:44px 20px;text-align:center;color:var(--mut);cursor:pointer;transition:.15s}
-#drop:hover,#drop.over{border-color:var(--amber);color:var(--ink);background:#16130c}
-#drop .big{font-size:16px;font-weight:700;margin-bottom:4px}
+#drop{border:2px dashed var(--line2);border-radius:var(--r);padding:40px 20px;text-align:center;color:var(--mut);cursor:pointer;transition:.15s}
+#drop:hover,#drop.over{border-color:var(--amber);color:var(--ink);background:#0f0c04}
+#drop .big{font-family:var(--disp);font-size:16px;font-weight:800;margin-bottom:4px}
 
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-top:16px}
-.vcard{background:var(--panel);border:1px solid var(--amber);border-radius:8px;padding:12px;position:relative}
-.vcard .nm{font-weight:600;font-size:13px;margin-bottom:4px;word-break:break-all;padding-right:20px}
-.vcard .mt{font-family:var(--mono);font-size:11px;color:var(--dim)}
-.vcard .x{position:absolute;top:8px;right:10px;color:var(--dim);font-size:15px}
-.vcard .x:hover{color:var(--err)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:16px}
+.vcard{background:var(--card);border:1px solid var(--line2);border-radius:10px;overflow:hidden;position:relative}
+.vcard .prev{height:96px;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:22px;color:var(--dim);overflow:hidden}
+.vcard .prev img{width:100%;height:100%;object-fit:cover}
+.vcard .meta{padding:9px 10px}
+.vcard .nm{font-weight:500;font-size:12px;word-break:break-all;line-height:1.3}
+.vcard .mt{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:3px}
+.vcard .x{position:absolute;top:6px;right:8px;color:#fff;font-size:14px;background:rgba(0,0,0,.6);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;z-index:2}
+.vcard .x:hover{background:var(--err)}
+.vcard .tag{position:absolute;top:6px;left:8px;font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(0,0,0,.65);color:var(--amber);z-index:2}
 
 .list{display:flex;flex-direction:column;gap:8px}
-.lrow{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
-.lrow:hover{border-color:var(--mut)}
-.lrow.sel{border-color:var(--amber);background:#1d1a12}
+.lrow{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.lrow:hover{border-color:var(--line2)}
+.lrow.sel{border-color:var(--amber);background:#151006}
 .lrow .l{min-width:0}
-.lrow .nm{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lrow .mt{font-family:var(--mono);font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.badge{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:20px;border:1px solid var(--line);color:var(--mut);flex-shrink:0}
+.lrow .nm{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lrow .mt{font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.badge{font-family:var(--mono);font-size:9.5px;padding:2px 8px;border-radius:20px;border:1px solid var(--line2);color:var(--mut);flex-shrink:0}
 .badge.on{color:var(--ok);border-color:var(--ok)}
-.badge.off{color:var(--dim)}
-
-.tabs{display:flex;gap:6px;margin-bottom:14px}
-.tab{padding:7px 14px;border:1px solid var(--line);border-radius:6px;color:var(--mut);font-size:13px}
-.tab.on{color:var(--ink);border-color:var(--amber)}
-.copyitem{white-space:pre-wrap;font-size:12px;color:var(--mut);max-height:60px;overflow:hidden}
+.copyitem{white-space:pre-wrap;font-size:12px;color:var(--mut);max-height:56px;overflow:hidden}
 .lrow.sel .copyitem{color:var(--ink)}
 .utmchip{font-family:var(--mono);font-size:11px;padding:4px 8px;border:1px solid var(--line);border-radius:5px;color:var(--busy);margin:0 6px 6px 0;display:inline-block;cursor:pointer}
 .utmchip:hover{border-color:var(--busy)}
-#utmPreview{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;word-break:break-all;color:var(--busy)}
+#utmPreview{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;word-break:break-all;color:var(--busy)}
 
-/* right */
-#rail{border-left:1px solid var(--line);display:flex;flex-direction:column;background:#0A0D0F}
-#rail h3{padding:20px 20px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--amber)}
-#manifest{flex:1;overflow-y:auto;padding:8px 20px;font-family:var(--mono);font-size:11.5px;line-height:1.9}
+/* preview area */
+#previewZone{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px}
+.pvbox{border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:#fff}
+.pvbox iframe{border:0;display:block}
+#pvEmpty{color:var(--dim);font-size:13px;padding:30px;border:1px dashed var(--line2);border-radius:10px;text-align:center;width:100%}
+
+/* ============ RIGHT: MANIFEST ============ */
+#rail{border-left:1px solid var(--line);display:flex;flex-direction:column;background:var(--bg2)}
+#rail h3{padding:22px 20px 10px;font-family:var(--disp);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.16em;color:var(--amber)}
+#armLights{display:flex;gap:6px;padding:0 20px 14px}
+.armlight{flex:1;text-align:center}
+.armlight .dot{width:10px;height:10px;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);margin:0 auto 4px;transition:.3s}
+.armlight.lit .dot{background:var(--ok);border-color:var(--ok);box-shadow:0 0 8px rgba(74,222,128,.5)}
+.armlight .t{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:.05em}
+.armlight.lit .t{color:var(--ok)}
+#manifest{flex:1;overflow-y:auto;padding:6px 20px;font-family:var(--mono);font-size:11.5px;line-height:1.9}
 .mline{color:var(--dim)}
 .mline b{color:var(--mut);font-weight:400}
 .mline.set{color:var(--ink)}
 .mline.set b{color:var(--amber)}
+#issues{padding:0 20px 8px}
+.issue{font-family:var(--mono);font-size:10.5px;color:var(--amber);padding:3px 0;line-height:1.5}
 #launchWrap{padding:16px 20px;border-top:1px solid var(--line)}
-#launchBtn{width:100%;padding:14px;background:var(--amber);color:#111;font-weight:800;font-size:15px;border-radius:8px;letter-spacing:.02em}
-#launchBtn:disabled{background:var(--amber-dim);color:#3a2f14}
-#console{max-height:220px;overflow-y:auto;padding:10px 20px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;line-height:1.7;display:none}
+#statusSel{margin-bottom:10px}
+#launchBtn{width:100%;padding:15px;background:var(--panel2);color:var(--dim);font-family:var(--disp);font-weight:900;font-size:15px;border-radius:10px;letter-spacing:.06em;border:1px solid var(--line2);transition:.3s}
+#launchBtn.armed{background:var(--amber);color:#111;border-color:var(--amber);box-shadow:0 0 24px rgba(255,178,36,.35)}
+#launchBtn:disabled{cursor:not-allowed}
+#console{max-height:230px;overflow-y:auto;padding:10px 20px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;line-height:1.7;display:none}
 #console.show{display:block}
 .cl{color:var(--mut)} .cl.ok{color:var(--ok)} .cl.err{color:var(--err)} .cl.busy{color:var(--busy)}
 
 /* modal */
-#modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:50}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;z-index:50}
 #modal.show{display:flex}
-#modalBox{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:500px;max-width:92vw;max-height:88vh;overflow-y:auto;padding:24px}
+#modalBox{background:var(--panel);border:1px solid var(--line2);border-radius:14px;width:520px;max-width:92vw;max-height:88vh;overflow-y:auto;padding:26px}
 #modalBox h2{margin-bottom:14px}
 .mfoot{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
 .note{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:12px;color:var(--mut);margin-bottom:14px}
 .note code{color:var(--busy);font-family:var(--mono);word-break:break-all}
+.stepnav{display:flex;justify-content:space-between;margin-top:30px;max-width:780px}
 </style>
 </head>
 <body>
@@ -115,87 +146,147 @@ label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em
   <nav id="steps">
     <div id="logo">LAUNCH<span>ER</span></div>
     <div id="syncState">not synced</div>
-    <div class="step active" data-pane="videos"><div class="n">1</div><div>Videos</div></div>
-    <div class="step" data-pane="dest"><div class="n">2</div><div>Destination</div></div>
-    <div class="step" data-pane="copy"><div class="n">3</div><div>Copy</div></div>
-    <div class="step" data-pane="track"><div class="n">4</div><div>Tracking</div></div>
+    <div class="step active" data-pane="media"><div class="n">1</div><div><div class="lbl">Media</div><div class="sub2" id="ss-media">videos, images, Drive</div></div></div>
+    <div class="step" data-pane="camp"><div class="n">2</div><div><div class="lbl">Campaign</div><div class="sub2" id="ss-camp">objective, budget, bids</div></div></div>
+    <div class="step" data-pane="adsets"><div class="n">3</div><div><div class="lbl">Ad sets</div><div class="sub2" id="ss-adsets">targets</div></div></div>
+    <div class="step" data-pane="ad"><div class="n">4</div><div><div class="lbl">Ad</div><div class="sub2" id="ss-ad">copy, format, CTA</div></div></div>
+    <div class="step" data-pane="review"><div class="n">5</div><div><div class="lbl">Review</div><div class="sub2" id="ss-review">preview & launch</div></div></div>
     <div class="spacer"></div>
-    <button id="settingsBtn" onclick="openSettings()">Settings</button>
+    <a class="navlink" href="studio.html" target="_blank">Content Studio</a>
+    <button class="navlink" onclick="copyTeamLink(event)">Copy team link</button>
+    <button class="navlink" onclick="openSettings()">Settings</button>
   </nav>
 
   <main id="canvas">
 
-    <section class="pane show" id="pane-videos">
-      <h2>Videos</h2>
-      <div class="sub">Drag files straight from Finder. They upload from this browser to Meta - no Drive, no keys.</div>
+    <!-- ================= STEP 1: MEDIA ================= -->
+    <section class="pane show" id="pane-media">
+      <h2>Media</h2>
+      <div class="sub">Videos and images. Drag from your device, or import straight from Google Drive - Meta pulls Drive videos on its own servers, nothing downloads here.</div>
       <div id="drop" onclick="document.getElementById('fileInput').click()">
-        <div class="big">Drop videos here</div>
-        <div>or click to pick files (mp4, mov)</div>
+        <div class="big">Drop videos & images here</div>
+        <div>or click to pick files (mp4, mov, jpg, png, webp)</div>
       </div>
-      <input type="file" id="fileInput" accept="video/*" multiple style="display:none">
-      <div class="grid" id="videoGrid"></div>
+      <input type="file" id="fileInput" accept="video/*,image/*" multiple style="display:none">
+
+      <h3 class="sec">Google Drive import</h3>
+      <div class="sub" style="margin-bottom:8px">Paste a folder link or file links, one per line. Folder must be shared as <b style="color:var(--ink)">Anyone with the link</b>.</div>
+      <textarea id="driveLinks" rows="2" placeholder="https://drive.google.com/drive/folders/..."></textarea>
+      <div style="margin-top:8px"><button class="btn primary" onclick="importDrive()">Import from Drive</button> <span id="driveState" class="hint"></span></div>
+
+      <div class="grid" id="mediaGrid"></div>
+      <div class="stepnav"><span></span><button class="btn primary" onclick="goStep('camp')">Next: Campaign</button></div>
     </section>
 
-    <section class="pane" id="pane-dest">
-      <h2>Destination</h2>
-      <div class="sub">All accounts synced live. Pick one, import into an existing campaign or create new.</div>
+    <!-- ================= STEP 2: CAMPAIGN ================= -->
+    <section class="pane" id="pane-camp">
+      <h2>Campaign</h2>
+      <div class="sub">Pick the account, then reuse a campaign or build a new one with the exact settings Ads Manager gives you.</div>
       <div class="field"><label>Ad account</label><select id="acctSel" onchange="pickAccount()"><option value="">Syncing...</option></select></div>
 
-      <div class="tabs"><button class="tab on" id="tabExistC" onclick="destMode('exist')">Existing campaign</button><button class="tab" id="tabNewC" onclick="destMode('new')">Create new campaign</button></div>
+      <div class="seg"><button class="on" id="tabExistC" onclick="destMode('exist')">Existing campaign</button><button id="tabNewC" onclick="destMode('new')">Create new campaign</button></div>
 
-      <div id="destExist"><div class="list" id="campaignList"><div class="hint">Pick an account.</div></div></div>
+      <div id="destExist"><div class="list" id="campaignList"><div class="hint">Pick an account first.</div></div><div class="hint" id="campInfo"></div></div>
+
       <div id="destNew" style="display:none">
         <div class="row">
-          <div class="field"><label>Campaign name</label><input id="newCampName" placeholder="claud script 2"></div>
-          <div class="field"><label>CBO daily budget (<span id="curLabel">EGP</span>)</label><input id="newCampBudget" type="number" placeholder="1000"></div>
+          <div class="field" style="flex:2"><label>Campaign name</label><input id="newCampName" placeholder="Playmore | Broad | Jul 26"></div>
+          <div class="field"><label>Objective</label><select id="objSel" onchange="objChanged()">
+            <option value="OUTCOME_SALES">Sales</option>
+            <option value="OUTCOME_TRAFFIC">Traffic</option>
+            <option value="OUTCOME_ENGAGEMENT">Engagement</option>
+            <option value="OUTCOME_LEADS">Leads</option>
+            <option value="OUTCOME_AWARENESS">Awareness</option>
+            <option value="OUTCOME_APP_PROMOTION">App promotion</option>
+          </select></div>
         </div>
-      </div>
-
-      <div id="adsetZone" style="margin-top:22px;display:none">
-        <h2 style="font-size:16px">Ad sets</h2>
-        <div class="sub">Every selected ad set gets a copy of every ad.</div>
-        <div class="list" id="adsetList"></div>
-        <div style="margin-top:10px"><button class="btn" onclick="toggleNewAdset()">+ New ad set</button></div>
-        <div id="newAdsetBox" style="display:none;margin-top:12px">
-          <div class="row">
-            <div class="field"><label>Ad set name</label><input id="newAdsetName" placeholder="Egypt Broad"></div>
-            <div class="field"><label>Country</label><input id="newAdsetCountry" value="EG" maxlength="2"></div>
-            <div class="field"><label>Pixel</label><select id="newAdsetPixel"><option value="">Pick account first</option></select></div>
-          </div>
-          <div class="hint">Broad targeting, purchase optimization, paused. CBO parent carries the budget.</div>
+        <h3 class="sec">Budget</h3>
+        <div class="row">
+          <div class="field"><label>Budget level</label><select id="budgetLevel" onchange="paint()">
+            <option value="CBO">Campaign budget (Advantage, CBO)</option>
+            <option value="ABO">Ad set budget (ABO)</option>
+          </select></div>
+          <div class="field"><label>Type</label><select id="budgetType" onchange="paint()"><option value="daily">Daily</option><option value="lifetime">Lifetime</option></select></div>
+          <div class="field"><label>Amount (<span id="curLabel">EGP</span>)</label><input id="budgetAmt" type="number" placeholder="1000" oninput="paint()"></div>
         </div>
+        <div class="hint" id="aboHint" style="display:none">ABO: this amount is applied to the new ad set you define in step 3.</div>
+        <h3 class="sec">Bid strategy</h3>
+        <div class="row">
+          <div class="field" style="flex:2"><label>Strategy</label><select id="bidSel" onchange="bidChanged()">
+            <option value="volume">Highest volume (no cap)</option>
+            <option value="cost_cap">Cost per result goal (CPP)</option>
+            <option value="min_roas">ROAS goal</option>
+            <option value="bid_cap">Bid cap</option>
+          </select></div>
+          <div class="field" id="bidGoalWrap" style="display:none"><label id="bidGoalLbl">Cost per result (<span id="curLabel2">EGP</span>)</label><input id="bidGoalAmt" type="number" step="0.01" placeholder="150" oninput="paint()"></div>
+          <div class="field" id="roasGoalWrap" style="display:none"><label>ROAS floor (e.g. 3.5)</label><input id="roasGoalAmt" type="number" step="0.1" placeholder="3.5" oninput="paint()"></div>
+        </div>
+        <div class="warn" id="roasNote" style="display:none">ROAS goal switches the performance goal to Conversion value automatically - that is how Meta requires it.</div>
       </div>
-
-      <div class="field" style="margin-top:18px"><label>Facebook page for the ads</label><select id="pageSel" onchange="S.page=this.value;paint()"><option value="">Pick account first</option></select></div>
+      <div class="stepnav"><button class="btn" onclick="goStep('media')">Back</button><button class="btn primary" onclick="goStep('adsets')">Next: Ad sets</button></div>
     </section>
 
-    <section class="pane" id="pane-copy">
-      <h2>Copy</h2>
-      <div class="sub">Everything already running in this account, deduped. Click to reuse, or write new.</div>
+    <!-- ================= STEP 3: AD SETS ================= -->
+    <section class="pane" id="pane-adsets">
+      <h2>Ad sets</h2>
+      <div class="sub">Every ad set you select gets a copy of every ad. Add a new one on top if you want.</div>
+      <div id="adsetExistZone">
+        <div class="list" id="adsetList"><div class="hint">Pick a campaign in step 2 to load its ad sets, or create a new campaign and define the ad set below.</div></div>
+      </div>
+      <div style="margin-top:14px"><button class="btn" id="newAdsetToggle" onclick="toggleNewAdset()">+ New ad set</button></div>
+      <div id="newAdsetBox" style="display:none;margin-top:16px">
+        <div class="row">
+          <div class="field" style="flex:2"><label>Ad set name</label><input id="newAdsetName" placeholder="Egypt Broad" oninput="paint()"></div>
+          <div class="field"><label>Country</label><input id="newAdsetCountry" value="EG" maxlength="2" oninput="paint()"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Performance goal</label><select id="goalSel" onchange="goalChanged()"></select></div>
+          <div class="field" id="pixelWrap"><label>Pixel</label><select id="newAdsetPixel" onchange="paint()"><option value="">Pick account first</option></select></div>
+          <div class="field" id="eventWrap"><label>Conversion event</label><select id="eventSel" onchange="paint()">
+            <option>PURCHASE</option><option>ADD_TO_CART</option><option>INITIATE_CHECKOUT</option><option>ADD_PAYMENT_INFO</option><option>LEAD</option><option>COMPLETE_REGISTRATION</option><option>CONTENT_VIEW</option>
+          </select></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Age min</label><input id="ageMin" type="number" value="18" min="13" max="65"></div>
+          <div class="field"><label>Age max</label><input id="ageMax" type="number" value="65" min="13" max="65"></div>
+          <div class="field"><label>Advantage+ audience</label><select id="advAud"><option value="1">On (recommended)</option><option value="0">Off (hard limits)</option></select></div>
+        </div>
+        <div class="row" id="aboBudgetRow" style="display:none">
+          <div class="field"><label>Ad set budget (<span id="curLabel3">EGP</span>) - ABO</label><input id="aboAmt" type="number" placeholder="500" oninput="paint()"></div>
+        </div>
+        <div class="hint">Placements: Advantage+ (all). Targeting stays broad - the pixel does the work.</div>
+      </div>
+      <div class="stepnav"><button class="btn" onclick="goStep('camp')">Back</button><button class="btn primary" onclick="goStep('ad')">Next: Ad</button></div>
+    </section>
 
-      <label>Primary text <span id="bodyCount" class="mono" style="color:var(--dim)"></span></label>
-      <div class="tabs"><button class="tab on" id="tabBodyExist" onclick="copyMode('body','exist')">Existing</button><button class="tab" id="tabBodyNew" onclick="copyMode('body','new')">New</button></div>
-      <div class="list" id="bodyList" style="max-height:260px;overflow-y:auto"><div class="hint">Pick an account in Destination and copies sync automatically.</div></div>
+    <!-- ================= STEP 4: AD ================= -->
+    <section class="pane" id="pane-ad">
+      <h2>Ad</h2>
+      <div class="sub">Format, identity, copy. Existing copy is mined from the account so you can reuse proven text in one click.</div>
+      <div class="seg"><button class="on" id="fmtSingle" onclick="setFormat('single')">One ad per file</button><button id="fmtCarousel" onclick="setFormat('carousel')">Carousel (files become cards)</button></div>
+      <div class="field"><label>Facebook page</label><select id="pageSel" onchange="S.page=this.value;paint()"><option value="">Pick account first</option></select></div>
+
+      <h3 class="sec">Primary text <span id="bodyCount" class="mono" style="color:var(--dim);text-transform:none"></span></h3>
+      <div class="seg"><button class="on" id="tabBodyExist" onclick="copyMode('body','exist')">Existing</button><button id="tabBodyNew" onclick="copyMode('body','new')">New</button></div>
+      <div class="list" id="bodyList" style="max-height:240px;overflow-y:auto"><div class="hint">Copies sync when you pick an account.</div></div>
       <textarea id="bodyNew" rows="5" style="display:none" placeholder="Write new primary text" oninput="S.body=this.value;S.bodyLabel='new';paint()"></textarea>
 
-      <div style="height:18px"></div>
-      <label>Headline <span id="titleCount" class="mono" style="color:var(--dim)"></span></label>
-      <div class="tabs"><button class="tab on" id="tabTitleExist" onclick="copyMode('title','exist')">Existing</button><button class="tab" id="tabTitleNew" onclick="copyMode('title','new')">New</button></div>
-      <div class="list" id="titleList" style="max-height:180px;overflow-y:auto"><div class="hint">Same - auto-synced.</div></div>
+      <h3 class="sec">Headline <span id="titleCount" class="mono" style="color:var(--dim);text-transform:none"></span></h3>
+      <div class="seg"><button class="on" id="tabTitleExist" onclick="copyMode('title','exist')">Existing</button><button id="tabTitleNew" onclick="copyMode('title','new')">New</button></div>
+      <div class="list" id="titleList" style="max-height:170px;overflow-y:auto"><div class="hint">Same - auto-synced.</div></div>
       <input id="titleNew" style="display:none" placeholder="Write new headline" oninput="S.title=this.value;S.titleLabel='new';paint()">
 
-      <div style="height:18px"></div>
+      <div class="row" style="margin-top:16px">
+        <div class="field"><label>Description (optional)</label><input id="descInput" placeholder="Shows under the headline" oninput="S.desc=this.value;paint()"></div>
+      </div>
       <div class="row">
-        <div class="field"><label>Link URL</label><input id="linkUrl" placeholder="https://goplaymore.com/" oninput="S.link=this.value;paint()"></div>
+        <div class="field" style="flex:2"><label>Link URL</label><input id="linkUrl" placeholder="https://goplaymore.com/" oninput="S.link=this.value;paint()"></div>
         <div class="field"><label>CTA</label><select id="ctaSel" onchange="S.cta=this.value;paint()">
-          <option>SHOP_NOW</option><option>LEARN_MORE</option><option>ORDER_NOW</option><option>BUY_NOW</option><option>SIGN_UP</option><option>GET_OFFER</option>
+          <option>SHOP_NOW</option><option>BUY_NOW</option><option>ORDER_NOW</option><option>LEARN_MORE</option><option>SIGN_UP</option><option>GET_OFFER</option><option>SUBSCRIBE</option><option>CONTACT_US</option><option>BOOK_NOW</option><option>DOWNLOAD</option>
         </select></div>
       </div>
-    </section>
 
-    <section class="pane" id="pane-track">
-      <h2>Tracking</h2>
-      <div class="sub">UTM parameters appended to every ad. Click a chip to insert a dynamic macro into the focused field.</div>
+      <h3 class="sec">Tracking (UTM)</h3>
       <div>
         <span class="utmchip" onclick="ins('{{campaign.name}}')">{{campaign.name}}</span>
         <span class="utmchip" onclick="ins('{{adset.name}}')">{{adset.name}}</span>
@@ -214,44 +305,86 @@ label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em
       </div>
       <label>url_tags preview</label>
       <div id="utmPreview" class="mono"></div>
+      <div class="stepnav"><button class="btn" onclick="goStep('adsets')">Back</button><button class="btn primary" onclick="goStep('review')">Next: Review</button></div>
+    </section>
+
+    <!-- ================= STEP 5: REVIEW ================= -->
+    <section class="pane" id="pane-review">
+      <h2>Review & preview</h2>
+      <div class="sub">Prepare uploads your media to the ad account and renders Meta's own ad preview - the exact thing people will see. Then launch.</div>
+      <div class="row">
+        <div class="field"><label>Preview format</label><select id="pvFormat">
+          <option value="MOBILE_FEED_STANDARD">Facebook mobile feed</option>
+          <option value="INSTAGRAM_STANDARD">Instagram feed</option>
+          <option value="INSTAGRAM_STORY">Instagram story</option>
+          <option value="DESKTOP_FEED_STANDARD">Facebook desktop feed</option>
+          <option value="FACEBOOK_REELS_MOBILE">Facebook reels</option>
+        </select></div>
+        <div class="field" style="display:flex;align-items:flex-end"><button class="btn primary" style="width:100%" id="prepBtn" onclick="prepareAndPreview()">Prepare media & preview</button></div>
+      </div>
+      <div id="previewZone"><div id="pvEmpty">No preview yet. Hit Prepare - it uploads media to the account (nothing goes live) and renders the real Meta preview.</div></div>
+      <div class="stepnav"><button class="btn" onclick="goStep('ad')">Back</button><span></span></div>
     </section>
   </main>
 
+  <!-- ================= RIGHT RAIL ================= -->
   <aside id="rail">
     <h3>Launch manifest</h3>
+    <div id="armLights">
+      <div class="armlight" id="al-media"><div class="dot"></div><div class="t">MEDIA</div></div>
+      <div class="armlight" id="al-camp"><div class="dot"></div><div class="t">CAMP</div></div>
+      <div class="armlight" id="al-adsets"><div class="dot"></div><div class="t">SETS</div></div>
+      <div class="armlight" id="al-ad"><div class="dot"></div><div class="t">AD</div></div>
+      <div class="armlight" id="al-ready"><div class="dot"></div><div class="t">ARMED</div></div>
+    </div>
     <div id="manifest"></div>
+    <div id="issues"></div>
+    <div id="launchWrap">
+      <div id="statusSel"><label>Launch ads as</label><select id="launchStatus"><option value="PAUSED">Paused (review in Ads Manager first)</option><option value="ACTIVE">Active (starts spending on approval)</option></select></div>
+      <button id="launchBtn" disabled onclick="launch()">LAUNCH</button>
+    </div>
     <div id="console"></div>
-    <div id="launchWrap"><button id="launchBtn" disabled onclick="launch()">LAUNCH</button></div>
   </aside>
 </div>
 
 <div id="modal"><div id="modalBox">
   <h2>Sign in</h2>
-  <div class="note">One-time: paste your Meta App ID (a public number, not a secret). After that, login is one click, forever.</div>
+  <div class="note">One-time: your Meta App ID is prefilled. After the first login it is one click, forever. Teammates: share the page link and add them under App Roles in the Meta app (or they paste a token below).</div>
   <div class="field"><label>Meta App ID</label><input id="cfgAppId" class="mono" placeholder="e.g. 1234567890123456"></div>
   <div class="field"><button class="btn primary" style="width:100%" onclick="fbLogin()">Continue with Facebook</button></div>
   <div class="field"><label>Advanced: manual access token (skip login)</label><input id="cfgMeta" type="password" class="mono" placeholder="optional"></div>
-  <div class="field"><label>Supabase URL (optional, for launch history)</label><input id="cfgSbUrl" placeholder="https://xxxx.supabase.co" class="mono"></div>
+  <div class="field"><label>Supabase URL (optional, launch history)</label><input id="cfgSbUrl" placeholder="https://xxxx.supabase.co" class="mono"></div>
   <div class="field"><label>Supabase anon key (optional)</label><input id="cfgSbKey" type="password" class="mono"></div>
-  <div class="note">Supabase, run once in SQL editor:<br><code>create table launches (id bigserial primary key, created_at timestamptz default now(), account_id text, campaign_id text, campaign_name text, adset_ids jsonb, ad_ids jsonb, videos jsonb, body text, headline text, link text, url_tags text);<br>alter table launches enable row level security;<br>create policy "anon all" on launches for all using (true) with check (true);</code></div>
   <div class="mfoot"><button class="btn" onclick="closeSettings()">Cancel</button><button class="btn primary" onclick="saveSettings()">Save & Sync</button></div>
 </div></div>
 
 <script>
 /* ============================ STATE ============================ */
 const GRAPH='https://graph.facebook.com/v21.0';
+const PROXIES=[u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u), u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
 const S={
-  files:[],                      // File objects
+  media:[],                 // {kind:'video'|'image', src:'local'|'drive', file?, url?, name, size?, id?, hash?, thumb?}
   accounts:[], acct:null, acctName:'', currency:'EGP',
-  campMode:'exist', camp:null, campName:'', newCamp:false,
+  campMode:'exist', camp:null, campName:'', campMeta:null, newCamp:false,
   adsets:[], selAdsets:[], newAdset:false,
   pages:[], page:'', pixels:[],
   bodies:[], titles:[],
-  body:'', bodyLabel:'', title:'', titleLabel:'',
+  body:'', bodyLabel:'', title:'', titleLabel:'', desc:'',
   link:'', cta:'SHOP_NOW',
-  launching:false
+  format:'single',
+  prepared:false, launching:false
 };
 const cfg={meta:'',appId:'1765090894530277',sbUrl:'',sbKey:''};
+
+/* Objective -> performance goals (label, value, needsPixel) */
+const GOALS={
+  OUTCOME_SALES:[['Conversions','OFFSITE_CONVERSIONS',1],['Conversion value (ROAS)','VALUE',1],['Landing page views','LANDING_PAGE_VIEWS',1],['Link clicks','LINK_CLICKS',0],['Impressions','IMPRESSIONS',0],['Reach','REACH',0]],
+  OUTCOME_TRAFFIC:[['Link clicks','LINK_CLICKS',0],['Landing page views','LANDING_PAGE_VIEWS',1],['Impressions','IMPRESSIONS',0],['Reach','REACH',0],['Conversations','CONVERSATIONS',0]],
+  OUTCOME_ENGAGEMENT:[['ThruPlay','THRUPLAY',0],['Post engagement','POST_ENGAGEMENT',0],['Video views','VIDEO_VIEWS',0],['Page likes','PAGE_LIKES',0],['Link clicks','LINK_CLICKS',0],['Conversions','OFFSITE_CONVERSIONS',1]],
+  OUTCOME_LEADS:[['Conversions','OFFSITE_CONVERSIONS',1],['Landing page views','LANDING_PAGE_VIEWS',1],['Link clicks','LINK_CLICKS',0],['Conversion value (ROAS)','VALUE',1]],
+  OUTCOME_AWARENESS:[['Reach','REACH',0],['Impressions','IMPRESSIONS',0],['ThruPlay','THRUPLAY',0],['2-sec video views','TWO_SECOND_CONTINUOUS_VIDEO_VIEWS',0]],
+  OUTCOME_APP_PROMOTION:[['App installs','APP_INSTALLS',0],['Link clicks','LINK_CLICKS',0]]
+};
 
 /* ============================ SETTINGS ============================ */
 function loadCfg(){try{Object.assign(cfg,JSON.parse(localStorage.getItem('launcher_cfg')||'{}'))}catch(e){}}
@@ -271,6 +404,73 @@ function saveSettings(){
   localStorage.setItem('launcher_cfg',JSON.stringify(cfg));
   closeSettings(); syncAll();
 }
+function copyTeamLink(e){
+  navigator.clipboard.writeText(location.origin+location.pathname).then(()=>{
+    e.target.textContent='Link copied'; setTimeout(()=>e.target.textContent='Copy team link',1500);
+  });
+}
+
+/* ============================ META HELPERS ============================ */
+function metaErr(j){
+  const e=j.error||{};
+  let m=e.error_user_title? e.error_user_title+': '+(e.error_user_msg||'') : (e.message||'Unknown Meta error');
+  if(e.error_data&&e.error_data.blame_field_specs){try{m+=' [field: '+JSON.stringify(e.error_data.blame_field_specs)+']'}catch(x){}}
+  const err=new Error(m); err.code=e.code; return err;
+}
+async function gget(path){
+  const sep=path.includes('?')?'&':'?';
+  const r=await fetch(`${GRAPH}/${path}${sep}access_token=${cfg.meta}`);
+  const j=await r.json();
+  if(j.error){
+    if(j.error.code===190){cfg.meta='';log('Login expired - hit Continue with Facebook','err');openSettings()}
+    throw metaErr(j);
+  }
+  return j;
+}
+async function gpost(path,payload){
+  const body=new URLSearchParams({...payload,access_token:cfg.meta});
+  const r=await fetch(`${GRAPH}/${path}`,{method:'POST',body});
+  const j=await r.json();
+  if(j.error) throw metaErr(j);
+  return j;
+}
+function uploadVideoFile(acct,file,onProgress){
+  return new Promise((resolve,reject)=>{
+    const fd=new FormData();
+    fd.append('source',file);
+    fd.append('name',file.name.replace(/\.[^.]+$/,''));
+    fd.append('access_token',cfg.meta);
+    const xhr=new XMLHttpRequest();
+    xhr.open('POST',`${GRAPH}/act_${acct}/advideos`);
+    xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(Math.round(e.loaded/e.total*100))};
+    xhr.onload=()=>{try{const j=JSON.parse(xhr.responseText); j.error?reject(metaErr(j)):resolve(j)}catch(e){reject(new Error('Bad upload response'))}};
+    xhr.onerror=()=>reject(new Error('Network error during upload'));
+    xhr.send(fd);
+  });
+}
+async function uploadImageBytes(acct,b64){
+  const j=await gpost(`act_${acct}/adimages`,{bytes:b64});
+  const k=Object.keys(j.images||{})[0];
+  if(!k) throw new Error('Image upload returned no hash');
+  return j.images[k].hash;
+}
+function fileToB64(fileOrBlob){
+  return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=()=>rej(new Error('Read failed'));r.readAsDataURL(fileOrBlob)});
+}
+async function proxyFetchBlob(url){
+  let last;
+  for(const p of PROXIES){
+    try{const r=await fetch(p(url)); if(r.ok) return await r.blob(); last=new Error('Proxy HTTP '+r.status)}catch(e){last=e}
+  }
+  throw last||new Error('All proxies failed');
+}
+async function proxyFetchText(url){
+  let last;
+  for(const p of PROXIES){
+    try{const r=await fetch(p(url)); if(r.ok) return await r.text(); last=new Error('Proxy HTTP '+r.status)}catch(e){last=e}
+  }
+  throw last||new Error('All proxies failed');
+}
 
 /* ============================ FULL SYNC ============================ */
 async function syncAll(){
@@ -281,106 +481,119 @@ async function syncAll(){
     const j=await gget('me/adaccounts?fields=name,account_id,currency,account_status&limit=200');
     S.accounts=(j.data||[]).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
     const sel=document.getElementById('acctSel');
-    sel.innerHTML='<option value="">Pick an account</option>'+S.accounts.map(a=>`<option value="${a.account_id}">${a.name||a.account_id} (${a.currency})</option>`).join('');
+    sel.innerHTML='<option value="">Pick an account</option>'+S.accounts.map(a=>`<option value="${a.account_id}">${esc(a.name||a.account_id)} (${a.currency})</option>`).join('');
     st.textContent=S.accounts.length+' accounts live'; st.classList.add('on');
     log('Synced '+S.accounts.length+' ad accounts','ok');
   }catch(e){st.textContent='sync failed';log('Sync: '+e.message,'err')}
 }
 
 /* ============================ NAV ============================ */
-document.querySelectorAll('.step').forEach(s=>s.onclick=()=>{
+const STEPS=['media','camp','adsets','ad','review'];
+function goStep(p){
   document.querySelectorAll('.step').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.pane').forEach(x=>x.classList.remove('show'));
-  s.classList.add('active');
-  document.getElementById('pane-'+s.dataset.pane).classList.add('show');
-});
+  document.querySelector(`.step[data-pane="${p}"]`).classList.add('active');
+  document.getElementById('pane-'+p).classList.add('show');
+  document.getElementById('canvas').scrollTop=0;
+}
+document.querySelectorAll('.step').forEach(s=>s.onclick=()=>goStep(s.dataset.pane));
 
-/* ============================ VIDEOS: DRAG & DROP ============================ */
+/* ============================ MEDIA ============================ */
 const drop=document.getElementById('drop');
 ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
 drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
 document.getElementById('fileInput').addEventListener('change',e=>addFiles(e.target.files));
+function kindOf(name,type){
+  if((type||'').startsWith('video/')||/\.(mp4|mov|avi|webm|m4v)$/i.test(name)) return 'video';
+  if((type||'').startsWith('image/')||/\.(jpe?g|png|webp|gif|bmp)$/i.test(name)) return 'image';
+  return null;
+}
 function addFiles(list){
   [...list].forEach(f=>{
-    if(!f.type.startsWith('video/')&&!/\.(mp4|mov|avi)$/i.test(f.name)) return;
-    if(S.files.some(x=>x.name===f.name&&x.size===f.size)) return;
-    S.files.push(f);
+    const k=kindOf(f.name,f.type); if(!k) return;
+    if(S.media.some(x=>x.name===f.name&&x.size===f.size)) return;
+    const m={kind:k,src:'local',file:f,name:f.name,size:f.size};
+    if(k==='image'){m.preview=URL.createObjectURL(f)}
+    S.media.push(m);
   });
-  S.files.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
-  renderFiles(); paint();
+  sortMedia(); renderMedia(); paint();
 }
-function renderFiles(){
-  const g=document.getElementById('videoGrid'); g.innerHTML='';
-  S.files.forEach((f,i)=>{
+function sortMedia(){S.media.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}))}
+function renderMedia(){
+  const g=document.getElementById('mediaGrid'); g.innerHTML='';
+  S.media.forEach((m,i)=>{
     const d=document.createElement('div');
     d.className='vcard';
-    d.innerHTML=`<div class="x" onclick="S.files.splice(${i},1);renderFiles();paint()">\u00d7</div><div class="nm">${esc(f.name)}</div><div class="mt">${(f.size/1048576).toFixed(1)} MB</div>`;
+    const icon=m.kind==='video'?'&#9654;':'&#9679;';
+    const pv=m.preview?`<img src="${m.preview}">`:icon;
+    d.innerHTML=`<div class="tag">${m.src==='drive'?'DRIVE':'LOCAL'} ${m.kind.toUpperCase()}</div><div class="x" onclick="S.media.splice(${i},1);renderMedia();paint()">&times;</div><div class="prev">${pv}</div><div class="meta"><div class="nm">${esc(m.name)}</div><div class="mt">${m.size?(m.size/1048576).toFixed(1)+' MB':'from Drive'}</div></div>`;
     g.appendChild(d);
   });
 }
 
-/* ============================ META HELPERS ============================ */
-async function gget(path){
-  const sep=path.includes('?')?'&':'?';
-  const r=await fetch(`${GRAPH}/${path}${sep}access_token=${cfg.meta}`);
-  const j=await r.json();
-  if(j.error){
-    if(j.error.code===190){cfg.meta='';log('Login expired - hit Continue with Facebook','err');openSettings()}
-    throw new Error(j.error.message);
+/* ============================ GOOGLE DRIVE IMPORT ============================ */
+function driveDirect(id){return `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`}
+async function importDrive(){
+  const raw=document.getElementById('driveLinks').value.trim();
+  const st=document.getElementById('driveState');
+  if(!raw){st.textContent='Paste a link first.';return}
+  st.textContent='Reading Drive...';
+  let added=0, failed=0;
+  const lines=raw.split(/\s+/).filter(Boolean);
+  for(const line of lines){
+    const fm=line.match(/\/folders\/([\w-]{15,})/);
+    if(fm){
+      try{
+        const html=await proxyFetchText(`https://drive.google.com/embeddedfolderview?id=${fm[1]}#list`);
+        const re=/id="entry-([\w-]+)"[\s\S]*?flip-entry-title">([^<]+)</g;
+        let mt, n=0;
+        while((mt=re.exec(html))!==null){
+          const id=mt[1], name=mt[2].trim(), k=kindOf(name,'');
+          if(!k) continue;
+          if(S.media.some(x=>x.driveId===id)) continue;
+          S.media.push({kind:k,src:'drive',driveId:id,url:driveDirect(id),name}); n++; added++;
+        }
+        if(!n&&added===0){st.textContent='Folder read but no videos/images found. Is it shared as Anyone with the link?'}
+      }catch(e){failed++;log('Drive folder: '+e.message,'err')}
+      continue;
+    }
+    const im=line.match(/(?:file\/d\/|[?&]id=)([A-Za-z0-9_-]{15,})/);
+    if(im){
+      const id=im[1];
+      if(S.media.some(x=>x.driveId===id)) continue;
+      S.media.push({kind:'video',src:'drive',driveId:id,url:driveDirect(id),name:'drive-file-'+id.slice(0,6)+'.mp4'});
+      added++;
+    }
   }
-  return j;
-}
-async function gpost(path,payload){
-  const body=new URLSearchParams({...payload,access_token:cfg.meta});
-  const r=await fetch(`${GRAPH}/${path}`,{method:'POST',body});
-  const j=await r.json();
-  if(j.error) throw new Error(j.error.message);
-  return j;
-}
-function uploadVideo(acct,file,onProgress){
-  return new Promise((resolve,reject)=>{
-    const fd=new FormData();
-    fd.append('source',file);
-    fd.append('name',file.name.replace(/\.(mp4|mov|avi)$/i,''));
-    fd.append('access_token',cfg.meta);
-    const xhr=new XMLHttpRequest();
-    xhr.open('POST',`${GRAPH}/act_${acct}/advideos`);
-    xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(Math.round(e.loaded/e.total*100))};
-    xhr.onload=()=>{
-      try{const j=JSON.parse(xhr.responseText);
-        j.error?reject(new Error(j.error.message)):resolve(j);
-      }catch(e){reject(new Error('Bad response'))}
-    };
-    xhr.onerror=()=>reject(new Error('Network error during upload'));
-    xhr.send(fd);
-  });
+  sortMedia(); renderMedia(); paint();
+  st.textContent=added? added+' file(s) imported.'+(failed?' Some failed - check console.':'') : (failed?'Import failed - share the folder as Anyone with the link and retry.':'No usable links found.');
 }
 
-/* ============================ DESTINATION ============================ */
+/* ============================ CAMPAIGN (STEP 2) ============================ */
 async function pickAccount(){
   const sel=document.getElementById('acctSel');
   S.acct=sel.value; if(!S.acct){paint();return}
   const a=S.accounts.find(x=>x.account_id===S.acct);
   S.acctName=a?(a.name||S.acct):S.acct; S.currency=a?a.currency:'';
-  document.getElementById('curLabel').textContent=S.currency;
-  S.camp=null;S.campName='';S.selAdsets=[];S.adsets=[];S.page='';
-  document.getElementById('adsetZone').style.display='none';
+  ['curLabel','curLabel2','curLabel3'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=S.currency});
+  S.camp=null;S.campName='';S.campMeta=null;S.selAdsets=[];S.adsets=[];S.page='';S.prepared=false;
+  document.getElementById('adsetList').innerHTML='<div class="hint">Pick a campaign in step 2, or define a new ad set below.</div>';
   paint();
   log('Loading '+S.acctName+'...','busy');
-  // parallel live sync: campaigns, pages, pixels, copies
   loadCampaigns(); loadPages(); loadPixels(); loadCopies();
 }
 async function loadCampaigns(){
   try{
-    const j=await gget(`act_${S.acct}/campaigns?fields=name,effective_status,objective&limit=150`);
+    const j=await gget(`act_${S.acct}/campaigns?fields=name,effective_status,objective,daily_budget,lifetime_budget,bid_strategy&limit=200`);
     const L=document.getElementById('campaignList'); L.innerHTML='';
     const data=(j.data||[]).sort((a,b)=>(a.effective_status==='ACTIVE'?0:1)-(b.effective_status==='ACTIVE'?0:1));
-    if(!data.length) L.innerHTML='<div class="hint">No campaigns. Use Create new.</div>';
+    if(!data.length) L.innerHTML='<div class="hint">No campaigns here. Use Create new.</div>';
     data.forEach(c=>{
       const d=document.createElement('div');
       d.className='lrow';
-      d.innerHTML=`<div class="l"><div class="nm">${esc(c.name)}</div><div class="mt">${c.id} \u00b7 ${c.objective||''}</div></div><span class="badge ${c.effective_status==='ACTIVE'?'on':'off'}">${c.effective_status}</span>`;
+      const cbo=(c.daily_budget||c.lifetime_budget)?'CBO':'ABO';
+      d.innerHTML=`<div class="l"><div class="nm">${esc(c.name)}</div><div class="mt">${c.objective||''} \u00b7 ${cbo} \u00b7 ${c.bid_strategy||'LOWEST_COST'}</div></div><span class="badge ${c.effective_status==='ACTIVE'?'on':''}">${c.effective_status}</span>`;
       d.onclick=()=>pickCampaign(c,d);
       L.appendChild(d);
     });
@@ -394,7 +607,7 @@ async function loadPages(){
     if(!pages.length){try{const j=await gget('me/accounts?fields=id,name&limit=50');pages=j.data||[]}catch(e){}}
     S.pages=pages;
     const sel=document.getElementById('pageSel');
-    sel.innerHTML=pages.length?pages.map(p=>`<option value="${p.id}">${esc(p.name||p.id)}</option>`).join(''):'<option value="">No page found - paste ID in console</option>';
+    sel.innerHTML=pages.length?pages.map(p=>`<option value="${p.id}">${esc(p.name||p.id)}</option>`).join(''):'<option value="">No page found</option>';
     if(pages.length){S.page=pages[0].id;paint()}
   }catch(e){log('Pages: '+e.message,'err')}
 }
@@ -410,19 +623,21 @@ async function pickCampaign(c,el){
   document.querySelectorAll('#campaignList .lrow').forEach(x=>x.classList.remove('sel'));
   el.classList.add('sel');
   S.camp=c.id;S.campName=c.name;S.newCamp=false;S.selAdsets=[];
+  S.campMeta={objective:c.objective,cbo:!!(c.daily_budget||c.lifetime_budget),bid_strategy:c.bid_strategy||'LOWEST_COST_WITHOUT_CAP'};
+  document.getElementById('campInfo').textContent=`Selected: ${c.name} \u00b7 ${S.campMeta.cbo?'CBO (budget lives on the campaign - new ad sets get no budget)':'ABO (each ad set carries its own budget)'} \u00b7 ${S.campMeta.bid_strategy}`;
+  refreshGoalOptions(); refreshAdsetConditionals();
   paint(); await loadAdsets(c.id);
 }
 async function loadAdsets(cid){
-  document.getElementById('adsetZone').style.display='block';
   const L=document.getElementById('adsetList'); L.innerHTML='<div class="hint">Loading ad sets...</div>';
   try{
-    const j=await gget(`${cid}/adsets?fields=name,effective_status,optimization_goal&limit=100`);
+    const j=await gget(`${cid}/adsets?fields=name,effective_status,optimization_goal,daily_budget,lifetime_budget&limit=100`);
     S.adsets=j.data||[]; L.innerHTML='';
-    if(!S.adsets.length) L.innerHTML='<div class="hint">No ad sets here. Create one below.</div>';
+    if(!S.adsets.length) L.innerHTML='<div class="hint">No ad sets in this campaign. Create one below.</div>';
     S.adsets.forEach(as=>{
       const d=document.createElement('div');
       d.className='lrow';
-      d.innerHTML=`<div class="l"><div class="nm">${esc(as.name)}</div><div class="mt">${as.id} \u00b7 ${as.optimization_goal||''}</div></div><span class="badge ${as.effective_status==='ACTIVE'?'on':'off'}">${as.effective_status}</span>`;
+      d.innerHTML=`<div class="l"><div class="nm">${esc(as.name)}</div><div class="mt">${as.optimization_goal||''}${as.daily_budget?' \u00b7 daily '+(as.daily_budget/100):''}</div></div><span class="badge ${as.effective_status==='ACTIVE'?'on':''}">${as.effective_status}</span>`;
       d.onclick=()=>{
         const i=S.selAdsets.findIndex(x=>x.id===as.id);
         i>=0?S.selAdsets.splice(i,1):S.selAdsets.push({id:as.id,name:as.name});
@@ -438,23 +653,59 @@ function destMode(m){
   document.getElementById('tabNewC').classList.toggle('on',m==='new');
   document.getElementById('destExist').style.display=m==='exist'?'block':'none';
   document.getElementById('destNew').style.display=m==='new'?'block':'none';
-  if(m==='new'){S.camp=null;S.selAdsets=[];S.newAdset=true;
-    document.getElementById('adsetZone').style.display='block';
-    document.getElementById('adsetList').innerHTML='<div class="hint">New campaign starts empty. Define the new ad set below.</div>';
-    document.getElementById('newAdsetBox').style.display='block';
+  if(m==='new'){
+    S.camp=null;S.campName='';S.campMeta=null;S.selAdsets=[];
+    document.getElementById('adsetList').innerHTML='<div class="hint">New campaign starts empty - define the ad set below.</div>';
+    if(!S.newAdset) toggleNewAdset();
   }
+  refreshGoalOptions(); refreshAdsetConditionals(); paint();
+}
+function objChanged(){refreshGoalOptions();refreshAdsetConditionals();paint()}
+function bidChanged(){
+  const v=document.getElementById('bidSel').value;
+  document.getElementById('bidGoalWrap').style.display=(v==='cost_cap'||v==='bid_cap')?'block':'none';
+  document.getElementById('bidGoalLbl').innerHTML=(v==='bid_cap'?'Bid cap':'Cost per result')+' (<span>'+S.currency+'</span>)';
+  document.getElementById('roasGoalWrap').style.display=v==='min_roas'?'block':'none';
+  document.getElementById('roasNote').style.display=v==='min_roas'?'block':'none';
+  if(v==='min_roas'){const g=document.getElementById('goalSel'); if(g&&[...g.options].some(o=>o.value==='VALUE')) g.value='VALUE'}
   paint();
+}
+function activeObjective(){
+  if(S.campMode==='exist'&&S.campMeta) return S.campMeta.objective||'OUTCOME_SALES';
+  return document.getElementById('objSel').value;
+}
+function activeCBO(){
+  if(S.campMode==='exist'&&S.campMeta) return S.campMeta.cbo;
+  return document.getElementById('budgetLevel').value==='CBO';
+}
+function refreshGoalOptions(){
+  const g=document.getElementById('goalSel');
+  const list=GOALS[activeObjective()]||GOALS.OUTCOME_SALES;
+  g.innerHTML=list.map(x=>`<option value="${x[1]}" data-px="${x[2]}">${x[0]}</option>`).join('');
+  goalChanged();
+}
+function goalChanged(){
+  const g=document.getElementById('goalSel');
+  const opt=g.options[g.selectedIndex];
+  const needsPx=opt&&opt.dataset.px==='1';
+  document.getElementById('pixelWrap').style.display=needsPx?'block':'none';
+  document.getElementById('eventWrap').style.display=(needsPx&&g.value!=='LANDING_PAGE_VIEWS')?'block':'none';
+  if(g.value==='VALUE'){document.getElementById('eventSel').value='PURCHASE'}
+  paint();
+}
+function refreshAdsetConditionals(){
+  document.getElementById('aboBudgetRow').style.display=activeCBO()?'none':'flex';
+  document.getElementById('aboHint').style.display=activeCBO()?'none':'block';
 }
 function toggleNewAdset(){
   S.newAdset=!S.newAdset;
   document.getElementById('newAdsetBox').style.display=S.newAdset?'block':'none';
-  paint();
+  document.getElementById('newAdsetToggle').textContent=S.newAdset?'\u2212 Remove new ad set':'+ New ad set';
+  if(S.newAdset) refreshGoalOptions();
+  refreshAdsetConditionals(); paint();
 }
-document.addEventListener('input',e=>{
-  if(['newCampName','newCampBudget','newAdsetName','newAdsetCountry'].includes(e.target.id))paint();
-});
 
-/* ============================ COPY ============================ */
+/* ============================ COPY (STEP 4) ============================ */
 async function loadCopies(){
   try{
     const j=await gget(`act_${S.acct}/adcreatives?fields=body,title&limit=250`);
@@ -489,6 +740,12 @@ function copyMode(kind,m){
   document.getElementById(kind==='body'?'bodyList':'titleList').style.display=m==='exist'?'flex':'none';
   document.getElementById(kind==='body'?'bodyNew':'titleNew').style.display=m==='new'?'block':'none';
 }
+function setFormat(f){
+  S.format=f; S.prepared=false;
+  document.getElementById('fmtSingle').classList.toggle('on',f==='single');
+  document.getElementById('fmtCarousel').classList.toggle('on',f==='carousel');
+  paint();
+}
 
 /* ============================ UTM ============================ */
 let lastUtm=null;
@@ -500,125 +757,304 @@ function urlTags(){
     .filter(x=>x.v).map(x=>`${x.k}=${x.v}`).join('&');
 }
 
-/* ============================ MANIFEST ============================ */
+/* ============================ VALIDATION ============================ */
+function val(id){const el=document.getElementById(id);return el?el.value.trim():''}
+function newAdsetGoal(){return val('goalSel')}
+function goalNeedsPixel(){const g=document.getElementById('goalSel');const o=g&&g.options[g.selectedIndex];return o&&o.dataset.px==='1'}
+function validate(){
+  const issues=[];
+  const lights={media:false,camp:false,adsets:false,ad:false};
+  lights.media=S.media.length>0;
+  if(!S.media.length) issues.push('Add at least one video or image');
+  if(!S.acct) issues.push('Pick an ad account');
+  if(S.campMode==='exist'){
+    lights.camp=!!(S.acct&&S.camp);
+    if(S.acct&&!S.camp) issues.push('Pick a campaign or switch to Create new');
+  } else {
+    const ok=!!(val('newCampName')&&(activeCBO()?val('budgetAmt'):true));
+    lights.camp=!!(S.acct&&ok);
+    if(!val('newCampName')) issues.push('Name the new campaign');
+    if(activeCBO()&&!val('budgetAmt')) issues.push('Set the campaign budget');
+    const bid=val('bidSel');
+    if((bid==='cost_cap'||bid==='bid_cap')&&!val('bidGoalAmt')) issues.push('Set the cost / bid goal amount');
+    if(bid==='min_roas'&&!val('roasGoalAmt')) issues.push('Set the ROAS floor');
+    if(bid==='min_roas'&&S.newAdset&&newAdsetGoal()!=='VALUE') issues.push('ROAS goal requires performance goal = Conversion value');
+  }
+  const hasTargets=S.selAdsets.length>0||(S.newAdset&&val('newAdsetName'));
+  lights.adsets=hasTargets;
+  if(!hasTargets) issues.push('Select ad sets or define a new one');
+  if(S.newAdset&&val('newAdsetName')){
+    if(goalNeedsPixel()&&!val('newAdsetPixel')) issues.push('The chosen performance goal needs a pixel');
+    if(!activeCBO()&&!val('aboAmt')) issues.push('ABO campaign: set the new ad set budget');
+    if(S.campMode==='new'&&val('bidSel')==='cost_cap'&&!val('bidGoalAmt')) issues.push('Cost cap needs the goal amount');
+  }
+  const adOk=!!(S.page&&S.body&&S.link);
+  lights.ad=adOk;
+  if(!S.page) issues.push('Pick the Facebook page');
+  if(!S.body) issues.push('Pick or write primary text');
+  if(!S.link) issues.push('Set the link URL');
+  if(S.link&&!/^https?:\/\//i.test(S.link)) issues.push('Link must start with https://');
+  if(S.format==='carousel'&&S.media.length<2) issues.push('Carousel needs at least 2 files');
+  if(S.format==='carousel'&&S.media.length>10) issues.push('Carousel max is 10 cards - remove '+(S.media.length-10));
+  return {issues,lights,ready:issues.length===0&&!S.launching};
+}
+
+/* ============================ MANIFEST / PAINT ============================ */
 function paint(){
   const m=document.getElementById('manifest');
-  const nc=S.newCamp;
-  const campLine=nc? (val('newCampName')?`NEW: ${val('newCampName')} @ ${val('newCampBudget')||'?'} ${S.currency}/day CBO`:'') : (S.campName||'');
+  const v=validate();
+  const nc=S.campMode==='new';
+  const bidTxt={volume:'Highest volume',cost_cap:'Cost per result '+(val('bidGoalAmt')||'?')+' '+S.currency,min_roas:'ROAS floor '+(val('roasGoalAmt')||'?')+'x',bid_cap:'Bid cap '+(val('bidGoalAmt')||'?')+' '+S.currency}[val('bidSel')||'volume'];
+  const campLine=nc? (val('newCampName')?`NEW ${val('newCampName')} \u00b7 ${document.getElementById('objSel').options[document.getElementById('objSel').selectedIndex].text} \u00b7 ${activeCBO()?(val('budgetAmt')||'?')+' '+S.currency+'/'+val('budgetType')+' CBO':'ABO'} \u00b7 ${bidTxt}`:'') : (S.campName? S.campName+(S.campMeta?` \u00b7 ${S.campMeta.cbo?'CBO':'ABO'}`:'') :'');
   const asNames=[...S.selAdsets.map(a=>a.name)];
-  if(S.newAdset&&val('newAdsetName')) asNames.push('NEW: '+val('newAdsetName'));
+  if(S.newAdset&&val('newAdsetName')) asNames.push('NEW '+val('newAdsetName')+' ('+(document.getElementById('goalSel').selectedOptions[0]||{}).text+')');
   const pg=S.pages.find(p=>p.id===S.page);
+  const vids=S.media.filter(x=>x.kind==='video').length, imgs=S.media.filter(x=>x.kind==='image').length;
   const rows=[
-    ['videos', S.files.length? S.files.map(f=>f.name).join(', ') : ''],
-    ['account', S.acctName? `${S.acctName} \u00b7 act_${S.acct}` : ''],
+    ['media', S.media.length? `${S.media.length} file(s): ${vids} video, ${imgs} image \u00b7 ${S.format==='carousel'?'1 carousel ad':'1 ad per file'}`:''],
+    ['account', S.acctName? `${S.acctName}`:''],
     ['campaign', campLine],
     ['ad_sets', asNames.join(', ')],
     ['page', pg?(pg.name||pg.id):''],
-    ['primary', S.body? `[${S.bodyLabel}] `+S.body.slice(0,60).replace(/\n/g,' ')+(S.body.length>60?'\u2026':'') : ''],
-    ['headline', S.title? `[${S.titleLabel}] `+S.title : ''],
+    ['primary', S.body? `[${S.bodyLabel}] `+S.body.slice(0,55).replace(/\n/g,' ')+(S.body.length>55?'\u2026':''):''],
+    ['headline', S.title? `[${S.titleLabel}] `+S.title:''],
     ['link', S.link||''],
     ['cta', S.cta],
+    ['launch_as', document.getElementById('launchStatus')?document.getElementById('launchStatus').value:'PAUSED'],
     ['url_tags', urlTags()]
   ];
-  m.innerHTML=rows.map(([k,v])=>`<div class="mline${v?' set':''}"><b>${k}:</b> ${esc(v)||'\u2014'}</div>`).join('');
+  m.innerHTML=rows.map(([k,vv])=>`<div class="mline${vv?' set':''}"><b>${k}:</b> ${esc(vv)||'\u2014'}</div>`).join('');
+  const iz=document.getElementById('issues');
+  iz.innerHTML=v.issues.slice(0,6).map(x=>`<div class="issue">\u26a0 ${esc(x)}</div>`).join('');
+  ['media','camp','adsets','ad'].forEach(k=>document.getElementById('al-'+k).classList.toggle('lit',v.lights[k]));
+  document.getElementById('al-ready').classList.toggle('lit',v.ready);
+  const btn=document.getElementById('launchBtn');
+  btn.disabled=!v.ready; btn.classList.toggle('armed',v.ready);
   document.getElementById('utmPreview').textContent=urlTags()||'(empty)';
-  const ready = S.files.length && S.acct && S.page
-    && (S.camp || (nc&&val('newCampName')&&val('newCampBudget')))
-    && (S.selAdsets.length || (S.newAdset&&val('newAdsetName')&&document.getElementById('newAdsetPixel').value))
-    && S.body && S.link && !S.launching;
-  document.getElementById('launchBtn').disabled=!ready;
+  document.getElementById('ss-media').textContent=S.media.length?S.media.length+' files':'videos, images, Drive';
+  document.getElementById('ss-camp').textContent=campLine?campLine.slice(0,24):'objective, budget, bids';
+  document.getElementById('ss-adsets').textContent=asNames.length?asNames.length+' target(s)':'targets';
+  document.getElementById('ss-ad').textContent=S.body?'copy set':'copy, format, CTA';
+  document.querySelector('.step[data-pane="media"]').classList.toggle('done',v.lights.media);
+  document.querySelector('.step[data-pane="camp"]').classList.toggle('done',v.lights.camp);
+  document.querySelector('.step[data-pane="adsets"]').classList.toggle('done',v.lights.adsets);
+  document.querySelector('.step[data-pane="ad"]').classList.toggle('done',v.lights.ad);
 }
-function val(id){return document.getElementById(id).value.trim()}
+document.addEventListener('input',e=>{
+  if(['newCampName','budgetAmt','bidGoalAmt','roasGoalAmt','newAdsetName','newAdsetCountry','aboAmt','ageMin','ageMax'].includes(e.target.id))paint();
+});
+document.addEventListener('change',e=>{if(e.target.id==='launchStatus')paint()});
+
+/* ============================ CONSOLE ============================ */
+function log(t,cls){const c=document.getElementById('console');c.classList.add('show');const d=document.createElement('div');d.className='cl '+(cls||'');d.textContent=t;c.appendChild(d);c.scrollTop=c.scrollHeight;return d}
+
+/* ============================ MEDIA PREPARATION ============================ */
+async function prepareMedia(){
+  if(S.prepared) return;
+  for(const m of S.media){
+    if(m.kind==='video'&&!m.id){
+      if(m.src==='local'){
+        const line=log('Uploading '+m.name+' 0%','busy');
+        const up=await uploadVideoFile(S.acct,m.file,p=>{line.textContent='Uploading '+m.name+' '+p+'%'});
+        m.id=up.id; line.textContent=m.name+' -> '+up.id; line.className='cl ok';
+      } else {
+        log('Meta pulling '+m.name+' from Drive...','busy');
+        const up=await gpost(`act_${S.acct}/advideos`,{file_url:m.url,name:m.name.replace(/\.[^.]+$/,'')});
+        m.id=up.id; log(m.name+' -> '+up.id,'ok');
+      }
+    }
+    if(m.kind==='image'&&!m.hash){
+      let b64;
+      if(m.src==='local'){ b64=await fileToB64(m.file); }
+      else { log('Fetching image '+m.name+' from Drive...','busy'); const blob=await proxyFetchBlob(m.url); b64=await fileToB64(blob); }
+      m.hash=await uploadImageBytes(S.acct,b64);
+      log(m.name+' -> image '+m.hash.slice(0,10)+'\u2026','ok');
+    }
+  }
+  const pend=S.media.filter(m=>m.kind==='video'&&!m.thumb);
+  if(pend.length){
+    log('Waiting for Meta video processing...','busy');
+    const deadline=Date.now()+12*60*1000;
+    const wait=[...pend];
+    while(wait.length&&Date.now()<deadline){
+      await new Promise(r=>setTimeout(r,10000));
+      for(let i=wait.length-1;i>=0;i--){
+        try{
+          const st=await gget(`${wait[i].id}?fields=status`);
+          const vs=st.status?st.status.video_status:'';
+          if(vs==='ready'){log(wait[i].name+' READY','ok');wait.splice(i,1)}
+          else if(vs==='error'){log(wait[i].name+' processing FAILED - it will be skipped','err');wait[i].failed=true;wait.splice(i,1)}
+        }catch(e){}
+      }
+    }
+    S.media=S.media.filter(m=>!m.failed);
+    for(const m of S.media.filter(x=>x.kind==='video'&&!x.thumb)){
+      for(let t=0;t<6&&!m.thumb;t++){
+        try{
+          const th=await gget(`${m.id}/thumbnails?fields=uri,is_preferred`);
+          const pick=(th.data||[]).find(x=>x.is_preferred)||(th.data||[])[0];
+          if(pick){m.thumb=pick.uri}
+        }catch(e){}
+        if(!m.thumb) await new Promise(r=>setTimeout(r,5000));
+      }
+      if(!m.thumb) throw new Error('No thumbnail available yet for '+m.name+' - wait a minute and hit Prepare again');
+    }
+  }
+  S.prepared=true;
+  log('All media prepared.','ok');
+}
+
+/* ============================ CREATIVE SPECS ============================ */
+function ctaObj(){return {type:S.cta,value:{link:S.link}}}
+function specForMedia(m){
+  if(m.kind==='video'){
+    const vd={video_id:m.id,image_url:m.thumb,message:S.body,call_to_action:ctaObj()};
+    if(S.title) vd.title=S.title;
+    if(S.desc) vd.link_description=S.desc;
+    return {page_id:S.page,video_data:vd};
+  }
+  const ld={link:S.link,image_hash:m.hash,message:S.body,call_to_action:ctaObj()};
+  if(S.title) ld.name=S.title;
+  if(S.desc) ld.description=S.desc;
+  return {page_id:S.page,link_data:ld};
+}
+function specCarousel(){
+  const cards=S.media.slice(0,10).map(m=>{
+    const c={link:S.link};
+    if(S.title) c.name=S.title;
+    if(S.desc) c.description=S.desc;
+    if(m.kind==='image') c.image_hash=m.hash;
+    else {c.video_id=m.id; c.picture=m.thumb;}
+    return c;
+  });
+  return {page_id:S.page,link_data:{link:S.link,message:S.body,multi_share_optimized:true,multi_share_end_card:false,child_attachments:cards,call_to_action:ctaObj()}};
+}
+function builtSpecs(){
+  if(S.format==='carousel') return [{name:'carousel-'+S.media.length+'-cards',spec:specCarousel()}];
+  return S.media.map(m=>({name:m.name.replace(/\.[^.]+$/,''),spec:specForMedia(m)}));
+}
+
+/* ============================ PREVIEW ============================ */
+async function prepareAndPreview(){
+  const btn=document.getElementById('prepBtn');
+  btn.disabled=true; btn.textContent='Preparing...';
+  try{
+    if(!S.acct||!S.page||!S.media.length) throw new Error('Need account, page and media first (steps 1-4)');
+    await prepareMedia();
+    const zone=document.getElementById('previewZone'); zone.innerHTML='';
+    const fmt=document.getElementById('pvFormat').value;
+    const specs=builtSpecs().slice(0,3);
+    for(const sp of specs){
+      const j=await gget(`act_${S.acct}/generatepreviews?creative=${encodeURIComponent(JSON.stringify({object_story_spec:sp.spec}))}&ad_format=${fmt}`);
+      const body=(j.data&&j.data[0]&&j.data[0].body)||'';
+      const box=document.createElement('div'); box.className='pvbox'; box.innerHTML=body;
+      zone.appendChild(box);
+    }
+    if(builtSpecs().length>3) zone.insertAdjacentHTML('beforeend','<div class="hint" style="width:100%">Showing first 3 previews of '+builtSpecs().length+'.</div>');
+    log('Previews rendered - this is Meta\u2019s own preview.','ok');
+  }catch(e){log('Preview: '+e.message,'err')}
+  btn.disabled=false; btn.textContent='Prepare media & preview';
+}
 
 /* ============================ LAUNCH ============================ */
-function log(t,cls){const c=document.getElementById('console');c.classList.add('show');const d=document.createElement('div');d.className='cl '+(cls||'');d.textContent=t;c.appendChild(d);c.scrollTop=c.scrollHeight}
+function minor(x){return Math.round(parseFloat(x)*100)}
 async function launch(){
   S.launching=true;paint();
   const btn=document.getElementById('launchBtn');btn.textContent='LAUNCHING...';
+  const status=document.getElementById('launchStatus').value;
   try{
-    let campId=S.camp, campName=S.campName;
-    if(S.newCamp){
+    /* 1. campaign */
+    let campId=S.camp, campName=S.campName, cbo=activeCBO(), bidMode='volume';
+    if(S.campMode==='new'){
       campName=val('newCampName');
-      const bud=Math.round(parseFloat(val('newCampBudget'))*100);
+      bidMode=val('bidSel');
+      const payload={name:campName,objective:val('objSel'),status:'PAUSED',special_ad_categories:'[]',buying_type:'AUCTION'};
+      if(cbo){
+        if(val('budgetType')==='daily') payload.daily_budget=minor(val('budgetAmt'));
+        else payload.lifetime_budget=minor(val('budgetAmt'));
+        if(bidMode==='cost_cap') payload.bid_strategy='COST_CAP';
+        else if(bidMode==='bid_cap') payload.bid_strategy='LOWEST_COST_WITH_BID_CAP';
+        else if(bidMode==='min_roas') payload.bid_strategy='LOWEST_COST_WITH_MIN_ROAS';
+        else payload.bid_strategy='LOWEST_COST_WITHOUT_CAP';
+      }
       log('Creating campaign '+campName,'busy');
-      const c=await gpost(`act_${S.acct}/campaigns`,{name:campName,objective:'OUTCOME_SALES',status:'PAUSED',special_ad_categories:'[]',daily_budget:bud,bid_strategy:'LOWEST_COST_WITHOUT_CAP'});
+      const c=await gpost(`act_${S.acct}/campaigns`,payload);
       campId=c.id; log('Campaign '+campId,'ok');
+    } else if(S.campMeta){
+      const bs=S.campMeta.bid_strategy||'';
+      bidMode=bs==='COST_CAP'?'cost_cap':bs==='LOWEST_COST_WITH_BID_CAP'?'bid_cap':bs==='LOWEST_COST_WITH_MIN_ROAS'?'min_roas':'volume';
     }
+    /* 2. new ad set */
     const targets=[...S.selAdsets];
     if(S.newAdset&&val('newAdsetName')){
       const nm=val('newAdsetName');
       const cc=(val('newAdsetCountry')||'EG').toUpperCase();
-      const px=document.getElementById('newAdsetPixel').value;
+      const goal=newAdsetGoal();
+      const px=val('newAdsetPixel');
+      const targeting={geo_locations:{countries:[cc]}};
+      const aMin=parseInt(val('ageMin'))||18, aMax=parseInt(val('ageMax'))||65;
+      if(document.getElementById('advAud').value==='1'){targeting.targeting_automation={advantage_audience:1};if(aMin>18)targeting.age_min=aMin;if(aMax<65)targeting.age_max=aMax}
+      else {targeting.targeting_automation={advantage_audience:0};targeting.age_min=aMin;targeting.age_max=aMax}
+      const pl={name:nm,campaign_id:campId,status:'PAUSED',billing_event:'IMPRESSIONS',optimization_goal:goal,targeting:JSON.stringify(targeting)};
+      if(goalNeedsPixel()&&px){
+        const po={pixel_id:px};
+        if(goal!=='LANDING_PAGE_VIEWS') po.custom_event_type=goal==='VALUE'?'PURCHASE':val('eventSel');
+        pl.promoted_object=JSON.stringify(po);
+      }
+      if(!cbo){
+        pl.daily_budget=minor(val('aboAmt'));
+        if(S.campMode==='new'){
+          if(bidMode==='cost_cap'){pl.bid_strategy='COST_CAP';pl.bid_amount=minor(val('bidGoalAmt'))}
+          else if(bidMode==='bid_cap'){pl.bid_strategy='LOWEST_COST_WITH_BID_CAP';pl.bid_amount=minor(val('bidGoalAmt'))}
+          else if(bidMode==='min_roas'){pl.bid_strategy='LOWEST_COST_WITH_MIN_ROAS';pl.bid_constraints=JSON.stringify({roas_average_floor:Math.round(parseFloat(val('roasGoalAmt'))*100)})}
+        }
+      } else {
+        if(bidMode==='cost_cap'||bidMode==='bid_cap'){pl.bid_amount=minor(val('bidGoalAmt'))}
+        else if(bidMode==='min_roas'){pl.bid_constraints=JSON.stringify({roas_average_floor:Math.round(parseFloat(val('roasGoalAmt'))*100)})}
+      }
       log('Creating ad set '+nm,'busy');
-      const as=await gpost(`act_${S.acct}/adsets`,{
-        name:nm,campaign_id:campId,status:'PAUSED',billing_event:'IMPRESSIONS',
-        optimization_goal:'OFFSITE_CONVERSIONS',
-        promoted_object:JSON.stringify({pixel_id:px,custom_event_type:'PURCHASE'}),
-        targeting:JSON.stringify({geo_locations:{countries:[cc]},targeting_automation:{advantage_audience:1}})
-      });
+      const as=await gpost(`act_${S.acct}/adsets`,pl);
       targets.push({id:as.id,name:nm}); log('Ad set '+as.id,'ok');
     }
-    // upload files direct from browser
-    const uploaded=[];
-    for(const f of S.files){
-      log('Uploading '+f.name+' 0%','busy');
-      const c=document.getElementById('console');
-      const line=c.lastChild;
-      const up=await uploadVideo(S.acct,f,p=>{line.textContent='Uploading '+f.name+' '+p+'%'});
-      line.textContent=f.name+' -> '+up.id; line.className='cl ok';
-      uploaded.push({name:f.name,videoId:up.id});
-    }
-    log('Waiting for Meta processing...','busy');
-    const deadline=Date.now()+12*60*1000;
-    const pend=[...uploaded];
-    while(pend.length&&Date.now()<deadline){
-      await new Promise(r=>setTimeout(r,12000));
-      for(let i=pend.length-1;i>=0;i--){
-        try{
-          const st=await gget(`${pend[i].videoId}?fields=status`);
-          const vs=st.status?st.status.video_status:'';
-          if(vs==='ready'){log(pend[i].name+' READY','ok');pend.splice(i,1)}
-          else if(vs==='error'){log(pend[i].name+' PROCESSING ERROR - skipped','err');
-            uploaded.splice(uploaded.findIndex(u=>u.videoId===pend[i].videoId),1);pend.splice(i,1)}
-        }catch(e){}
-      }
-    }
+    /* 3. media */
+    await prepareMedia();
+    /* 4. creatives + ads */
     const tags=urlTags();
     const adIds=[];
-    for(const v of uploaded){
-      const adName=v.name.replace(/\.(mp4|mov|avi)$/i,'');
-      const spec={page_id:S.page,video_data:{video_id:v.videoId,message:S.body,call_to_action:{type:S.cta,value:{link:S.link}}}};
-      if(S.title) spec.video_data.title=S.title;
-      const cr=await gpost(`act_${S.acct}/adcreatives`,{name:adName+' creative',object_story_spec:JSON.stringify(spec),...(tags?{url_tags:tags}:{})});
+    for(const sp of builtSpecs()){
+      const cr=await gpost(`act_${S.acct}/adcreatives`,{name:sp.name+' creative',object_story_spec:JSON.stringify(sp.spec),...(tags?{url_tags:tags}:{})});
       for(const t of targets){
-        const ad=await gpost(`act_${S.acct}/ads`,{name:adName,adset_id:t.id,creative:JSON.stringify({creative_id:cr.id}),status:'PAUSED'});
+        const ad=await gpost(`act_${S.acct}/ads`,{name:sp.name,adset_id:t.id,creative:JSON.stringify({creative_id:cr.id}),status});
         adIds.push(ad.id);
-        log(adName+' -> '+t.name+' PAUSED','ok');
+        log(sp.name+' -> '+t.name+' '+status,'ok');
       }
     }
-    log('DONE. '+adIds.length+' ads created, all paused.','ok');
-    saveLaunch(campId,campName,targets,adIds,uploaded,tags);
+    log('DONE. '+adIds.length+' ad(s) created as '+status+'.','ok');
+    const link=log('Open in Ads Manager \u2197','busy');
+    link.innerHTML='<a href="https://adsmanager.facebook.com/adsmanager/manage/ads?act='+S.acct+'" target="_blank" style="color:var(--busy)">Open in Ads Manager \u2197</a>';
+    saveLaunch(campId,campName,targets,adIds,tags);
   }catch(e){log('LAUNCH FAILED: '+e.message,'err')}
   S.launching=false;btn.textContent='LAUNCH';paint();
 }
 
 /* ============================ SUPABASE ============================ */
-async function saveLaunch(campId,campName,targets,adIds,vids,tags){
+async function saveLaunch(campId,campName,targets,adIds,tags){
   if(!cfg.sbUrl||!cfg.sbKey) return;
   try{
     await fetch(`${cfg.sbUrl}/rest/v1/launches`,{
       method:'POST',
       headers:{apikey:cfg.sbKey,Authorization:'Bearer '+cfg.sbKey,'Content-Type':'application/json',Prefer:'return=minimal'},
       body:JSON.stringify({account_id:S.acct,campaign_id:campId,campaign_name:campName,
-        adset_ids:targets,ad_ids:adIds,videos:vids,
+        adset_ids:targets,ad_ids:adIds,videos:S.media.map(m=>({name:m.name,kind:m.kind,id:m.id||m.hash})),
         body:S.body,headline:S.title,link:S.link,url_tags:tags})
     });
-    log('Launch saved to Supabase','ok');
-  }catch(e){log('Supabase save failed: '+e.message,'err')}
+    log('Launch saved to history','ok');
+  }catch(e){log('History save failed: '+e.message,'err')}
 }
 
 /* ============================ UTIL ============================ */
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+
 /* ============================ FACEBOOK LOGIN ============================ */
 function fbLogin(){
   const appId=document.getElementById('cfgAppId')?document.getElementById('cfgAppId').value.trim()||cfg.appId:cfg.appId;
@@ -640,8 +1076,7 @@ function captureToken(){
 async function whoAmI(){
   try{
     const j=await gget('me?fields=name');
-    const el=document.getElementById('syncState');
-    el.textContent=j.name+' \u00b7 syncing...';
+    document.getElementById('syncState').textContent=j.name+' \u00b7 syncing...';
   }catch(e){
     if(/expired|invalid|2500|190/i.test(e.message)){
       log('Session expired. One click to log back in.','err');
@@ -649,9 +1084,11 @@ async function whoAmI(){
     }
   }
 }
+/* ============================ BOOT ============================ */
 captureToken();
-loadCfg();paint();
-if(location.hash.includes('access_token')){captureToken()}
+loadCfg();
+refreshGoalOptions();
+paint();
 if(cfg.meta){whoAmI().then(syncAll)} else {setTimeout(()=>{log('Hit Continue with Facebook to load everything','busy');openSettings()},400)}
 </script>
 </body>
