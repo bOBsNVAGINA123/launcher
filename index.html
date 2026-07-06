@@ -209,7 +209,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
       <div class="card" style="margin-top:16px">
         <h3 class="sec" style="margin-top:0">Import from Google Drive</h3>
         <div class="hint" style="margin-bottom:8px">Paste a folder link or file links, one per line. The folder must be shared as <b>Anyone with the link</b>. Meta downloads Drive videos on its own servers — nothing heavy moves through your browser.</div>
-        <textarea id="driveLinks" rows="2" placeholder="https://drive.google.com/drive/folders/..."></textarea>
+        <textarea id="driveLinks" rows="2" placeholder="Drive folders, file links, or Google Vids links (docs.google.com/videos/d/...)"></textarea>
         <div style="margin-top:10px"><button class="btn primary" onclick="importDrive()">Import from Drive</button> <button class="btn" onclick="gSignIn()">Sign in with Google</button> <span id="gState" class="hint"></span></div>
         <div id="driveProgWrap" style="display:none;height:8px;background:#e4e6eb;border-radius:5px;margin-top:10px;overflow:hidden"><div id="driveProg" style="height:100%;width:0%;background:var(--blue);transition:width .25s"></div></div>
         <div id="driveState" class="hint" style="margin-top:6px"></div>
@@ -734,6 +734,32 @@ function renderMedia(){
 
 /* ============================ GOOGLE DRIVE IMPORT ============================ */
 function driveDirect(id){return `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`}
+/* Google Vids (docs.google.com/videos/d/...) -> real MP4 file */
+async function gvidsFile(m,onPct){
+  const id=m.driveId;
+  let name=(m.name&&!/^google-vid-/.test(m.name))?m.name.replace(/\.[^.]*$/,'')+'.mp4':('google-vid-'+id.slice(0,6)+'.mp4');
+  let resp=null;
+  if(gTok){
+    try{
+      const meta=await (await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?fields=name,exportLinks&supportsAllDrives=true',{headers:{Authorization:'Bearer '+gTok}})).json();
+      if(meta.name) name=meta.name.replace(/\.[^.]*$/,'')+'.mp4';
+      const ex=(meta.exportLinks&&meta.exportLinks['video/mp4'])||('https://www.googleapis.com/drive/v3/files/'+id+'/export?mimeType=video/mp4');
+      const r=await fetch(ex,{headers:{Authorization:'Bearer '+gTok}});
+      if(r.ok) resp=r; else log('Vids export via Drive API refused (HTTP '+r.status+') — trying the public route','busy');
+    }catch(e){}
+  }
+  if(!resp){
+    const blob=await proxyFetchBlob('https://docs.google.com/videos/d/'+id+'/export?format=mp4');
+    if(!blob||!blob.size) throw new Error('Could not export the Google Vids video "'+name+'" — open it in Vids and set Share: Anyone with the link, or hit Sign in with Google here.');
+    return new File([blob],name,{type:'video/mp4'});
+  }
+  const total=+resp.headers.get('content-length')||0;
+  const reader=resp.body.getReader();const chunks=[];let got=0;
+  while(true){const{done,value}=await reader.read();if(done)break;chunks.push(value);got+=value.length;if(onPct)onPct(total?Math.round(got/total*100):null,got)}
+  const f=new File(chunks,name,{type:'video/mp4'});
+  if(!f.size) throw new Error('Google Vids export came back empty for "'+name+'" — check sharing or sign in with Google.');
+  return f;
+}
 async function importDrive(auto){
   const box=document.getElementById('driveLinks');
   const raw=auto?(cfg.driveFolders||[]).join('\n'):box.value.trim();
@@ -793,6 +819,18 @@ async function importDrive(auto){
       }catch(e){failed++;log('Drive folder: '+e.message,'err')}
       setP(1);
       continue;
+    }
+    const gv=line.match(/docs\.google\.com\/videos\/d\/([A-Za-z0-9_-]{15,})/);
+    if(gv){
+      const id=gv[1];
+      if(!S.media.some(x=>x.driveId===id)){
+        S.media.push({kind:'video',src:'gvids',driveId:id,name:'google-vid-'+id.slice(0,6)+'.mp4',link:'',adName:'google-vid-'+id.slice(0,6),target:''});
+        added++;
+        if(gTok){ /* pull the real title in the background */
+          fetch('https://www.googleapis.com/drive/v3/files/'+id+'?fields=name&supportsAllDrives=true',{headers:{Authorization:'Bearer '+gTok}}).then(r=>r.json()).then(j=>{if(j&&j.name){const it=S.media.find(x=>x.driveId===id);if(it){it.name=j.name+'.mp4';it.adName=j.name;renderMedia();paint()}}}).catch(()=>{});
+        }
+      }
+      setP(1);continue;
     }
     const im=line.match(/(?:file\/d\/|[?&]id=)([A-Za-z0-9_-]{15,})/);
     if(im){
@@ -1392,6 +1430,13 @@ async function prepareMedia(useOverlay){
       m.file=new File(chunks,m.name); m.size=got; m.src='local';
       setMediaState(m,'downloaded ✓','ok');
     }
+    if(m.src==='gvids'&&!m.file&&m.driveId){
+      if(useOverlay)loStart('up-'+m.uiId,'exporting from Google Vids');
+      setMediaState(m,'Vids export…');
+      m.file=await gvidsFile(m,(p,got)=>{setMediaState(m,'Vids export '+(p!==null?p+'%':(got/1048576).toFixed(1)+' MB'));if(useOverlay&&p!==null)loPct('up-'+m.uiId,Math.round(p/2))});
+      m.name=m.file.name; m.size=m.file.size; m.src='local';
+      setMediaState(m,'exported ✓','ok');
+    }
     if(m.kind==='video'&&!m.id){
       if(useOverlay)loStart('up-'+m.uiId);
       setMediaState(m,'uploading 0%');
@@ -1870,6 +1915,7 @@ function validVideo(file){return new Promise(res=>{
 })}
 async function csEnsureFile(m,onPct,onMsg){
   if(m.file)return;
+  if(m.src==='gvids'){m.file=await gvidsFile(m,onPct);return;}
   if(m.src==='gdrive'&&gTok){
     const r=await fetch('https://www.googleapis.com/drive/v3/files/'+m.driveId+'?alt=media',{headers:{Authorization:'Bearer '+gTok}});
     if(!r.ok)throw new Error('Drive download failed (HTTP '+r.status+')');
@@ -2054,7 +2100,8 @@ async function editMedia(i){
 async function csLoadMedia(m){
   let file=m.file;
   if(!file){
-    if(m.src==='gdrive'&&gTok){const r=await fetch('https://www.googleapis.com/drive/v3/files/'+m.driveId+'?alt=media',{headers:{Authorization:'Bearer '+gTok}});if(!r.ok)throw new Error('Drive download failed (HTTP '+r.status+')');file=new File([await r.blob()],m.name)}
+    if(m.src==='gvids'){file=await gvidsFile(m)}
+    else if(m.src==='gdrive'&&gTok){const r=await fetch('https://www.googleapis.com/drive/v3/files/'+m.driveId+'?alt=media',{headers:{Authorization:'Bearer '+gTok}});if(!r.ok)throw new Error('Drive download failed (HTTP '+r.status+')');file=new File([await r.blob()],m.name)}
     else{await csEnsureFile(m,(pc,got)=>csStat('downloading '+m.name+' '+(pc!==null?pc+'%':(got/1048576).toFixed(1)+' MB')),msg=>csStat(m.name+': '+msg));file=m.file}
     m.file=file;
   }
