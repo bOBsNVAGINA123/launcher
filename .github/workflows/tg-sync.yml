@@ -1,0 +1,60 @@
+name: Telegram sync
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: tg-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Poll Telegram, pull media, update tg.json
+        env:
+          TG: ${{ secrets.TG_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import os,json,urllib.request,urllib.parse,pathlib
+          TG=os.environ['TG']; api=f"https://api.telegram.org/bot{TG}"
+          def get(method,**p):
+              url=api+"/"+method+"?"+urllib.parse.urlencode(p)
+              return json.load(urllib.request.urlopen(url,timeout=90))
+          p=pathlib.Path("tg.json")
+          data=json.loads(p.read_text()) if p.exists() else {"_offset":0,"items":[]}
+          off=int(data.get("_offset",0)); items=data.get("items",[])
+          r=get("getUpdates",offset=off+1,timeout=0,allowed_updates='["message"]')
+          pathlib.Path("tg").mkdir(exist_ok=True); maxid=off
+          for u in r.get("result",[]):
+              maxid=max(maxid,u["update_id"]); m=u.get("message") or {}
+              fid=kind=name=None
+              if m.get("photo"): fid=m["photo"][-1]["file_id"];kind="image";name=f'{u["update_id"]}.jpg'
+              elif m.get("video"): fid=m["video"]["file_id"];kind="video";name=m["video"].get("file_name") or f'{u["update_id"]}.mp4'
+              elif m.get("animation"): fid=m["animation"]["file_id"];kind="video";name=m["animation"].get("file_name") or f'{u["update_id"]}.mp4'
+              elif m.get("document"):
+                  d=m["document"]; mt=d.get("mime_type","")
+                  if mt.startswith(("image/","video/")): fid=d["file_id"];kind="video" if mt.startswith("video/") else "image";name=d.get("file_name") or str(u["update_id"])
+              if not fid: continue
+              try:
+                  f=get("getFile",file_id=fid)["result"]["file_path"]
+                  ext=os.path.splitext(f)[1] or os.path.splitext(name)[1] or (".mp4" if kind=="video" else ".jpg")
+                  safe=f'{u["update_id"]}{ext}'
+                  urllib.request.urlretrieve(f"https://api.telegram.org/file/bot{TG}/{f}", f"tg/{safe}")
+                  items.append({"url":f"https://bobsnvagina123.github.io/launcher/tg/{safe}","name":name,"kind":kind})
+              except Exception as e: print("skip",e)
+          items=items[-80:]; keep=set(os.path.basename(i["url"]) for i in items)
+          for f in pathlib.Path("tg").glob("*"):
+              if f.name not in keep: f.unlink()
+          p.write_text(json.dumps({"_offset":maxid,"items":items},indent=1))
+          print("offset",maxid,"items",len(items))
+          PY
+      - name: Commit
+        run: |
+          git config user.name "tg-sync"
+          git config user.email "tg-sync@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "telegram sync"
+          git push
