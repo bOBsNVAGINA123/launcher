@@ -177,6 +177,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
   <nav id="steps">
     <div id="logo">LAUNCH<span>ER</span></div>
     <div id="syncState">not synced</div>
+    <div id="lastSync" style="padding:0 22px 8px;font-size:11px;color:var(--dim)"></div>
     <div style="padding:0 22px 16px"><label>Ad account</label><select id="acctSel" onchange="pickAccount()" style="font-size:13px"><option value="">Syncing…</option></select></div>
     <div class="step active" data-pane="media"><div class="n">1</div><div><div class="lbl">Videos & photos</div><div class="sub2" id="ss-media">add your files</div></div></div>
     <div class="step" data-pane="camp"><div class="n">2</div><div><div class="lbl">Campaign</div><div class="sub2" id="ss-camp">where the ads go</div></div></div>
@@ -440,6 +441,30 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
   <div class="mfoot"><button class="btn" onclick="closeSettings()">Cancel</button><button class="btn primary" onclick="saveSettings()">Save & Sync</button></div>
 </div></div>
 
+<!-- edit entity modal -->
+<div class="modal" id="editModal"><div class="mbox">
+  <h2 id="edTitle">Edit</h2>
+  <div class="field"><label>Name</label><input id="edName"></div>
+  <div class="field"><label>Status</label><select id="edStatus"><option value="ACTIVE">Active — running</option><option value="PAUSED">Paused</option></select></div>
+  <div id="edBudgetWrap">
+    <div class="row">
+      <div class="field"><label>Budget type</label><select id="edBudType"><option value="daily">Daily</option><option value="lifetime">Lifetime</option></select></div>
+      <div class="field"><label>Amount (<span id="edCur">EGP</span>)</label><input id="edBudAmt" type="number" step="0.01" placeholder="e.g. 1000"></div>
+    </div>
+  </div>
+  <div id="edBidWrap" class="field"><label>Bid strategy</label><select id="edBid">
+    <option value="">— leave unchanged —</option>
+    <option value="LOWEST_COST_WITHOUT_CAP">Highest volume (no cap)</option>
+    <option value="COST_CAP">Cost cap</option>
+    <option value="LOWEST_COST_WITH_BID_CAP">Bid cap</option>
+    <option value="LOWEST_COST_WITH_MIN_ROAS">ROAS goal</option>
+  </select></div>
+  <div id="edBidAmtWrap" class="field" style="display:none"><label id="edBidLbl">Bid / cost amount (<span>EGP</span>)</label><input id="edBidAmt" type="number" step="0.01"></div>
+  <div id="edRoasWrap" class="field" style="display:none"><label>ROAS floor (e.g. 3.5)</label><input id="edRoas" type="number" step="0.1"></div>
+  <div id="edMsg" class="hint" style="min-height:16px;color:var(--err)"></div>
+  <div class="mfoot"><a id="edOpen" target="_blank" class="btn" style="margin-right:auto">Open in Ads Manager ↗</a><button class="btn" onclick="closeEdit()">Cancel</button><button class="btn primary" id="edSave">Save to Meta</button></div>
+</div></div>
+
 <!-- launch overlay -->
 <div id="lo"><div id="loBox">
   <div id="loLive">
@@ -610,6 +635,11 @@ async function proxyFetchText(url){
   throw last||new Error('All proxies failed');
 }
 
+function markSynced(){
+  const el=document.getElementById('lastSync'); if(!el)return;
+  const d=new Date();
+  el.innerHTML='last synced <b style="color:var(--ok)">'+d.toLocaleDateString()+' '+d.toLocaleTimeString()+'</b>';
+}
 /* ============================ FULL SYNC ============================ */
 async function syncAll(){
   if(!cfg.meta) return;
@@ -621,6 +651,7 @@ async function syncAll(){
     const sel=document.getElementById('acctSel');
     sel.innerHTML='<option value="">Pick an account</option>'+S.accounts.map(a=>`<option value="${a.account_id}">${esc(a.name||a.account_id)} (${a.currency})</option>`).join('');
     st.textContent='✓ '+S.accounts.length+' accounts live'; st.classList.add('on');
+    markSynced();
     log('Synced '+S.accounts.length+' ad accounts','ok');
   }catch(e){st.textContent='sync failed';log('Sync: '+e.message,'err')}
 }
@@ -930,13 +961,13 @@ async function loadCampaigns(){
       const d=document.createElement('div');
       d.className='lrow';
       const cbo=(c.daily_budget||c.lifetime_budget)?'CBO':'ABO';
-      d.innerHTML=`<div class="l"><div class="nm">${esc(c.name)}</div><div class="mt">${c.objective||''} · ${cbo} · ${c.bid_strategy||'LOWEST_COST'}</div></div><button class="badge" data-rn="1" title="Rename">✏</button><a class="badge" title="Open in Ads Manager" target="_blank" href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${S.acct}&selected_campaign_ids=${c.id}">↗</a><span class="badge ${c.effective_status==='ACTIVE'?'on':''}">${c.effective_status}</span>`;
-      d.querySelector('[data-rn]').onclick=async e=>{e.stopPropagation();const nn=prompt('New campaign name:',c.name);if(nn&&nn!==c.name){try{await gpost(c.id,{name:nn});c.name=nn;log('Campaign renamed','ok');loadCampaigns()}catch(x){log('Rename: '+x.message,'err')}}};
+      d.innerHTML=`<div class="l"><div class="nm">${esc(c.name)}</div><div class="mt">${c.objective||''} · ${cbo} · ${c.bid_strategy||'LOWEST_COST'}</div></div><button class="badge" data-ed="1" title="Edit campaign">✎ Edit</button><a class="badge" title="Open in Ads Manager" target="_blank" href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${S.acct}&selected_campaign_ids=${c.id}">↗</a><span class="badge ${c.effective_status==='ACTIVE'?'on':''}">${c.effective_status}</span>`;
+      d.querySelector('[data-ed]').onclick=e=>{e.stopPropagation();openEdit('campaign',c)};
       d.querySelector('a.badge').onclick=e=>e.stopPropagation();
       d.onclick=()=>pickCampaign(c,d);
       L.appendChild(d);
     });
-    log(data.length+' campaigns','ok');
+    log(data.length+' campaigns','ok'); markSynced();
   }catch(e){log('Campaigns: '+e.message,'err')}
 }
 async function loadPages(){
@@ -988,8 +1019,8 @@ async function loadAdsets(cid){
     S.adsets.forEach(as=>{
       const d=document.createElement('div');
       d.className='lrow';
-      d.innerHTML=`<div class="l"><div class="nm">${esc(as.name)}</div><div class="mt">${as.optimization_goal||''}${as.daily_budget?' · daily '+(as.daily_budget/100):''}</div></div><button class="badge" data-rn="1" title="Rename">✏</button><a class="badge" title="Open in Ads Manager" target="_blank" href="https://adsmanager.facebook.com/adsmanager/manage/adsets?act=${S.acct}&selected_adset_ids=${as.id}">↗</a><span class="badge ${as.effective_status==='ACTIVE'?'on':''}">${as.effective_status}</span>`;
-      d.querySelector('[data-rn]').onclick=async e=>{e.stopPropagation();const nn=prompt('New ad set name:',as.name);if(nn&&nn!==as.name){try{await gpost(as.id,{name:nn});as.name=nn;d.querySelector('.nm').textContent=nn;log('Ad set renamed','ok')}catch(x){log('Rename: '+x.message,'err')}}};
+      d.innerHTML=`<div class="l"><div class="nm">${esc(as.name)}</div><div class="mt">${as.optimization_goal||''}${as.daily_budget?' · daily '+(as.daily_budget/100):''}</div></div><button class="badge" data-ed="1" title="Edit ad set">✎ Edit</button><a class="badge" title="Open in Ads Manager" target="_blank" href="https://adsmanager.facebook.com/adsmanager/manage/adsets?act=${S.acct}&selected_adset_ids=${as.id}">↗</a><span class="badge ${as.effective_status==='ACTIVE'?'on':''}">${as.effective_status}</span>`;
+      d.querySelector('[data-ed]').onclick=e=>{e.stopPropagation();openEdit('adset',as)};
       d.querySelector('a.badge').onclick=e=>e.stopPropagation();
       d.onclick=()=>{
         const i=S.selAdsets.findIndex(x=>x.id===as.id);
@@ -1011,8 +1042,8 @@ async function loadAllAdsets(){
     S.adsets.forEach(as=>{
       const d=document.createElement('div');
       d.className='lrow'+(S.selAdsets.some(x=>x.id===as.id)?' sel':'');
-      d.innerHTML=`<div class="l"><div class="nm">${esc(as.name)}</div><div class="mt">${as.campaign?esc(as.campaign.name)+' · ':''}${as.optimization_goal||''}${as.daily_budget?' · daily '+(as.daily_budget/100):''}</div></div><button class="badge" data-rn="1" title="Rename">✏</button><a class="badge" title="Open in Ads Manager" target="_blank" href="https://adsmanager.facebook.com/adsmanager/manage/adsets?act=${S.acct}&selected_adset_ids=${as.id}">↗</a><span class="badge ${as.effective_status==='ACTIVE'?'on':''}">${as.effective_status}</span>`;
-      d.querySelector('[data-rn]').onclick=async e=>{e.stopPropagation();const nn=prompt('New ad set name:',as.name);if(nn&&nn!==as.name){try{await gpost(as.id,{name:nn});as.name=nn;d.querySelector('.nm').textContent=nn;log('Ad set renamed','ok')}catch(x){log('Rename: '+x.message,'err')}}};
+      d.innerHTML=`<div class="l"><div class="nm">${esc(as.name)}</div><div class="mt">${as.campaign?esc(as.campaign.name)+' · ':''}${as.optimization_goal||''}${as.daily_budget?' · daily '+(as.daily_budget/100):''}</div></div><button class="badge" data-ed="1" title="Edit ad set">✎ Edit</button><a class="badge" title="Open in Ads Manager" target="_blank" href="https://adsmanager.facebook.com/adsmanager/manage/adsets?act=${S.acct}&selected_adset_ids=${as.id}">↗</a><span class="badge ${as.effective_status==='ACTIVE'?'on':''}">${as.effective_status}</span>`;
+      d.querySelector('[data-ed]').onclick=e=>{e.stopPropagation();openEdit('adset',as)};
       d.querySelector('a.badge').onclick=e=>e.stopPropagation();
       d.onclick=()=>{
         const i=S.selAdsets.findIndex(x=>x.id===as.id);
@@ -1618,6 +1649,70 @@ async function saveLaunch(campId,campName,targets,adIds,tags){
 
 /* ============================ UTIL ============================ */
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+
+/* ============================ EDIT EXISTING ENTITIES ============================ */
+let EDCTX=null;
+function closeEdit(){document.getElementById('editModal').classList.remove('show')}
+function openEdit(kind,obj){
+  EDCTX={kind,obj};
+  const isCamp=kind==='campaign';
+  document.getElementById('edTitle').textContent='Edit '+(isCamp?'campaign':'ad set');
+  document.getElementById('edName').value=obj.name||'';
+  document.getElementById('edStatus').value=(obj.effective_status==='ACTIVE'||obj.status==='ACTIVE')?'ACTIVE':'PAUSED';
+  document.getElementById('edCur').textContent=S.currency||'EGP';
+  document.getElementById('edBidWrap').querySelector('span')?.replaceChildren?.(document.createTextNode(S.currency||'EGP'));
+  const hasBud=obj.daily_budget||obj.lifetime_budget;
+  document.getElementById('edBudgetWrap').style.display=hasBud?'block':(isCamp?'block':'block');
+  document.getElementById('edBudType').value=obj.lifetime_budget?'lifetime':'daily';
+  document.getElementById('edBudAmt').value=hasBud?((obj.daily_budget||obj.lifetime_budget)/100):'';
+  document.getElementById('edBidWrap').style.display=isCamp?'block':'none';
+  if(isCamp){document.getElementById('edBid').value=obj.bid_strategy&&['LOWEST_COST_WITHOUT_CAP','COST_CAP','LOWEST_COST_WITH_BID_CAP','LOWEST_COST_WITH_MIN_ROAS'].includes(obj.bid_strategy)?obj.bid_strategy:''}
+  edBidChanged();
+  document.getElementById('edMsg').textContent='';
+  document.getElementById('edOpen').href=isCamp
+    ? 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act='+S.acct+'&selected_campaign_ids='+obj.id
+    : 'https://adsmanager.facebook.com/adsmanager/manage/adsets?act='+S.acct+'&selected_adset_ids='+obj.id;
+  document.getElementById('editModal').classList.add('show');
+}
+function edBidChanged(){
+  const v=document.getElementById('edBid').value;
+  document.getElementById('edBidAmtWrap').style.display=(v==='COST_CAP'||v==='LOWEST_COST_WITH_BID_CAP')?'block':'none';
+  document.getElementById('edRoasWrap').style.display=v==='LOWEST_COST_WITH_MIN_ROAS'?'block':'none';
+  document.getElementById('edBidLbl').firstChild.textContent=(v==='LOWEST_COST_WITH_BID_CAP'?'Bid cap ':'Cost per result ');
+}
+document.getElementById('edBid').onchange=edBidChanged;
+document.getElementById('edSave').onclick=async()=>{
+  if(!EDCTX)return;
+  const {kind,obj}=EDCTX; const isCamp=kind==='campaign';
+  const btn=document.getElementById('edSave'); const msg=document.getElementById('edMsg');
+  btn.disabled=true; btn.textContent='Saving…'; msg.style.color='var(--mut)'; msg.textContent='pushing to Meta…';
+  const pl={};
+  const nn=val('edName'); if(nn&&nn!==obj.name) pl.name=nn;
+  const st=val('edStatus'); if(st) pl.status=st;
+  const amt=val('edBudAmt');
+  if(amt){ const cents=Math.round(parseFloat(amt)*100);
+    if(val('edBudType')==='lifetime') pl.lifetime_budget=cents; else pl.daily_budget=cents; }
+  if(isCamp){
+    const bid=val('edBid');
+    if(bid){ pl.bid_strategy=bid;
+      if((bid==='COST_CAP'||bid==='LOWEST_COST_WITH_BID_CAP')&&val('edBidAmt')) pl.bid_amount=Math.round(parseFloat(val('edBidAmt'))*100);
+      if(bid==='LOWEST_COST_WITH_MIN_ROAS'&&val('edRoas')) pl.bid_constraints=JSON.stringify({roas_average_floor:Math.round(parseFloat(val('edRoas'))*100)});
+    }
+  }
+  if(!Object.keys(pl).length){msg.style.color='var(--err)';msg.textContent='nothing changed';btn.disabled=false;btn.textContent='Save to Meta';return}
+  try{
+    await gpost(obj.id,pl);
+    Object.assign(obj,{name:pl.name||obj.name});
+    if(pl.status)obj.effective_status=pl.status;
+    if(pl.daily_budget)obj.daily_budget=pl.daily_budget; if(pl.lifetime_budget)obj.lifetime_budget=pl.lifetime_budget;
+    if(pl.bid_strategy)obj.bid_strategy=pl.bid_strategy;
+    log((isCamp?'Campaign':'Ad set')+' updated: '+Object.keys(pl).join(', '),'ok');
+    closeEdit();
+    if(isCamp)loadCampaigns(); else if(S.camp)loadAdsets(S.camp);
+    markSynced();
+  }catch(e){msg.style.color='var(--err)';msg.textContent='⚠ '+e.message}
+  btn.disabled=false; btn.textContent='Save to Meta';
+};
 
 /* ============================ FACEBOOK LOGIN ============================ */
 function fbLogin(){
