@@ -361,7 +361,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
           <div class="field"><label>Description (optional)</label><input id="descInput" placeholder="Shows under the headline" oninput="S.desc=this.value;paint()"></div>
         </div>
         <div class="row">
-          <div class="field" style="flex:2"><label>Link URL (default for every ad)</label><input id="linkUrl" placeholder="https://goplaymore.com/" oninput="S.link=this.value.trim();renderMedia();paint()"><button class="btn" style="margin-top:6px;font-size:12px;padding:5px 10px" onclick="applyLinkToAll()" title="Copy this link into every card's Custom link box">↧ Use this link on every card</button></div>
+          <div class="field" style="flex:2"><label>Link URL (default for every ad)</label><input id="linkUrl" placeholder="https://goplaymore.com/" oninput="S.link=this.value.trim();saveLink();renderMedia();paint()"><button class="btn" style="margin-top:6px;font-size:12px;padding:5px 10px" onclick="applyLinkToAll()" title="Copy this link into every card's Custom link box">↧ Use this link on every card</button></div>
           <div class="field"><label>Button (CTA)</label><select id="ctaSel" onchange="S.cta=this.value;paint()">
             <option>SHOP_NOW</option><option>BUY_NOW</option><option>ORDER_NOW</option><option>LEARN_MORE</option><option>SIGN_UP</option><option>GET_OFFER</option><option>SUBSCRIBE</option><option>CONTACT_US</option><option>BOOK_NOW</option><option>DOWNLOAD</option>
           </select></div>
@@ -522,6 +522,7 @@ const GOALS={
 
 /* ============================ SETTINGS ============================ */
 function loadCfg(){try{Object.assign(cfg,JSON.parse(localStorage.getItem('launcher_cfg')||'{}'))}catch(e){}}
+function saveLink(){cfg.lastLink=S.link;try{localStorage.setItem('launcher_cfg',JSON.stringify(cfg))}catch(e){}}
 function openSettings(){
   document.getElementById('cfgMeta').value=cfg.meta||'';
   document.getElementById('cfgAppId').value=cfg.appId||'';
@@ -1121,9 +1122,9 @@ function refreshAdsetConditionals(){
     let show=false,lbl='Bid value',hint='';
     if(S.campMode==='exist'&&S.campMeta){
       const bs=S.campMeta.bid_strategy;
-      if(bs==='COST_CAP'){show=true;lbl='Cost per result cap ('+(S.currency||'EGP')+')';hint='This campaign uses Cost cap — Meta requires a value for every new ad set. Leave blank only if you want highest-volume instead.'}
-      else if(bs==='LOWEST_COST_WITH_BID_CAP'){show=true;lbl='Bid cap ('+(S.currency||'EGP')+')';hint='This campaign uses Bid cap — Meta requires a value for every new ad set.'}
-      else if(bs==='LOWEST_COST_WITH_MIN_ROAS'){show=true;lbl='ROAS floor (e.g. 3.5)';hint='This campaign uses ROAS goal — Meta requires a floor for every new ad set, and the performance goal must be Conversion value.'}
+      if(bs==='COST_CAP'){show=true;lbl='Cost per result cap ('+(S.currency||'EGP')+')';hint='Campaign uses Cost cap. Enter a value to keep it, or leave blank — the new ad set then runs Highest volume with its own strategy.'}
+      else if(bs==='LOWEST_COST_WITH_BID_CAP'){show=true;lbl='Bid cap ('+(S.currency||'EGP')+')';hint='Campaign uses Bid cap. Enter a value to keep it, or leave blank — the new ad set then runs Highest volume with its own strategy.'}
+      else if(bs==='LOWEST_COST_WITH_MIN_ROAS'){show=true;lbl='ROAS floor (e.g. 3.5)';hint='Campaign uses ROAS goal. Enter a floor to keep it (needs pixel + Conversion value goal), or leave blank — the new ad set then runs Highest volume.'}
     }
     exRow.style.display=show?'flex':'none';
     document.getElementById('exBidLbl').textContent=lbl;
@@ -1222,20 +1223,22 @@ function validate(){
     if(S.campMode==='new'&&val('bidSel')==='cost_cap'&&!val('bidGoalAmt')) issues.push('Cost cap needs the goal amount (step 2)');
     /* existing campaign that carries a value-based bid strategy */
     if(S.campMode==='exist'&&S.campMeta){
-      const bs=S.campMeta.bid_strategy, needsV=(bs==='COST_CAP'||bs==='LOWEST_COST_WITH_BID_CAP'||bs==='LOWEST_COST_WITH_MIN_ROAS');
+      const bs=S.campMeta.bid_strategy, needsV=(bs==='COST_CAP'||bs==='LOWEST_COST_WITH_BID_CAP'||bs==='LOWEST_COST_WITH_MIN_ROAS')&&S.campMeta.cbo;
       if(needsV&&!val('exBidAmt')){
         const w=bs==='LOWEST_COST_WITH_MIN_ROAS'?'ROAS floor':(bs==='LOWEST_COST_WITH_BID_CAP'?'bid cap':'cost cap');
         issues.push('This campaign uses '+w+' — enter the value (step 3)');
       }
-      if(bs==='LOWEST_COST_WITH_MIN_ROAS'&&!val('newAdsetPixel')) issues.push('ROAS-goal campaign needs a pixel (step 3)');
+      if(bs==='LOWEST_COST_WITH_MIN_ROAS'&&(S.campMeta.cbo||val('exBidAmt'))&&!val('newAdsetPixel')) issues.push('ROAS-goal campaign needs a pixel (step 3)');
     }
   }
-  const adOk=!!(S.page&&S.body&&S.link);
+  const effLink=S.link||((S.media.find(m=>m.kind!=='existing'&&m.link)||{}).link||'');
+  const allCustom=S.media.length>0&&S.media.every(m=>m.kind==='existing'||m.link);
+  const adOk=!!(S.page&&S.body&&(S.link||allCustom));
   lights.ad=adOk;
   if(!S.page) issues.push('Pick the Facebook page (step 4)');
   if(!S.body) issues.push('Pick or write primary text (step 4)');
-  if(!S.link) issues.push('Set the link URL (step 4)');
-  if(S.link&&!/^https?:\/\//i.test(S.link)) issues.push('Link must start with https:// (step 4)');
+  if(!S.link&&!allCustom) issues.push('Set the link URL (step 4)');
+  if(effLink&&!/^https?:\/\//i.test(effLink)) issues.push('Link must start with https:// (step 4)');
   S.media.forEach(m=>{if(m.link&&!/^https?:\/\//i.test(m.link)) issues.push('Custom link on "'+m.name+'" must start with https://')});
   if(S.format==='carousel'&&S.media.some(m=>m.kind==='existing')) issues.push('Carousel cannot include existing ads/posts — switch to One ad per file');
   if(S.format==='carousel'&&S.media.length<2) issues.push('Carousel needs at least 2 files');
@@ -1266,7 +1269,7 @@ function paint(){
     ['Page', pg?(pg.name||pg.id):'', !!S.page],
     ['Text', S.body? S.body.slice(0,60).replace(/\n/g,' ')+(S.body.length>60?'…':''):'', !!S.body],
     ['Headline', S.title||'', true],
-    ['Link', S.link||'', !!S.link],
+    ['Link', S.link||(S.media.some(m=>m.link)?'custom per card':''), !!(S.link||(S.media.length&&S.media.every(m=>m.kind==='existing'||m.link)))],
     ['Will create', S.media.length&&asNames.length? nAds+' ad'+(nAds>1?'s':'')+' ('+(S.format==='carousel'?'1 carousel':'1 per file')+' × '+asNames.length+' audience'+(asNames.length>1?'s':'')+')':'', S.media.length>0&&asNames.length>0]
   ];
   document.getElementById('checklist').innerHTML=rows.map(([k,vv,set])=>
@@ -1464,7 +1467,7 @@ async function prepareMedia(useOverlay){
 }
 
 /* ============================ CREATIVE SPECS ============================ */
-function linkFor(m){return (m&&m.link)||S.link}
+function linkFor(m){return (m&&m.link)||S.link||((S.media.find(x=>x.kind!=='existing'&&x.link)||{}).link||'')}
 function ctaObj(m){return {type:S.cta,value:{link:linkFor(m)}}}
 function specForMedia(m){
   if(m.kind==='video'){
@@ -1487,7 +1490,7 @@ function specCarousel(){
     else {c.video_id=m.id; c.picture=m.thumb;}
     return c;
   });
-  return {page_id:S.page,link_data:{link:S.link,message:S.body,multi_share_optimized:true,multi_share_end_card:false,child_attachments:cards,call_to_action:ctaObj(null)}};
+  return {page_id:S.page,link_data:{link:linkFor(null),message:S.body,multi_share_optimized:true,multi_share_end_card:false,child_attachments:cards,call_to_action:ctaObj(null)}};
 }
 function builtSpecs(){
   if(S.format==='carousel') return [{name:'carousel-'+S.media.length+'-cards',spec:specCarousel(),target:''}];
@@ -1614,7 +1617,12 @@ async function launch(){
         ? (effBs==='LOWEST_COST_WITH_MIN_ROAS'?val('roasGoalAmt'):val('bidGoalAmt'))
         : val('exBidAmt');
       const hasBidVal = bidRaw!==''&&!isNaN(parseFloat(bidRaw));
-      if(valueBased){
+      if(valueBased&&!hasBidVal&&!cbo){
+        /* ABO: the campaign carries a value-based strategy but no value was given —
+           give the new ad set its own explicit Highest volume strategy instead */
+        pl.bid_strategy='LOWEST_COST_WITHOUT_CAP';
+        log('No bid value entered — new ad set uses Highest volume (own strategy, campaign default ignored)','busy');
+      } else if(valueBased){
         const what=effBs==='LOWEST_COST_WITH_MIN_ROAS'?'ROAS floor':(effBs==='LOWEST_COST_WITH_BID_CAP'?'bid cap':'cost cap');
         if(!hasBidVal){
           S.newAdset=true; const box=document.getElementById('newAdsetBox'); if(box)box.style.display='block';
@@ -1632,6 +1640,8 @@ async function launch(){
           pl.bid_amount=Math.round(parseFloat(bidRaw)*100);
           if(!cbo) pl.bid_strategy=effBs;
         }
+      } else if(!cbo){
+        pl.bid_strategy='LOWEST_COST_WITHOUT_CAP';
       }
       loStart('t-adset'); log('Creating ad set '+nm,'busy');
       const as=await gpost(`act_${S.acct}/adsets`,pl);
@@ -1694,7 +1704,7 @@ async function saveLaunch(campId,campName,targets,adIds,tags){
       headers:{apikey:cfg.sbKey,Authorization:'Bearer '+cfg.sbKey,'Content-Type':'application/json',Prefer:'return=minimal'},
       body:JSON.stringify({account_id:S.acct,campaign_id:campId,campaign_name:campName,
         adset_ids:targets,ad_ids:adIds,videos:S.media.map(m=>({name:m.name,kind:m.kind,id:m.id||m.hash,link:m.link||''})),
-        body:S.body,headline:S.title,link:S.link,url_tags:tags})
+        body:S.body,headline:S.title,link:linkFor(null),url_tags:tags})
     });
     log('Launch saved to history','ok');
   }catch(e){log('History save failed: '+e.message,'err')}
@@ -1799,6 +1809,7 @@ async function whoAmI(){
 /* ============================ BOOT ============================ */
 captureToken();
 loadCfg();
+if(cfg.lastLink&&!S.link){S.link=cfg.lastLink;const _le=document.getElementById('linkUrl');if(_le&&!_le.value)_le.value=S.link;}
 refreshGoalOptions();
 toggleNewAdset(); /* create-ad-set box open by default */
 paint();
