@@ -641,7 +641,8 @@ async function proxyFetchText(url){
 function markSynced(){
   const el=document.getElementById('lastSync'); if(!el)return;
   const d=new Date();
-  el.innerHTML='last synced <b style="color:var(--ok)">'+d.toLocaleDateString()+' '+d.toLocaleTimeString()+'</b>';
+  const t=d.toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).replace(',','');
+  el.innerHTML='last synced <b style="color:var(--ok)">'+t+'</b>';
 }
 /* ============================ FULL SYNC ============================ */
 async function syncAll(){
@@ -723,7 +724,7 @@ function renderMedia(){
       <div class="prev" style="cursor:zoom-in" onclick="openViewer(${i})">${pv}</div>
       <div id="mst-${m.uiId}" class="state ${m.stateCls||''}" style="display:${m.state?'block':'none'}">${m.state||''}</div>
       <div class="meta"><div class="nm" title="${esc(m.name)}">${esc(m.name)}</div><div class="mt">${m.size?(m.size/1048576).toFixed(1)+' MB':'from Drive'}</div></div>
-      <input class="linkin" placeholder="Ad name" value="${esc(m.adName||'')}" oninput="S.media[${i}].adName=this.value" style="margin-bottom:4px">
+      <input class="linkin" placeholder="Ad name" value="${esc(m.adName||'')}" oninput="S.media[${i}].adName=this.value;paint()" style="margin-bottom:4px">
       ${m.kind==='existing'?'':`<input class="linkin" placeholder="${esc(S.link?'uses default: '+S.link:'Custom link (optional)')}" value="${esc(m.link||'')}" oninput="S.media[${i}].link=this.value.trim();paint()" style="margin-bottom:4px">`}
       <select class="linkin" data-tgt="${i}" onchange="S.media[${i}].target=this.value;paint()">${targetOptions(m)}</select>`;
     g.appendChild(d);
@@ -806,7 +807,7 @@ async function importDrive(auto){
   sortMedia(); renderMedia(); paint();
   const secs=((performance.now()-t0)/1000).toFixed(1);
   st.textContent=added? '✓ '+added+' file(s) imported.'+(failed?' Some failed — check the activity log.':'') : (auto?'✓ No new files in saved folders.':(failed?'Import failed — share the folder as Anyone with the link, or Sign in with Google.':'No usable links found.'));
-  meta.textContent=folders+' folder(s) checked · +'+added+' new · '+secs+'s · last check '+new Date().toLocaleTimeString();
+  meta.textContent=folders+' folder(s) checked · +'+added+' new · '+secs+'s · last check '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit',hour12:true});
   setTimeout(()=>{pw.style.display='none';pb.style.width='0%'},1500);
   if(!auto)box.value='';
 }
@@ -1222,11 +1223,11 @@ function validate(){
     /* existing campaign that carries a value-based bid strategy */
     if(S.campMode==='exist'&&S.campMeta){
       const bs=S.campMeta.bid_strategy, needsV=(bs==='COST_CAP'||bs==='LOWEST_COST_WITH_BID_CAP'||bs==='LOWEST_COST_WITH_MIN_ROAS');
-      if(needsV&&activeCBO()&&!val('exBidAmt')){
+      if(needsV&&!val('exBidAmt')){
         const w=bs==='LOWEST_COST_WITH_MIN_ROAS'?'ROAS floor':(bs==='LOWEST_COST_WITH_BID_CAP'?'bid cap':'cost cap');
-        issues.push('This CBO campaign uses '+w+' — enter the value (step 3)');
+        issues.push('This campaign uses '+w+' — enter the value (step 3)');
       }
-      if(bs==='LOWEST_COST_WITH_MIN_ROAS'&&val('exBidAmt')&&newAdsetGoal()!=='VALUE') issues.push('ROAS-goal campaign: set performance goal = Conversion value (step 3)');
+      if(bs==='LOWEST_COST_WITH_MIN_ROAS'&&!val('newAdsetPixel')) issues.push('ROAS-goal campaign needs a pixel (step 3)');
     }
   }
   const adOk=!!(S.page&&S.body&&S.link);
@@ -1600,26 +1601,36 @@ async function launch(){
         if(goal!=='LANDING_PAGE_VIEWS') po.custom_event_type=goal==='VALUE'?'PURCHASE':val('eventSel');
         pl.promoted_object=JSON.stringify(po);
       }
-      /* --- bid strategy on the ad set (never send NaN) --- */
-      const needsBid=m=>m==='cost_cap'||m==='bid_cap'||m==='min_roas';
+      if(!cbo) pl.daily_budget=minor(val('aboAmt'));
+      /* --- bid strategy on the ad set: read the campaign's REAL strategy, never send NaN --- */
+      let effBs = S.campMode==='new'
+        ? ({cost_cap:'COST_CAP',bid_cap:'LOWEST_COST_WITH_BID_CAP',min_roas:'LOWEST_COST_WITH_MIN_ROAS'}[bidMode]||'LOWEST_COST_WITHOUT_CAP')
+        : ((S.campMeta&&S.campMeta.bid_strategy)||'');
+      if(S.campMode!=='new'){
+        try{const cj=await gget(`${campId}?fields=bid_strategy`); if(cj&&cj.bid_strategy) effBs=cj.bid_strategy;}catch(e){}
+      }
+      const valueBased = effBs==='COST_CAP'||effBs==='LOWEST_COST_WITH_BID_CAP'||effBs==='LOWEST_COST_WITH_MIN_ROAS';
       const bidRaw = S.campMode==='new'
-        ? (bidMode==='min_roas'?val('roasGoalAmt'):val('bidGoalAmt'))
+        ? (effBs==='LOWEST_COST_WITH_MIN_ROAS'?val('roasGoalAmt'):val('bidGoalAmt'))
         : val('exBidAmt');
       const hasBidVal = bidRaw!==''&&!isNaN(parseFloat(bidRaw));
-      const roasC = ()=>JSON.stringify({roas_average_floor:Math.round(parseFloat(bidRaw)*100)});
-      if(!cbo){
-        pl.daily_budget=minor(val('aboAmt'));
-        /* ABO: strategy lives on the ad set. Only attach a capped/ROAS strategy when we actually have a value,
-           otherwise leave it at highest-volume so the launch can't fail. */
-        if(needsBid(bidMode)&&hasBidVal){
-          if(bidMode==='min_roas'){pl.bid_strategy='LOWEST_COST_WITH_MIN_ROAS';pl.bid_constraints=roasC()}
-          else{pl.bid_strategy=bidMode==='bid_cap'?'LOWEST_COST_WITH_BID_CAP':'COST_CAP';pl.bid_amount=Math.round(parseFloat(bidRaw)*100)}
+      if(valueBased){
+        const what=effBs==='LOWEST_COST_WITH_MIN_ROAS'?'ROAS floor':(effBs==='LOWEST_COST_WITH_BID_CAP'?'bid cap':'cost cap');
+        if(!hasBidVal){
+          S.newAdset=true; const box=document.getElementById('newAdsetBox'); if(box)box.style.display='block';
+          if(S.campMeta) S.campMeta.bid_strategy=effBs;
+          refreshAdsetConditionals();
+          throw new Error('This campaign uses '+what.toUpperCase()+' bidding, so Meta needs a value. Enter the '+what+' in the box that just appeared in step 3, then hit Launch again.');
         }
-      } else {
-        /* CBO: strategy is on the campaign. The ad set must echo the required value. */
-        if(needsBid(bidMode)&&hasBidVal){
-          if(bidMode==='min_roas'){pl.bid_constraints=roasC()}
-          else{pl.bid_amount=Math.round(parseFloat(bidRaw)*100)}
+        if(effBs==='LOWEST_COST_WITH_MIN_ROAS'){
+          if(goalNeedsPixel()&&!px) throw new Error('This is a ROAS-goal campaign. Meta requires a pixel and the Conversion value goal — pick a Pixel in step 3, then Launch again.');
+          pl.optimization_goal='VALUE';
+          if(px) pl.promoted_object=JSON.stringify({pixel_id:px,custom_event_type:'PURCHASE'});
+          pl.bid_constraints=JSON.stringify({roas_average_floor:Math.round(parseFloat(bidRaw)*100)});
+          if(!cbo) pl.bid_strategy='LOWEST_COST_WITH_MIN_ROAS';
+        } else {
+          pl.bid_amount=Math.round(parseFloat(bidRaw)*100);
+          if(!cbo) pl.bid_strategy=effBs;
         }
       }
       loStart('t-adset'); log('Creating ad set '+nm,'busy');
