@@ -211,6 +211,18 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
         <div id="driveMeta" class="hint" style="margin-top:2px"></div>
       </div>
 
+      <div class="card" style="margin-top:16px">
+        <h3 class="sec" style="margin-top:0">Reuse existing — account ads, page posts, Instagram posts</h3>
+        <div class="row">
+          <div class="field" style="flex:0 0 auto"><label>&nbsp;</label><button class="btn" onclick="loadExistingAds()">Browse this account's ads</button></div>
+          <div class="field"><label>Post / ad / creative ID</label><input id="exPostId" placeholder="pageid_postid · or a creative/ad ID"></div>
+          <div class="field"><label>Instagram media ID</label><input id="exIgId" placeholder="1784…"></div>
+          <div class="field" style="flex:0 0 auto"><label>&nbsp;</label><button class="btn primary" onclick="addExistingManual()">Add</button></div>
+        </div>
+        <div class="list" id="exList" style="max-height:280px;overflow-y:auto"></div>
+        <div class="hint">Pick an ad account in step 2 first, then Browse — click any ad to add it as-is (same post, same social proof). IDs work too.</div>
+      </div>
+
       <div class="grid" id="mediaGrid"></div>
       <div class="stepnav"><span></span><button class="btn primary" onclick="goStep('camp')">Next: Campaign →</button></div>
     </section>
@@ -274,7 +286,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
         <div id="adsetExistZone">
           <div class="list" id="adsetList"><div class="hint">Pick a campaign in step 2 to load its audiences — or create a new one below.</div></div>
         </div>
-        <div style="margin-top:14px"><button class="btn primary" id="newAdsetToggle" onclick="toggleNewAdset()">+ Create new ad set</button></div>
+        <div style="margin-top:14px;display:flex;gap:8px"><button class="btn primary" id="newAdsetToggle" onclick="toggleNewAdset()">+ Create new ad set</button><button class="btn" onclick="loadAllAdsets()">Show ad sets from ALL campaigns</button></div>
         <div id="newAdsetBox" style="display:none;margin-top:16px">
           <div class="row">
             <div class="field" style="flex:2"><label>Audience name</label><input id="newAdsetName" placeholder="Egypt Broad" oninput="paint()"></div>
@@ -450,7 +462,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
 <script>
 /* ============================ STATE ============================ */
 const GRAPH='https://graph.facebook.com/v21.0';
-const PROXIES=[u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u), u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
+const PROXIES=[u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u), u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u), u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
 const S={
   media:[],                 // {kind, src, file?, url?, name, size?, id?, hash?, thumb?, link?, state?}
   accounts:[], acct:null, acctName:'', currency:'EGP',
@@ -641,26 +653,33 @@ function addFiles(list){
 function sortMedia(){S.media.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}))}
 function setMediaState(m,txt,cls){m.state=txt;m.stateCls=cls||'';const el=document.getElementById('mst-'+m.uiId);if(el){el.textContent=txt;el.className='state '+(cls||'');el.style.display=txt?'block':'none'}}
 let UIID=0;
+function targetOptions(m){
+  const t=S.selAdsets.map(a=>[a.id,a.name]);
+  if(S.newAdset&&val('newAdsetName'))t.push(['NEW','NEW: '+val('newAdsetName')]);
+  return '<option value="">→ all selected ad sets</option>'+t.map(([id,n])=>'<option value="'+id+'"'+(m.target===id?' selected':'')+'>→ only: '+esc(n)+'</option>').join('');
+}
+function refreshCardTargets(){document.querySelectorAll('select[data-tgt]').forEach(s=>{const m=S.media[+s.dataset.tgt];if(m)s.innerHTML=targetOptions(m)})}
 function renderMedia(){
   const g=document.getElementById('mediaGrid'); g.innerHTML='';
   S.media.forEach((m,i)=>{
     if(!m.uiId)m.uiId=++UIID;
     const d=document.createElement('div');
     d.className='vcard';
-    const icon=m.kind==='video'?'▶':'●';
+    const icon=m.kind==='video'?'▶':(m.kind==='existing'?'📌':'●');
     let pv;
     if(m.preview) pv=`<img src="${m.preview}">`;
     else if(m.driveId) pv=`<img loading="lazy" src="https://drive.google.com/thumbnail?id=${m.driveId}&sz=w400" onerror="this.replaceWith('▶')">`;
     else if(m.kind==='video'&&m.file){if(!m.vurl)m.vurl=URL.createObjectURL(m.file);pv=`<video src="${m.vurl}" muted preload="metadata"></video>`}
     else pv=icon;
-    d.innerHTML=`<div class="tag">${m.src==='drive'?'DRIVE':'LOCAL'} ${m.kind.toUpperCase()}</div>
+    d.innerHTML=`<div class="tag">${m.kind==='existing'?'EXISTING':(m.src==='drive'||m.src==='gdrive'?'DRIVE':'LOCAL')+' '+m.kind.toUpperCase()}</div>
       <div class="x" onclick="S.media.splice(${i},1);renderMedia();paint()">×</div>
-      <div class="x" style="right:34px;background:rgba(8,102,255,.85)" title="Edit" onclick="editMedia(${i})">✎</div>
+      ${m.kind==='existing'?'':`<div class="x" style="right:34px;background:rgba(8,102,255,.85)" title="Edit" onclick="editMedia(${i})">✎</div>`}
       <div class="prev" style="cursor:zoom-in" onclick="openViewer(${i})">${pv}</div>
       <div id="mst-${m.uiId}" class="state ${m.stateCls||''}" style="display:${m.state?'block':'none'}">${m.state||''}</div>
       <div class="meta"><div class="nm" title="${esc(m.name)}">${esc(m.name)}</div><div class="mt">${m.size?(m.size/1048576).toFixed(1)+' MB':'from Drive'}</div></div>
       <input class="linkin" placeholder="Ad name" value="${esc(m.adName||'')}" oninput="S.media[${i}].adName=this.value" style="margin-bottom:4px">
-      <input class="linkin" placeholder="Custom link (optional)" value="${esc(m.link||'')}" oninput="S.media[${i}].link=this.value.trim();paint()">`;
+      ${m.kind==='existing'?'':`<input class="linkin" placeholder="Custom link (optional)" value="${esc(m.link||'')}" oninput="S.media[${i}].link=this.value.trim();paint()" style="margin-bottom:4px">`}
+      <select class="linkin" data-tgt="${i}" onchange="S.media[${i}].target=this.value;paint()">${targetOptions(m)}</select>`;
     g.appendChild(d);
   });
 }
@@ -768,6 +787,44 @@ function gSignIn(){
   s.onerror=()=>log('Could not load Google sign-in','err');document.head.appendChild(s);
 }
 
+/* ============================ EXISTING ADS / POSTS ============================ */
+async function loadExistingAds(){
+  const L=document.getElementById('exList');
+  if(!S.acct){L.innerHTML='<div class="hint">Pick an ad account in step 2 first.</div>';return}
+  L.innerHTML='<div class="hint">Loading recent ads…</div>';
+  try{
+    const j=await gget(`act_${S.acct}/ads?fields=name,effective_status,creative{id,thumbnail_url,object_story_id}&limit=100`);
+    const data=j.data||[];L.innerHTML='';
+    if(!data.length){L.innerHTML='<div class="hint">No ads found on this account.</div>';return}
+    data.forEach(ad=>{
+      const d=document.createElement('div');d.className='lrow';
+      const th=ad.creative&&ad.creative.thumbnail_url?`<img src="${ad.creative.thumbnail_url}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0">`:'';
+      d.innerHTML=`${th}<div class="l"><div class="nm">${esc(ad.name)}</div><div class="mt">creative ${ad.creative?ad.creative.id:'?'}</div></div><span class="badge ${ad.effective_status==='ACTIVE'?'on':''}">${ad.effective_status}</span>`;
+      d.onclick=()=>{
+        if(!ad.creative){log('That ad has no readable creative','err');return}
+        if(S.media.some(x=>x.creativeId===ad.creative.id)){log('Already added','err');return}
+        S.media.push({kind:'existing',src:'existing',name:ad.name,adName:ad.name,creativeId:ad.creative.id,preview:ad.creative.thumbnail_url||'',link:'',target:''});
+        sortMedia();renderMedia();paint();log('Added existing ad: '+ad.name,'ok');
+      };
+      L.appendChild(d);
+    });
+  }catch(e){L.innerHTML='<div class="hint">'+esc(e.message)+'</div>'}
+}
+function addExistingManual(){
+  const pid=val('exPostId'), ig=val('exIgId');
+  if(!pid&&!ig){log('Paste a post/creative ID or an Instagram media ID first','err');return}
+  if(pid){
+    const isStory=pid.includes('_');
+    S.media.push({kind:'existing',src:'existing',name:(isStory?'post ':'creative ')+pid,adName:(isStory?'post-':'cr-')+pid.slice(-8),...(isStory?{storyId:pid}:{creativeId:pid}),preview:'',link:'',target:''});
+    document.getElementById('exPostId').value='';
+  }
+  if(ig){
+    S.media.push({kind:'existing',src:'existing',name:'IG media '+ig,adName:'ig-'+ig.slice(-8),igId:ig,preview:'',link:'',target:''});
+    document.getElementById('exIgId').value='';
+  }
+  sortMedia();renderMedia();paint();log('Existing item(s) added','ok');
+}
+
 /* ============================ CAMPAIGN (STEP 2) ============================ */
 async function pickAccount(){
   const sel=document.getElementById('acctSel');
@@ -853,6 +910,28 @@ async function loadAdsets(cid){
       };
       L.appendChild(d);
     });
+  }catch(e){L.innerHTML='<div class="hint">'+esc(e.message)+'</div>'}
+}
+async function loadAllAdsets(){
+  if(!S.acct){log('Pick an ad account first','err');return}
+  const L=document.getElementById('adsetList'); L.innerHTML='<div class="hint">Loading every ad set in the account…</div>';
+  try{
+    const j=await gget(`act_${S.acct}/adsets?fields=name,effective_status,optimization_goal,daily_budget,campaign{name}&limit=250`);
+    S.adsets=j.data||[]; L.innerHTML='';
+    if(!S.adsets.length) L.innerHTML='<div class="hint">No ad sets on this account.</div>';
+    S.adsets.sort((a,b)=>(a.effective_status==='ACTIVE'?0:1)-(b.effective_status==='ACTIVE'?0:1));
+    S.adsets.forEach(as=>{
+      const d=document.createElement('div');
+      d.className='lrow'+(S.selAdsets.some(x=>x.id===as.id)?' sel':'');
+      d.innerHTML=`<div class="l"><div class="nm">${esc(as.name)}</div><div class="mt">${as.campaign?esc(as.campaign.name)+' · ':''}${as.optimization_goal||''}${as.daily_budget?' · daily '+(as.daily_budget/100):''}</div></div><span class="badge ${as.effective_status==='ACTIVE'?'on':''}">${as.effective_status}</span>`;
+      d.onclick=()=>{
+        const i=S.selAdsets.findIndex(x=>x.id===as.id);
+        i>=0?S.selAdsets.splice(i,1):S.selAdsets.push({id:as.id,name:as.name});
+        d.classList.toggle('sel'); paint();
+      };
+      L.appendChild(d);
+    });
+    log(S.adsets.length+' ad sets across all campaigns','ok');
   }catch(e){L.innerHTML='<div class="hint">'+esc(e.message)+'</div>'}
 }
 function destMode(m){
@@ -1004,6 +1083,7 @@ function validate(){
   if(!S.link) issues.push('Set the link URL (step 4)');
   if(S.link&&!/^https?:\/\//i.test(S.link)) issues.push('Link must start with https:// (step 4)');
   S.media.forEach(m=>{if(m.link&&!/^https?:\/\//i.test(m.link)) issues.push('Custom link on "'+m.name+'" must start with https://')});
+  if(S.format==='carousel'&&S.media.some(m=>m.kind==='existing')) issues.push('Carousel cannot include existing ads/posts — switch to One ad per file');
   if(S.format==='carousel'&&S.media.length<2) issues.push('Carousel needs at least 2 files');
   if(S.format==='carousel'&&S.media.length>10) issues.push('Carousel max is 10 cards — remove '+(S.media.length-10));
   const warns=[];
@@ -1023,7 +1103,7 @@ function paint(){
   const pg=S.pages.find(p=>p.id===S.page);
   const vids=S.media.filter(x=>x.kind==='video').length, imgs=S.media.filter(x=>x.kind==='image').length;
   const customLinks=S.media.filter(m=>m.link).length;
-  const nAds=(S.format==='carousel'?1:S.media.length)*Math.max(1,asNames.length);
+  const nAds=S.format==='carousel'?Math.max(1,asNames.length):S.media.reduce((a,m)=>a+(m.target?1:Math.max(1,asNames.length)),0);
   const rows=[
     ['Media', S.media.length? `${S.media.length} files — ${vids} video, ${imgs} photo${customLinks?' · '+customLinks+' custom link'+(customLinks>1?'s':''):''}`:'', v.lights.media],
     ['Account', S.acctName||'', !!S.acct],
@@ -1047,6 +1127,7 @@ function paint(){
   document.getElementById('ss-camp').textContent=campLine?campLine.slice(0,26):'where the ads go';
   document.getElementById('ss-adsets').textContent=asNames.length?asNames.length+' audience'+(asNames.length>1?'s':'')+' ✓':'who sees them';
   document.getElementById('ss-ad').textContent=S.body?'copy set ✓':'what the ad says';
+  refreshCardTargets();
   document.querySelector('.step[data-pane="media"]').classList.toggle('done',v.lights.media);
   document.querySelector('.step[data-pane="camp"]').classList.toggle('done',v.lights.camp);
   document.querySelector('.step[data-pane="adsets"]').classList.toggle('done',v.lights.adsets);
@@ -1128,6 +1209,7 @@ async function prepareMedia(useOverlay){
     if(S.media.some(m=>m.kind==='video')) loTask('proc','Meta processes the videos','usually 10–60s per video');
   }
   for(const m of S.media){
+    if(m.kind==='existing')continue;
     if(m.src==='gdrive'&&!m.file&&m.driveId){
       if(!gTok) throw new Error('Google session expired — hit Sign in with Google again');
       if(useOverlay)loStart('up-'+m.uiId,'downloading from Drive');
@@ -1233,8 +1315,9 @@ function specCarousel(){
   return {page_id:S.page,link_data:{link:S.link,message:S.body,multi_share_optimized:true,multi_share_end_card:false,child_attachments:cards,call_to_action:ctaObj(null)}};
 }
 function builtSpecs(){
-  if(S.format==='carousel') return [{name:'carousel-'+S.media.length+'-cards',spec:specCarousel()}];
-  return S.media.map(m=>({name:(m.adName&&m.adName.trim())||m.name.replace(/\.[^.]+$/,''),spec:specForMedia(m)}));
+  if(S.format==='carousel') return [{name:'carousel-'+S.media.length+'-cards',spec:specCarousel(),target:''}];
+  return S.media.map(m=>({name:(m.adName&&m.adName.trim())||m.name.replace(/\.[^.]+$/,''),
+    spec:m.kind==='existing'?null:specForMedia(m), existing:m.kind==='existing'?m:null, target:m.target||''}));
 }
 
 /* ============================ PREVIEW (ALL OF THEM) ============================ */
@@ -1255,7 +1338,11 @@ async function prepareAndPreview(){
     for(const sp of specs){
       n++; prog.textContent='Rendering preview '+n+' of '+specs.length+'…';
       try{
-        const j=await gget(`act_${S.acct}/generatepreviews?creative=${encodeURIComponent(JSON.stringify({object_story_spec:sp.spec}))}&ad_format=${fmt}`);
+        let cq;
+        if(sp.existing){const m=sp.existing;cq=m.creativeId?{creative_id:m.creativeId}:(m.storyId?{object_story_id:m.storyId}:null);
+          if(!cq){const wrap=document.createElement('div');wrap.className='pvwrap';wrap.innerHTML='<div class="pvname">'+esc(sp.name)+'</div><div class="hint" style="padding:14px;border:1px solid var(--line);border-radius:12px">Instagram media previews render after launch — check the ad in Ads Manager.</div>';zone.appendChild(wrap);continue}}
+        else cq={object_story_spec:sp.spec};
+        const j=await gget(`act_${S.acct}/generatepreviews?creative=${encodeURIComponent(JSON.stringify(cq))}&ad_format=${fmt}`);
         const body=(j.data&&j.data[0]&&j.data[0].body)||'';
         const wrap=document.createElement('div');wrap.className='pvwrap';
         wrap.innerHTML='<div class="pvname">'+esc(sp.name)+'</div>';
@@ -1351,21 +1438,36 @@ async function launch(){
       }
       loStart('t-adset'); log('Creating ad set '+nm,'busy');
       const as=await gpost(`act_${S.acct}/adsets`,pl);
-      targets.push({id:as.id,name:nm}); log('Ad set '+as.id,'ok'); loOk('t-adset','created · '+as.id);
+      targets.push({id:as.id,name:nm,_new:true}); log('Ad set '+as.id,'ok'); loOk('t-adset','created · '+as.id);
     }
     /* 3. media */
     await prepareMedia(true);
     /* 4. creatives + ads */
+    targets.forEach(t=>{if(!t._new&&S.newAdset&&val('newAdsetName')&&t.name===val('newAdsetName'))t._new=true});
+    const tgtsFor=sp=>{
+      if(!sp.target) return targets;
+      const hit=targets.filter(t=>t.id===sp.target||(sp.target==='NEW'&&t._new));
+      return hit.length?hit:targets;
+    };
     const specs=builtSpecs();
-    const totalAds=specs.length*targets.length;
+    const totalAds=specs.reduce((a,sp)=>a+tgtsFor(sp).length,0);
     loTask('t-ads','Create '+specs.length+' creative'+(specs.length>1?'s':'')+' + '+totalAds+' ad'+(totalAds>1?'s':''),'');
     loStart('t-ads');
     const tags=urlTags();
     const adIds=[];
     let made=0;
     for(const sp of specs){
-      const cr=await gpost(`act_${S.acct}/adcreatives`,{name:sp.name+' creative',object_story_spec:JSON.stringify(sp.spec),...(tags?{url_tags:tags}:{})});
-      for(const t of targets){
+      let cr;
+      if(sp.existing){
+        const m=sp.existing;
+        if(m.creativeId) cr={id:m.creativeId};
+        else if(m.storyId) cr=await gpost(`act_${S.acct}/adcreatives`,{name:sp.name+' creative',object_story_id:m.storyId,...(tags?{url_tags:tags}:{})});
+        else if(m.igId) cr=await gpost(`act_${S.acct}/adcreatives`,{name:sp.name+' creative',source_instagram_media_id:m.igId,call_to_action_type:S.cta,...(tags?{url_tags:tags}:{})});
+        else throw new Error('Existing item '+sp.name+' has no usable ID');
+      } else {
+        cr=await gpost(`act_${S.acct}/adcreatives`,{name:sp.name+' creative',object_story_spec:JSON.stringify(sp.spec),...(tags?{url_tags:tags}:{})});
+      }
+      for(const t of tgtsFor(sp)){
         const ad=await gpost(`act_${S.acct}/ads`,{name:sp.name,adset_id:t.id,creative:JSON.stringify({creative_id:cr.id}),status});
         adIds.push(ad.id); made++;
         loPct('t-ads',Math.round(made/totalAds*100));
@@ -1477,7 +1579,7 @@ async function csEnsureFile(m,onPct){
     for(const p of PROXIES){
       try{const r=await fetch(p(m.url));if(r.ok){m.file=await streamToFile(r,m.name,onPct);return}last=new Error('proxy HTTP '+r.status)}catch(e){last=e}
     }
-    throw new Error((last?last.message+' — ':'')+'Drive blocked the direct download. Hit "Sign in with Google" (step 1) and edit again — signed-in downloads always work.');
+    throw new Error('Google is blocking anonymous downloads of this file right now. Retry in a minute, drag the file in directly, or use Sign in with Google once — then it always works.');
   }
   throw new Error('no downloadable source');
 }
