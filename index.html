@@ -1625,8 +1625,7 @@ function fbLogin(){
   if(!appId){log('Paste your Meta App ID first (Settings)','err');return openSettings()}
   cfg.appId=appId;localStorage.setItem('launcher_cfg',JSON.stringify(cfg));
   const redirect=encodeURIComponent(location.origin+location.pathname);
-  const scope='ads_management,ads_read,business_management,pages_show_list,pages_read_engagement,pages_manage_ads,instagram_basic';
-  location.href=`https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirect}&response_type=token&scope=${scope}`;
+  location.href=`https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirect}&response_type=token&config_id=1580267003752638`;
 }
 function captureToken(){
   if(location.hash.includes('access_token=')){
