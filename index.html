@@ -285,15 +285,15 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
     <!-- ================= STEP 3: AD SETS ================= -->
     <section class="pane" id="pane-adsets">
       <h2>Ad sets</h2>
-      <div class="sub">Every audience (ad set) you tick gets a copy of every ad. Add a new one if you need it.</div>
+      <div class="sub">Tick the ad sets that should receive ads — each ticked one gets a copy of every ad (unless a specific ad targets one only). "Show ALL campaigns" lists every ad set on the whole account so you can mix campaigns.</div>
       <div class="card">
         <div id="adsetExistZone">
-          <div class="list" id="adsetList"><div class="hint">Pick a campaign in step 2 to load its audiences — or create a new one below.</div></div>
+          <div class="list" id="adsetList"><div class="hint">Pick a campaign in step 2 to load its ad sets — or create a new one below.</div></div>
         </div>
         <div style="margin-top:14px;display:flex;gap:8px"><button class="btn primary" id="newAdsetToggle" onclick="toggleNewAdset()">+ Create new ad set</button><button class="btn" onclick="loadAllAdsets()">Show ad sets from ALL campaigns</button></div>
         <div id="newAdsetBox" style="display:none;margin-top:16px">
           <div class="row">
-            <div class="field" style="flex:2"><label>Audience name</label><input id="newAdsetName" placeholder="Egypt Broad" oninput="paint()"></div>
+            <div class="field" style="flex:2"><label>Ad set name</label><input id="newAdsetName" placeholder="Egypt Broad" oninput="paint()"></div>
             <div class="field"><label>Country</label><input id="newAdsetCountry" value="EG" maxlength="2" oninput="paint()"></div>
           </div>
           <div class="row">
@@ -445,6 +445,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
   <div id="loLive">
     <div id="loTitle">Launching…</div>
     <div id="loSub">Don't close this tab. Each step reports its progress below.</div>
+    <button onclick="LO.abort=true;this.textContent='cancelling…'" style="float:right;margin-top:-34px;color:var(--err);font-weight:600;font-size:13px">✕ Cancel</button>
     <div id="loBarWrap"><div id="loBar"></div></div>
     <div id="loPct">0%</div>
     <div id="loTasks"></div>
@@ -553,6 +554,7 @@ function explainError(e){
   };
 }
 async function gget(path){
+  if(!cfg.meta){openSettings();throw new Error('Your Facebook session expired — hit Continue with Facebook, everything you filled in stays')}
   const sep=path.includes('?')?'&':'?';
   const r=await fetch(`${GRAPH}/${path}${sep}access_token=${cfg.meta}`);
   const j=await r.json();
@@ -563,6 +565,7 @@ async function gget(path){
   return j;
 }
 async function gpost(path,payload){
+  if(!cfg.meta){openSettings();throw new Error('Your Facebook session expired — hit Continue with Facebook, everything you filled in stays')}
   const body=new URLSearchParams({...payload,access_token:cfg.meta});
   const r=await fetch(`${GRAPH}/${path}`,{method:'POST',body});
   const j=await r.json();
@@ -833,7 +836,9 @@ async function loadPagePosts(){
   if(!S.page){L.innerHTML='<div class="hint">No Facebook page loaded yet — it auto-loads with the account.</div>';return}
   L.innerHTML='<div class="hint">Loading page posts…</div>';
   try{
-    const j=await gget(`${S.page}/posts?fields=message,full_picture,created_time&limit=50`);
+    const tok=(S.pageTok||{})[S.page]||cfg.meta;
+    const r=await fetch(`${GRAPH}/${S.page}/posts?fields=message,full_picture,created_time&limit=50&access_token=${tok}`);
+    const j=await r.json(); if(j.error) throw metaErr(j);
     const data=j.data||[];L.innerHTML='';
     if(!data.length){L.innerHTML='<div class="hint">No posts readable on this page.</div>';return}
     data.forEach(po=>{
@@ -855,10 +860,13 @@ async function loadIgPosts(){
   if(!S.acct||!S.page){L.innerHTML='<div class="hint">Pick an ad account first (left sidebar).</div>';return}
   L.innerHTML='<div class="hint">Finding the connected Instagram account…</div>';
   try{
-    const pg=await gget(`${S.page}?fields=instagram_business_account`);
+    const tok=(S.pageTok||{})[S.page]||cfg.meta;
+    const rp=await fetch(`${GRAPH}/${S.page}?fields=instagram_business_account&access_token=${tok}`);
+    const pg=await rp.json(); if(pg.error) throw metaErr(pg);
     const ig=pg.instagram_business_account&&pg.instagram_business_account.id;
     if(!ig)throw new Error('This Facebook page has no connected Instagram business account');
-    const j=await gget(`${ig}/media?fields=id,caption,media_type,media_url,thumbnail_url&limit=50`);
+    const rm=await fetch(`${GRAPH}/${ig}/media?fields=id,caption,media_type,media_url,thumbnail_url&limit=50&access_token=${tok}`);
+    const j=await rm.json(); if(j.error) throw metaErr(j);
     const data=j.data||[];L.innerHTML='';
     if(!data.length){L.innerHTML='<div class="hint">No IG posts found.</div>';return}
     data.forEach(mo=>{
@@ -913,7 +921,9 @@ async function loadCampaigns(){
       const d=document.createElement('div');
       d.className='lrow';
       const cbo=(c.daily_budget||c.lifetime_budget)?'CBO':'ABO';
-      d.innerHTML=`<div class="l"><div class="nm">${esc(c.name)}</div><div class="mt">${c.objective||''} · ${cbo} · ${c.bid_strategy||'LOWEST_COST'}</div></div><span class="badge ${c.effective_status==='ACTIVE'?'on':''}">${c.effective_status}</span>`;
+      d.innerHTML=`<div class="l"><div class="nm">${esc(c.name)}</div><div class="mt">${c.objective||''} · ${cbo} · ${c.bid_strategy||'LOWEST_COST'}</div></div><button class="badge" data-rn="1" title="Rename">✏</button><a class="badge" title="Open in Ads Manager" target="_blank" href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${S.acct}&selected_campaign_ids=${c.id}">↗</a><span class="badge ${c.effective_status==='ACTIVE'?'on':''}">${c.effective_status}</span>`;
+      d.querySelector('[data-rn]').onclick=async e=>{e.stopPropagation();const nn=prompt('New campaign name:',c.name);if(nn&&nn!==c.name){try{await gpost(c.id,{name:nn});c.name=nn;log('Campaign renamed','ok');loadCampaigns()}catch(x){log('Rename: '+x.message,'err')}}};
+      d.querySelector('a.badge').onclick=e=>e.stopPropagation();
       d.onclick=()=>pickCampaign(c,d);
       L.appendChild(d);
     });
@@ -926,6 +936,8 @@ async function loadPages(){
     try{const j=await gget(`act_${S.acct}/promote_pages?fields=id,name&limit=25`);pages=j.data||[]}catch(e){}
     if(!pages.length){try{const j=await gget('me/accounts?fields=id,name&limit=50');pages=j.data||[]}catch(e){}}
     S.pages=pages;
+    S.pageTok={};
+    try{const jt=await gget('me/accounts?fields=id,name,access_token&limit=100');(jt.data||[]).forEach(p=>{if(p.access_token)S.pageTok[p.id]=p.access_token})}catch(e){}
     const sel=document.getElementById('pageSel');
     sel.innerHTML=pages.length?pages.map(p=>`<option value="${p.id}">${esc(p.name||p.id)}</option>`).join(''):'<option value="">No page found</option>';
     if(pages.length){S.page=pages[0].id;paint()}
@@ -967,7 +979,9 @@ async function loadAdsets(cid){
     S.adsets.forEach(as=>{
       const d=document.createElement('div');
       d.className='lrow';
-      d.innerHTML=`<div class="l"><div class="nm">${esc(as.name)}</div><div class="mt">${as.optimization_goal||''}${as.daily_budget?' · daily '+(as.daily_budget/100):''}</div></div><span class="badge ${as.effective_status==='ACTIVE'?'on':''}">${as.effective_status}</span>`;
+      d.innerHTML=`<div class="l"><div class="nm">${esc(as.name)}</div><div class="mt">${as.optimization_goal||''}${as.daily_budget?' · daily '+(as.daily_budget/100):''}</div></div><button class="badge" data-rn="1" title="Rename">✏</button><a class="badge" title="Open in Ads Manager" target="_blank" href="https://adsmanager.facebook.com/adsmanager/manage/adsets?act=${S.acct}&selected_adset_ids=${as.id}">↗</a><span class="badge ${as.effective_status==='ACTIVE'?'on':''}">${as.effective_status}</span>`;
+      d.querySelector('[data-rn]').onclick=async e=>{e.stopPropagation();const nn=prompt('New ad set name:',as.name);if(nn&&nn!==as.name){try{await gpost(as.id,{name:nn});as.name=nn;d.querySelector('.nm').textContent=nn;log('Ad set renamed','ok')}catch(x){log('Rename: '+x.message,'err')}}};
+      d.querySelector('a.badge').onclick=e=>e.stopPropagation();
       d.onclick=()=>{
         const i=S.selAdsets.findIndex(x=>x.id===as.id);
         i>=0?S.selAdsets.splice(i,1):S.selAdsets.push({id:as.id,name:as.name});
@@ -988,7 +1002,9 @@ async function loadAllAdsets(){
     S.adsets.forEach(as=>{
       const d=document.createElement('div');
       d.className='lrow'+(S.selAdsets.some(x=>x.id===as.id)?' sel':'');
-      d.innerHTML=`<div class="l"><div class="nm">${esc(as.name)}</div><div class="mt">${as.campaign?esc(as.campaign.name)+' · ':''}${as.optimization_goal||''}${as.daily_budget?' · daily '+(as.daily_budget/100):''}</div></div><span class="badge ${as.effective_status==='ACTIVE'?'on':''}">${as.effective_status}</span>`;
+      d.innerHTML=`<div class="l"><div class="nm">${esc(as.name)}</div><div class="mt">${as.campaign?esc(as.campaign.name)+' · ':''}${as.optimization_goal||''}${as.daily_budget?' · daily '+(as.daily_budget/100):''}</div></div><button class="badge" data-rn="1" title="Rename">✏</button><a class="badge" title="Open in Ads Manager" target="_blank" href="https://adsmanager.facebook.com/adsmanager/manage/adsets?act=${S.acct}&selected_adset_ids=${as.id}">↗</a><span class="badge ${as.effective_status==='ACTIVE'?'on':''}">${as.effective_status}</span>`;
+      d.querySelector('[data-rn]').onclick=async e=>{e.stopPropagation();const nn=prompt('New ad set name:',as.name);if(nn&&nn!==as.name){try{await gpost(as.id,{name:nn});as.name=nn;d.querySelector('.nm').textContent=nn;log('Ad set renamed','ok')}catch(x){log('Rename: '+x.message,'err')}}};
+      d.querySelector('a.badge').onclick=e=>e.stopPropagation();
       d.onclick=()=>{
         const i=S.selAdsets.findIndex(x=>x.id===as.id);
         i>=0?S.selAdsets.splice(i,1):S.selAdsets.push({id:as.id,name:as.name});
@@ -1017,7 +1033,8 @@ function bidChanged(){
   const v=document.getElementById('bidSel').value;
   document.getElementById('bidGoalWrap').style.display=(v==='cost_cap'||v==='bid_cap')?'block':'none';
   document.getElementById('bidGoalLbl').innerHTML=(v==='bid_cap'?'Bid cap':'Cost per result')+' (<span>'+S.currency+'</span>)';
-  document.getElementById('roasGoalWrap').style.display=v==='min_roas'?'block':'none';
+  document.getElementById('roasGoalWrap').style.display=(v==='min_roas'||v==='highest_value')?'block':'none';
+  document.getElementById('roasGoalWrap').querySelector('label').textContent=v==='highest_value'?'ROAS goal (optional)':'ROAS floor (e.g. 3.5)';
   document.getElementById('roasNote').style.display=v==='min_roas'?'block':'none';
   if(v==='min_roas'||v==='highest_value'){const g=document.getElementById('goalSel'); if(g&&[...g.options].some(o=>o.value==='VALUE')){g.value='VALUE';goalChanged()}}
   paint();
@@ -1173,7 +1190,7 @@ function paint(){
     ['Media', S.media.length? `${S.media.length} files — ${vids} video, ${imgs} photo${customLinks?' · '+customLinks+' custom link'+(customLinks>1?'s':''):''}`:'', v.lights.media],
     ['Account', S.acctName||'', !!S.acct],
     ['Campaign', campLine, v.lights.camp],
-    ['Audiences', asNames.join(', '), v.lights.adsets],
+    ['Ad sets', asNames.join(', '), v.lights.adsets],
     ['Page', pg?(pg.name||pg.id):'', !!S.page],
     ['Text', S.body? S.body.slice(0,60).replace(/\n/g,' ')+(S.body.length>60?'…':''):'', !!S.body],
     ['Headline', S.title||'', true],
@@ -1213,7 +1230,7 @@ function log(t,cls){
 /* ============================ LAUNCH OVERLAY ============================ */
 const LO={tasks:[],total:0,done:0};
 function loOpen(title,sub){
-  LO.tasks=[];LO.total=0;LO.done=0;
+  LO.tasks=[];LO.total=0;LO.done=0;LO.abort=false;
   document.getElementById('loTitle').textContent=title;
   document.getElementById('loSub').textContent=sub;
   document.getElementById('loTasks').innerHTML='';
@@ -1262,6 +1279,12 @@ function loError(e){
 }
 function closeOverlay(){document.getElementById('lo').classList.remove('show')}
 
+/* ============================ UPLOAD CACHE (never upload twice) ============================ */
+let UPC={};try{UPC=JSON.parse(localStorage.getItem('upcache')||'{}')}catch(e){}
+function upcKey(m){return m.driveId?('d_'+m.driveId):('l_'+m.name+'_'+(m.size||0))}
+function upcGet(m){return (UPC[S.acct]||{})[upcKey(m)]||null}
+function upcSet(m,val){UPC[S.acct]=UPC[S.acct]||{};UPC[S.acct][upcKey(m)]=Object.assign(UPC[S.acct][upcKey(m)]||{},val);try{localStorage.setItem('upcache',JSON.stringify(UPC))}catch(e){}}
+
 /* ============================ MEDIA PREPARATION ============================ */
 async function prepareMedia(useOverlay){
   if(S.prepared) return;
@@ -1275,6 +1298,12 @@ async function prepareMedia(useOverlay){
   }
   for(const m of S.media){
     if(m.kind==='existing')continue;
+    if(LO.abort) throw new Error('Cancelled — nothing more was created');
+    const cached=upcGet(m);
+    if(cached){
+      if(m.kind==='video'&&!m.id&&cached.id){m.id=cached.id;if(cached.thumb)m.thumb=cached.thumb;setMediaState(m,'already on Meta ✓','ok');if(useOverlay)loOk('up-'+m.uiId,'uploaded earlier — skipped')}
+      if(m.kind==='image'&&!m.hash&&cached.hash){m.hash=cached.hash;setMediaState(m,'already on Meta ✓','ok');if(useOverlay)loOk('up-'+m.uiId,'uploaded earlier — skipped')}
+    }
     if(m.src==='gdrive'&&!m.file&&m.driveId){
       if(!gTok) throw new Error('Google session expired — hit Sign in with Google again');
       if(useOverlay)loStart('up-'+m.uiId,'downloading from Drive');
@@ -1303,14 +1332,22 @@ async function prepareMedia(useOverlay){
       }
       setMediaState(m,'uploaded ✓','ok');
       if(useOverlay)loOk('up-'+m.uiId,'uploaded');
+      upcSet(m,{id:m.id});
     }
     if(m.kind==='image'&&!m.hash){
       if(useOverlay)loStart('up-'+m.uiId);
       setMediaState(m,'uploading…');
       let b64;
       if(m.src==='local'){ b64=await fileToB64(m.file); }
-      else { log('Fetching image '+m.name+' from Drive…','busy'); setMediaState(m,'fetching from Drive…'); const blob=await proxyFetchBlob(m.url); b64=await fileToB64(blob); }
+      else {
+        log('Fetching image '+m.name+'…','busy'); setMediaState(m,'fetching…');
+        let blob;
+        try{blob=await proxyFetchBlob(m.url)}
+        catch(e){ if(m.driveId){blob=await proxyFetchBlob('https://drive.google.com/thumbnail?id='+m.driveId+'&sz=w2000')} else throw e }
+        b64=await fileToB64(blob);
+      }
       m.hash=await uploadImageBytes(S.acct,b64);
+      upcSet(m,{hash:m.hash});
       log(m.name+' → image '+m.hash.slice(0,10)+'…','ok');
       setMediaState(m,'uploaded ✓','ok');
       if(useOverlay)loOk('up-'+m.uiId,'uploaded');
@@ -1346,6 +1383,7 @@ async function prepareMedia(useOverlay){
         if(!m.thumb) await new Promise(r=>setTimeout(r,5000));
       }
       if(!m.thumb) throw new Error('No thumbnail available yet for '+m.name+' — wait a minute and hit Prepare again');
+      upcSet(m,{id:m.id,thumb:m.thumb});
     }
     if(useOverlay)loOk('proc','all videos ready');
   }
@@ -1447,6 +1485,7 @@ async function launch(){
     if(S.campMode==='new'){
       campName=val('newCampName');
       bidMode=val('bidSel');
+      if(bidMode==='highest_value') bidMode=val('roasGoalAmt')?'min_roas':'volume';
       const payload={name:campName,objective:val('objSel'),status:'PAUSED',special_ad_categories:'[]',buying_type:'AUCTION'};
       if(cbo){
         if(val('budgetType')==='daily') payload.daily_budget=minor(val('budgetAmt'));
@@ -1532,6 +1571,7 @@ async function launch(){
       } else {
         cr=await gpost(`act_${S.acct}/adcreatives`,{name:sp.name+' creative',object_story_spec:JSON.stringify(sp.spec),...(tags?{url_tags:tags}:{})});
       }
+      if(LO.abort) throw new Error('Cancelled — already-created ads stay paused in Ads Manager');
       for(const t of tgtsFor(sp)){
         const ad=await gpost(`act_${S.acct}/ads`,{name:sp.name,adset_id:t.id,creative:JSON.stringify({creative_id:cr.id}),status});
         adIds.push(ad.id); made++;
@@ -1610,7 +1650,17 @@ paint();
   const db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
   const items=await new Promise(res=>{const out=[];const c=db.transaction('inbox').objectStore('inbox').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){out.push(cu.value);cu.continue()}else res(out)}});
   if(items.length){
-    items.forEach(it=>{const f=new File([it.blob],it.name,{type:'image/png'});
+    items.forEach(it=>{
+      if(it.type==='drive'&&it.driveId){
+        if(S.media.some(x=>x.driveId===it.driveId))return;
+        S.media.push({kind:it.kind||'image',src:'drive',driveId:it.driveId,url:driveDirect(it.driveId),name:it.name,link:'',adName:(it.name||'').replace(/\.[^.]+$/,''),target:''});return;
+      }
+      if(it.type==='url'&&it.url){
+        if(S.media.some(x=>x.url===it.url))return;
+        S.media.push({kind:'image',src:'drive',url:it.url,name:it.name||'image',preview:it.url,link:'',adName:(it.name||'image').replace(/\.[^.]+$/,''),target:''});return;
+      }
+      if(!it.blob)return;
+      const f=new File([it.blob],it.name,{type:'image/png'});
       if(S.media.some(x=>x.name===it.name))return;
       S.media.push({kind:'image',src:'local',file:f,name:it.name,size:f.size,link:'',adName:it.name.replace(/\.[^.]+$/,''),preview:URL.createObjectURL(f)});});
     sortMedia();renderMedia();paint();

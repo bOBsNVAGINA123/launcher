@@ -4512,15 +4512,17 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    const re=/id="entry-([\w-]+)"[\s\S]*?flip-entry-title">([^<]+)</g;
    const prods=[];let mt;
    while((mt=re.exec(html))!==null){const id=mt[1],name=mt[2].trim();
-    if(!/\.(jpe?g|png|webp|gif|avif)$/i.test(name))continue;
-    prods.push({title:name,img:'https://drive.google.com/thumbnail?id='+id+'&sz=w1600',img2:''});}
-   if(!prods.length)throw new Error('no images found — share the folder as Anyone with the link');
-   return {url:u,origin:'drive',handle:'drive_'+fm[1].slice(0,10),name:'📁 Drive · '+prods.length+' images',products:prods,last:Date.now()};
+    const isImg=/\.(jpe?g|png|webp|gif|avif)$/i.test(name), isVid=/\.(mp4|mov|webm|m4v)$/i.test(name);
+    if(!isImg&&!isVid)continue;
+    prods.push({title:name,img:'https://drive.google.com/thumbnail?id='+id+'&sz=w1600',img2:'',kind:isVid?'video':'image',driveId:id});}
+   if(!prods.length)throw new Error('nothing found — share the folder as Anyone with the link');
+   return {url:u,origin:'drive',handle:'drive_'+fm[1].slice(0,10),name:'📁 Drive · '+prods.length+' files',products:prods,last:Date.now()};
   }
   function fetchAny(u){return /\/folders\//.test(u)?fetchDriveFolder(u):fetchCollection(u)}
 
   /* ---------- add an item into the next free slot ---------- */
   async function addToSlot(item){
+   if(item.kind==='video'){stat('🎬 videos can\'t fill photo slots — use "→ Launcher" to send them to the ads tool');return}
    let t=0;for(let j=1;j<=NSLOT;j++)if(!state.slots[j].src){t=j;break}
    if(!t){growSlots(NSLOT+1);t=NSLOT}
    let data=null;
@@ -4559,6 +4561,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    +'<div id="sySources" style="margin-bottom:6px"></div>'
    +'<input id="sySearch" placeholder="search…" style="width:100%;background:#14161c;color:#e8e9ec;border:1px solid #262a33;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;margin-bottom:6px">'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syLoadSel" class="btn ghost" style="flex:1">Add selected</button><button id="syLoadAll" class="btn ghost" style="flex:1">Load all shown</button></div>'
+   +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syToLauncher" class="btn ghost" style="flex:1;border-color:#4a7">🚀 → Launcher (selected, or all shown)</button></div>'
    +'<div id="syGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;max-height:230px;overflow:auto;padding-right:3px"></div>'
    +'<div id="syStatus" style="font-size:10px;color:#8b8470;margin:6px 0 2px;min-height:12px"></div>';
   const dh=document.getElementById('dhLib');
@@ -4569,7 +4572,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   function items(){
    const q=(document.getElementById('sySearch').value||'').toLowerCase();
    const out=[];
-   COLS.forEach(c=>{if(FILTER&&FILTER!=='col_'+c.handle)return;c.products.forEach(p=>{if(!q||p.title.toLowerCase().indexOf(q)>=0)out.push({title:p.title,img:p.img,thumb:p.img,key:'c'+c.handle+p.img})})});
+   COLS.forEach(c=>{if(FILTER&&FILTER!=='col_'+c.handle)return;c.products.forEach(p=>{if(!q||p.title.toLowerCase().indexOf(q)>=0)out.push({title:p.title,img:p.img,thumb:p.img,kind:p.kind||'image',driveId:p.driveId||null,key:'c'+c.handle+(p.driveId||p.img)})})});
    if(!FILTER||FILTER==='inbox')INBOX.forEach(it=>{if(!q||it.title.toLowerCase().indexOf(q)>=0)out.push(it)});
    FOLDERS.forEach(f=>{if(FILTER&&FILTER!=='fol_'+f.key)return;(f.files||[]).forEach(fl=>{if(!q||fl.name.toLowerCase().indexOf(q)>=0)out.push({title:fl.name,file:fl,thumb:null,key:'f'+f.key+fl.name+fl.size})})});
    return out;
@@ -4594,12 +4597,29 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   function paintGrid(){
    SHOWN=items();
    const g=document.getElementById('syGrid');
-   g.innerHTML=SHOWN.slice(0,240).map((it,i)=>'<div class="syp" data-i="'+i+'" style="cursor:pointer;border:2px solid '+(sel.has(it.key)?'#7ea2ff':'transparent')+';border-radius:8px;background:#0d0e12;padding:3px">'
+   g.innerHTML=SHOWN.slice(0,240).map((it,i)=>'<div class="syp" data-i="'+i+'" style="cursor:pointer;border:2px solid '+(sel.has(it.key)?'#7ea2ff':'transparent')+';border-radius:8px;background:#0d0e12;padding:3px;position:relative">'
+    +(it.kind==='video'?'<span style="position:absolute;top:5px;left:5px;font-size:9px;background:rgba(0,0,0,.7);color:#fff;padding:1px 4px;border-radius:4px;z-index:1">🎬</span>':'')
     +'<div style="height:52px;border-radius:5px;background:#0d0e12 center/cover;background-image:url(\''+thumbOf(it)+'\')"></div>'
     +'<div style="font-size:9px;color:#aeb4bf;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+it.title+'</div></div>').join('')
     +(SHOWN.length>240?'<div style="grid-column:1/-1;font-size:10px;color:#6b7280;padding:4px">'+(SHOWN.length-240)+' more — use search</div>':'');
    g.querySelectorAll('.syp').forEach(el=>el.onclick=()=>{const it=SHOWN[+el.dataset.i];sel.has(it.key)?sel.delete(it.key):sel.add(it.key);paintGrid()});
   }
+  document.getElementById('syToLauncher').onclick=async()=>{
+   let picked=SHOWN.filter(it=>sel.has(it.key));
+   if(!picked.length)picked=SHOWN.slice(0,100);
+   if(!picked.length){stat('nothing to send');return}
+   try{
+    const db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+    await new Promise(res=>{const t=db.transaction('inbox','readwrite');const st2=t.objectStore('inbox');
+     picked.forEach(it=>{
+      if(it.driveId)st2.put({type:'drive',driveId:it.driveId,name:it.title,kind:it.kind||'image',t:Date.now()});
+      else if(it.file)st2.put({name:it.title,blob:it.file,t:Date.now()});
+      else if(it.img)st2.put({type:'url',url:it.img,name:it.title,kind:'image',t:Date.now()});
+     });t.oncomplete=res});
+    sel.clear();paintGrid();
+    stat('🚀 '+picked.length+' sent — open the Launcher, they land in Media automatically');
+   }catch(e){stat('⚠ '+e.message)}
+  };
   document.getElementById('sySearch').oninput=paintGrid;
   document.getElementById('syAddCol').onclick=async()=>{
    const u=document.getElementById('syUrl').value.trim();if(!u){stat('paste a collection link first');return}
