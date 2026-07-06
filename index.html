@@ -708,6 +708,15 @@ async function importDrive(auto){
     const line=lines[li];
     const setP=f=>{pb.style.width=Math.round(((li+f)/lines.length)*100)+'%'};
     setP(0.1);
+    if(/^https?:\/\//.test(line)&&!/drive\.google/.test(line)&&/\.(mp4|mov|webm|m4v|jpe?g|png|webp|gif)([?#]|$)/i.test(line)){
+      const nm=decodeURIComponent((line.split('/').pop()||'file').split('?')[0]);
+      const k=kindOf(nm,'');
+      if(k&&!S.media.some(x=>x.url===line)){
+        S.media.push({kind:k,src:'drive',url:line,name:nm,link:'',adName:nm.replace(/\.[^.]+$/,''),preview:k==='image'?line:'',target:''});
+        added++;
+      }
+      setP(1);continue;
+    }
     const fm=line.match(/\/folders\/([\w-]{15,})/);
     if(fm){
       folders++;
@@ -1616,7 +1625,8 @@ function fbLogin(){
   if(!appId){log('Paste your Meta App ID first (Settings)','err');return openSettings()}
   cfg.appId=appId;localStorage.setItem('launcher_cfg',JSON.stringify(cfg));
   const redirect=encodeURIComponent(location.origin+location.pathname);
-  location.href=`https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirect}&response_type=token&config_id=1580267003752638`;
+  const scope='ads_management,ads_read,business_management,pages_show_list,pages_read_engagement,pages_manage_ads,instagram_basic';
+  location.href=`https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirect}&response_type=token&scope=${scope}`;
 }
 function captureToken(){
   if(location.hash.includes('access_token=')){
@@ -1668,6 +1678,17 @@ paint();
     await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').clear();t.oncomplete=res});
   }
 }catch(e){}})();
+/* auto-import Telegram channel material (tg.json manifest in this repo) */
+(async()=>{try{
+  const r=await fetch('tg.json?'+Date.now());if(!r.ok)return;
+  const j=await r.json();let n=0;
+  (j.items||[]).forEach(it=>{
+    if(!it.url||S.media.some(x=>x.url===it.url))return;
+    const k=it.kind||kindOf(it.name||it.url,'');if(!k)return;
+    S.media.push({kind:k,src:'drive',url:it.url,name:it.name||('telegram_'+(n+1)),link:'',adName:(it.name||'telegram').replace(/\.[^.]+$/,''),preview:k==='image'?it.url:'',target:''});n++;
+  });
+  if(n){sortMedia();renderMedia();paint();log('📨 '+n+' new file(s) from the Telegram channel','ok')}
+}catch(e){}})();
 /* auto-recheck saved Drive folders */
 if((cfg.driveFolders||[]).length) setTimeout(()=>importDrive(true),800);
 if(cfg.meta){whoAmI().then(syncAll)} else {setTimeout(()=>{log('Hit Continue with Facebook to load everything','busy');openSettings()},400)}
@@ -1689,7 +1710,7 @@ function validVideo(file){return new Promise(res=>{
   v.onerror=()=>done(false);
   v.src=u;setTimeout(()=>done(false),8000);
 })}
-async function csEnsureFile(m,onPct){
+async function csEnsureFile(m,onPct,onMsg){
   if(m.file)return;
   if(m.src==='gdrive'&&gTok){
     const r=await fetch('https://www.googleapis.com/drive/v3/files/'+m.driveId+'?alt=media',{headers:{Authorization:'Bearer '+gTok}});
@@ -1698,17 +1719,20 @@ async function csEnsureFile(m,onPct){
   }
   if(m.url){
     let last;
-    for(const p of PROXIES){
+    for(let pi=0;pi<PROXIES.length;pi++){
+      if(onMsg)onMsg('download route '+(pi+1)+' of '+PROXIES.length+'…');
       try{
-        const r=await fetch(p(m.url));
-        if(!r.ok){last=new Error('proxy HTTP '+r.status);continue}
+        const ac=new AbortController();const tm=setTimeout(()=>ac.abort(),90000);
+        const r=await fetch(PROXIES[pi](m.url),{signal:ac.signal});
+        if(!r.ok){clearTimeout(tm);last=new Error('route '+(pi+1)+' HTTP '+r.status);continue}
         const f=await streamToFile(r,m.name,onPct);
-        if(f.size<20000){last=new Error('route returned junk');continue}
-        if(m.kind==='video'&&!(await validVideo(f))){last=new Error('route returned a corrupted file');continue}
+        clearTimeout(tm);
+        if(f.size<20000){last=new Error('route '+(pi+1)+' returned junk');continue}
+        if(m.kind==='video'&&!(await validVideo(f))){last=new Error('route '+(pi+1)+' returned a corrupted file');continue}
         m.file=f;return;
-      }catch(e){last=e}
+      }catch(e){last=(e&&e.name==='AbortError')?new Error('route '+(pi+1)+' timed out (90s)'):e}
     }
-    throw new Error('All 3 anonymous download routes failed for this file ('+(last?last.message:'')+'). Sign in with Google fixes it permanently — or drag the file in directly.');
+    throw new Error('All 3 anonymous download routes failed ('+(last?last.message:'')+'). Retry, drag the file in directly, or Sign in with Google once — then it never fails.');
   }
   throw new Error('no downloadable source');
 }
@@ -1720,13 +1744,13 @@ async function inlineEdit(i){
   const card=cards[i];if(!card)return;
   const p=document.createElement('div');
   p.id='ied';
-  p.style.cssText='grid-column:1/-1;background:#fff;border:2px solid var(--blue);border-radius:14px;padding:16px;box-shadow:0 6px 24px rgba(8,102,255,.15)';
-  p.innerHTML='<div style="font-weight:700;margin-bottom:10px">✂ Editing: '+esc(m.name)+' <button onclick="closeInline()" style="float:right;color:var(--dim);font-size:18px">×</button></div><div id="iedBody" class="hint">loading video…</div>';
+  p.style.cssText='grid-column:1/-1;background:#fff;border:1px solid var(--line);border-left:5px solid var(--blue);border-radius:16px;padding:22px;box-shadow:0 10px 34px rgba(0,0,0,.12)';
+  p.innerHTML='<div style="font-weight:800;font-size:17px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--line)">✂ Editing '+esc(m.name)+' <button onclick="closeInline()" style="float:right;color:var(--dim);font-size:20px;line-height:1">×</button></div><div id="iedBody" class="hint">loading video…</div>';
   card.after(p);
   try{ if(!m.file){const bd=p.querySelector('#iedBody');
     bd.innerHTML='<div style="height:10px;background:#e4e6eb;border-radius:6px;overflow:hidden;margin-bottom:8px"><div id="iedDl" style="height:100%;width:2%;background:var(--blue);transition:width .2s"></div></div><div id="iedDlT" class="hint">downloading from Drive… (first edit only)</div>';
     const bar=bd.querySelector('#iedDl'),txt=bd.querySelector('#iedDlT');
-    await csEnsureFile(m,(pc,got)=>{if(pc!==null){bar.style.width=pc+'%';txt.textContent='downloading from Drive… '+pc+'% (first edit only)'}else{txt.textContent='downloading from Drive… '+(got/1048576).toFixed(1)+' MB (first edit only)'}});} }
+    await csEnsureFile(m,(pc,got)=>{if(pc!==null){bar.style.width=pc+'%';txt.textContent='downloading from Drive… '+pc+'% (first edit only)'}else if(got>0){txt.textContent='downloading… '+(got/1048576).toFixed(1)+' MB (first edit only)'}},msg=>{txt.textContent=msg+' — first edit only, then instant'});} }
   catch(e){p.querySelector('#iedBody').textContent='⚠ '+e.message;return}
   if(!m.vurl)m.vurl=URL.createObjectURL(m.file);
   p.querySelector('#iedBody').outerHTML=`
@@ -1753,10 +1777,10 @@ async function inlineEdit(i){
         <div class="field"><label>Music (optional)</label><input id="iedMus" type="file" accept="audio/*,video/*" style="padding:7px"></div>
       </div>
       <div class="row" style="margin-top:4px">
-        <button class="btn" id="iedPrev">▶ Preview cut (live)</button>
-        <button class="btn primary" id="iedSaveNew">💾 Save as new clip</button>
-        <button class="btn" id="iedReplace">Replace this file</button>
-        <button class="btn" onclick="closeInline()">Cancel</button>
+        <button class="btn" id="iedPrev" style="padding:12px 18px;font-weight:700">▶ Preview cut</button>
+        <button class="btn primary" id="iedSaveNew" style="padding:12px 18px;font-weight:700">💾 Save as new clip</button>
+        <button class="btn" id="iedReplace" style="padding:12px 18px">Replace original</button>
+        <button class="btn" onclick="closeInline()" style="padding:12px 14px;color:var(--dim)">Cancel</button>
       </div>
       <div id="iedProgWrap" style="display:none;height:8px;background:#e4e6eb;border-radius:5px;margin-top:12px;overflow:hidden"><div id="iedProg" style="height:100%;width:0%;background:var(--blue);transition:width .2s"></div></div>
       <div id="iedStat" class="hint" style="margin-top:8px">Play the video, park the playhead where the cut starts, hit ⇤ playhead. Same for the end. Rendering happens in real time — a 10s cut takes 10s.</div>
@@ -1873,7 +1897,7 @@ async function csLoadMedia(m){
   let file=m.file;
   if(!file){
     if(m.src==='gdrive'&&gTok){const r=await fetch('https://www.googleapis.com/drive/v3/files/'+m.driveId+'?alt=media',{headers:{Authorization:'Bearer '+gTok}});if(!r.ok)throw new Error('Drive download failed (HTTP '+r.status+')');file=new File([await r.blob()],m.name)}
-    else{await csEnsureFile(m,(pc,got)=>csStat('downloading '+m.name+' '+(pc!==null?pc+'%':(got/1048576).toFixed(1)+' MB')));file=m.file}
+    else{await csEnsureFile(m,(pc,got)=>csStat('downloading '+m.name+' '+(pc!==null?pc+'%':(got/1048576).toFixed(1)+' MB')),msg=>csStat(m.name+': '+msg));file=m.file}
     m.file=file;
   }
   await csAddClip(file);
