@@ -316,6 +316,9 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
             <div class="field"><label>CBO: daily min spend (optional)</label><input id="minSpend" type="number" placeholder="Meta decides"></div>
             <div class="field"><label>CBO: daily max spend (optional)</label><input id="maxSpend" type="number" placeholder="no cap"></div>
           </div>
+          <div class="row" id="exBidRow" style="display:none">
+            <div class="field"><label id="exBidLbl">Bid value</label><input id="exBidAmt" type="number" step="0.1" placeholder="" oninput="paint()"><div class="hint" id="exBidHint" style="margin-top:4px"></div></div>
+          </div>
           <div class="row">
             <div class="field"><label>Include custom audiences — optional, tick to add</label><div id="incAud" class="ckl"><span class="hint">pick an account first</span></div></div>
             <div class="field"><label>Exclude custom audiences — optional, tick to exclude</label><div id="excAud" class="ckl"><span class="hint">pick an account first</span></div></div>
@@ -358,7 +361,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
           <div class="field"><label>Description (optional)</label><input id="descInput" placeholder="Shows under the headline" oninput="S.desc=this.value;paint()"></div>
         </div>
         <div class="row">
-          <div class="field" style="flex:2"><label>Link URL (default for every ad)</label><input id="linkUrl" placeholder="https://goplaymore.com/" oninput="S.link=this.value;paint()"></div>
+          <div class="field" style="flex:2"><label>Link URL (default for every ad)</label><input id="linkUrl" placeholder="https://goplaymore.com/" oninput="S.link=this.value.trim();renderMedia();paint()"><button class="btn" style="margin-top:6px;font-size:12px;padding:5px 10px" onclick="applyLinkToAll()" title="Copy this link into every card's Custom link box">↧ Use this link on every card</button></div>
           <div class="field"><label>Button (CTA)</label><select id="ctaSel" onchange="S.cta=this.value;paint()">
             <option>SHOP_NOW</option><option>BUY_NOW</option><option>ORDER_NOW</option><option>LEARN_MORE</option><option>SIGN_UP</option><option>GET_OFFER</option><option>SUBSCRIBE</option><option>CONTACT_US</option><option>BOOK_NOW</option><option>DOWNLOAD</option>
           </select></div>
@@ -697,6 +700,11 @@ function targetOptions(m){
   return '<option value="">→ every ad set picked in step 3</option>'+t.map(([id,n])=>'<option value="'+id+'"'+(m.target===id?' selected':'')+'>→ only: '+esc(n)+'</option>').join('');
 }
 function refreshCardTargets(){document.querySelectorAll('select[data-tgt]').forEach(s=>{const m=S.media[+s.dataset.tgt];if(m)s.innerHTML=targetOptions(m)})}
+function applyLinkToAll(){
+  if(!S.link){const el=document.getElementById('linkUrl');if(el)el.focus();return}
+  S.media.forEach(m=>{if(m.kind!=='existing')m.link=S.link});
+  renderMedia();paint();
+}
 function renderMedia(){
   const g=document.getElementById('mediaGrid'); g.innerHTML='';
   S.media.forEach((m,i)=>{
@@ -716,7 +724,7 @@ function renderMedia(){
       <div id="mst-${m.uiId}" class="state ${m.stateCls||''}" style="display:${m.state?'block':'none'}">${m.state||''}</div>
       <div class="meta"><div class="nm" title="${esc(m.name)}">${esc(m.name)}</div><div class="mt">${m.size?(m.size/1048576).toFixed(1)+' MB':'from Drive'}</div></div>
       <input class="linkin" placeholder="Ad name" value="${esc(m.adName||'')}" oninput="S.media[${i}].adName=this.value" style="margin-bottom:4px">
-      ${m.kind==='existing'?'':`<input class="linkin" placeholder="Custom link (optional)" value="${esc(m.link||'')}" oninput="S.media[${i}].link=this.value.trim();paint()" style="margin-bottom:4px">`}
+      ${m.kind==='existing'?'':`<input class="linkin" placeholder="${esc(S.link?'uses default: '+S.link:'Custom link (optional)')}" value="${esc(m.link||'')}" oninput="S.media[${i}].link=this.value.trim();paint()" style="margin-bottom:4px">`}
       <select class="linkin" data-tgt="${i}" onchange="S.media[${i}].target=this.value;paint()">${targetOptions(m)}</select>`;
     g.appendChild(d);
   });
@@ -1106,6 +1114,20 @@ function refreshAdsetConditionals(){
   const cs=document.getElementById('cboSpendRow');if(cs)cs.style.display=activeCBO()?'flex':'none';
   document.getElementById('aboBudgetRow').style.display=activeCBO()?'none':'flex';
   document.getElementById('aboHint').style.display=activeCBO()?'none':'block';
+  /* existing campaign that uses a value-based bid strategy needs a per-ad-set value */
+  const exRow=document.getElementById('exBidRow');
+  if(exRow){
+    let show=false,lbl='Bid value',hint='';
+    if(S.campMode==='exist'&&S.campMeta){
+      const bs=S.campMeta.bid_strategy;
+      if(bs==='COST_CAP'){show=true;lbl='Cost per result cap ('+(S.currency||'EGP')+')';hint='This campaign uses Cost cap — Meta requires a value for every new ad set. Leave blank only if you want highest-volume instead.'}
+      else if(bs==='LOWEST_COST_WITH_BID_CAP'){show=true;lbl='Bid cap ('+(S.currency||'EGP')+')';hint='This campaign uses Bid cap — Meta requires a value for every new ad set.'}
+      else if(bs==='LOWEST_COST_WITH_MIN_ROAS'){show=true;lbl='ROAS floor (e.g. 3.5)';hint='This campaign uses ROAS goal — Meta requires a floor for every new ad set, and the performance goal must be Conversion value.'}
+    }
+    exRow.style.display=show?'flex':'none';
+    document.getElementById('exBidLbl').textContent=lbl;
+    document.getElementById('exBidHint').textContent=hint;
+  }
 }
 function toggleNewAdset(){
   S.newAdset=!S.newAdset;
@@ -1197,6 +1219,15 @@ function validate(){
     if(goalNeedsPixel()&&!val('newAdsetPixel')) issues.push('The chosen performance goal needs a pixel (step 3)');
     if(!activeCBO()&&!val('aboAmt')) issues.push('ABO campaign: set the new audience budget (step 3)');
     if(S.campMode==='new'&&val('bidSel')==='cost_cap'&&!val('bidGoalAmt')) issues.push('Cost cap needs the goal amount (step 2)');
+    /* existing campaign that carries a value-based bid strategy */
+    if(S.campMode==='exist'&&S.campMeta){
+      const bs=S.campMeta.bid_strategy, needsV=(bs==='COST_CAP'||bs==='LOWEST_COST_WITH_BID_CAP'||bs==='LOWEST_COST_WITH_MIN_ROAS');
+      if(needsV&&activeCBO()&&!val('exBidAmt')){
+        const w=bs==='LOWEST_COST_WITH_MIN_ROAS'?'ROAS floor':(bs==='LOWEST_COST_WITH_BID_CAP'?'bid cap':'cost cap');
+        issues.push('This CBO campaign uses '+w+' — enter the value (step 3)');
+      }
+      if(bs==='LOWEST_COST_WITH_MIN_ROAS'&&val('exBidAmt')&&newAdsetGoal()!=='VALUE') issues.push('ROAS-goal campaign: set performance goal = Conversion value (step 3)');
+    }
   }
   const adOk=!!(S.page&&S.body&&S.link);
   lights.ad=adOk;
@@ -1569,16 +1600,27 @@ async function launch(){
         if(goal!=='LANDING_PAGE_VIEWS') po.custom_event_type=goal==='VALUE'?'PURCHASE':val('eventSel');
         pl.promoted_object=JSON.stringify(po);
       }
+      /* --- bid strategy on the ad set (never send NaN) --- */
+      const needsBid=m=>m==='cost_cap'||m==='bid_cap'||m==='min_roas';
+      const bidRaw = S.campMode==='new'
+        ? (bidMode==='min_roas'?val('roasGoalAmt'):val('bidGoalAmt'))
+        : val('exBidAmt');
+      const hasBidVal = bidRaw!==''&&!isNaN(parseFloat(bidRaw));
+      const roasC = ()=>JSON.stringify({roas_average_floor:Math.round(parseFloat(bidRaw)*100)});
       if(!cbo){
         pl.daily_budget=minor(val('aboAmt'));
-        if(S.campMode==='new'){
-          if(bidMode==='cost_cap'){pl.bid_strategy='COST_CAP';pl.bid_amount=minor(val('bidGoalAmt'))}
-          else if(bidMode==='bid_cap'){pl.bid_strategy='LOWEST_COST_WITH_BID_CAP';pl.bid_amount=minor(val('bidGoalAmt'))}
-          else if(bidMode==='min_roas'){pl.bid_strategy='LOWEST_COST_WITH_MIN_ROAS';pl.bid_constraints=JSON.stringify({roas_average_floor:Math.round(parseFloat(val('roasGoalAmt'))*100)})}
+        /* ABO: strategy lives on the ad set. Only attach a capped/ROAS strategy when we actually have a value,
+           otherwise leave it at highest-volume so the launch can't fail. */
+        if(needsBid(bidMode)&&hasBidVal){
+          if(bidMode==='min_roas'){pl.bid_strategy='LOWEST_COST_WITH_MIN_ROAS';pl.bid_constraints=roasC()}
+          else{pl.bid_strategy=bidMode==='bid_cap'?'LOWEST_COST_WITH_BID_CAP':'COST_CAP';pl.bid_amount=Math.round(parseFloat(bidRaw)*100)}
         }
       } else {
-        if(bidMode==='cost_cap'||bidMode==='bid_cap'){pl.bid_amount=minor(val('bidGoalAmt'))}
-        else if(bidMode==='min_roas'){pl.bid_constraints=JSON.stringify({roas_average_floor:Math.round(parseFloat(val('roasGoalAmt'))*100)})}
+        /* CBO: strategy is on the campaign. The ad set must echo the required value. */
+        if(needsBid(bidMode)&&hasBidVal){
+          if(bidMode==='min_roas'){pl.bid_constraints=roasC()}
+          else{pl.bid_amount=Math.round(parseFloat(bidRaw)*100)}
+        }
       }
       loStart('t-adset'); log('Creating ad set '+nm,'busy');
       const as=await gpost(`act_${S.acct}/adsets`,pl);
