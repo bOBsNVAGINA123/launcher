@@ -174,6 +174,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
   <nav id="steps">
     <div id="logo">LAUNCH<span>ER</span></div>
     <div id="syncState">not synced</div>
+    <div style="padding:0 22px 16px"><label>Ad account</label><select id="acctSel" onchange="pickAccount()" style="font-size:13px"><option value="">Syncing…</option></select></div>
     <div class="step active" data-pane="media"><div class="n">1</div><div><div class="lbl">Videos & photos</div><div class="sub2" id="ss-media">add your files</div></div></div>
     <div class="step" data-pane="camp"><div class="n">2</div><div><div class="lbl">Campaign</div><div class="sub2" id="ss-camp">where the ads go</div></div></div>
     <div class="step" data-pane="adsets"><div class="n">3</div><div><div class="lbl">Ad sets</div><div class="sub2" id="ss-adsets">who sees them</div></div></div>
@@ -232,8 +233,6 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
       <h2>Campaign</h2>
       <div class="sub">Pick the ad account, then add these ads to an existing campaign — or build a fresh one.</div>
       <div class="card">
-        <div class="field"><label>Ad account</label><select id="acctSel" onchange="pickAccount()"><option value="">Syncing…</option></select></div>
-
         <div class="seg"><button class="on" id="tabExistC" onclick="destMode('exist')">Use existing campaign</button><button id="tabNewC" onclick="destMode('new')">Create new campaign</button></div>
 
         <div id="destExist"><div class="list" id="campaignList"><div class="hint">Pick an account first.</div></div><div class="hint" id="campInfo" style="margin-top:8px"></div></div>
@@ -757,9 +756,22 @@ async function importDrive(auto){
 }
 
 /* ============================ MEDIA VIEWER ============================ */
-function openViewer(i){
+async function openViewer(i){
   const m=S.media[i];if(!m)return;
   const b=document.getElementById('viewerBody');
+  if(m.kind==='existing'){
+    if(!S.acct){log('Pick an ad account first','err');return}
+    b.innerHTML='<div style="background:#fff;border-radius:14px;padding:30px;font-weight:600">Loading Meta preview…</div>';
+    document.getElementById('viewer').classList.add('show');
+    try{
+      const cq=m.creativeId?{creative_id:m.creativeId}:(m.storyId?{object_story_id:m.storyId}:null);
+      if(!cq)throw new Error('Instagram media previews only render after launch');
+      const j=await gget(`act_${S.acct}/generatepreviews?creative=${encodeURIComponent(JSON.stringify(cq))}&ad_format=MOBILE_FEED_STANDARD`);
+      const body=(j.data&&j.data[0]&&j.data[0].body)||'';
+      b.innerHTML='<div style="background:#fff;border-radius:14px;padding:10px">'+body+'</div>';
+    }catch(e){b.innerHTML='<div style="background:#fff;border-radius:14px;padding:24px;max-width:420px">⚠ '+esc(e.message)+'</div>'}
+    return;
+  }
   if(m.kind==='image'){
     const src=m.preview||(m.driveId?('https://drive.google.com/thumbnail?id='+m.driveId+'&sz=w2000'):'');
     b.innerHTML='<img src="'+src+'" style="max-width:92vw;max-height:92vh;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.4)">';
@@ -1567,6 +1579,13 @@ async function streamToFile(resp,name,onPct){
     if(onPct)onPct(total?Math.min(99,Math.round(got/total*100)):null,got)}
   return new File(chunks,name);
 }
+function validVideo(file){return new Promise(res=>{
+  const v=document.createElement('video');const u=URL.createObjectURL(file);
+  const done=ok=>{URL.revokeObjectURL(u);v.src='';res(ok)};
+  v.onloadedmetadata=()=>done(isFinite(v.duration)&&v.duration>0.05);
+  v.onerror=()=>done(false);
+  v.src=u;setTimeout(()=>done(false),8000);
+})}
 async function csEnsureFile(m,onPct){
   if(m.file)return;
   if(m.src==='gdrive'&&gTok){
@@ -1577,9 +1596,16 @@ async function csEnsureFile(m,onPct){
   if(m.url){
     let last;
     for(const p of PROXIES){
-      try{const r=await fetch(p(m.url));if(r.ok){m.file=await streamToFile(r,m.name,onPct);return}last=new Error('proxy HTTP '+r.status)}catch(e){last=e}
+      try{
+        const r=await fetch(p(m.url));
+        if(!r.ok){last=new Error('proxy HTTP '+r.status);continue}
+        const f=await streamToFile(r,m.name,onPct);
+        if(f.size<20000){last=new Error('route returned junk');continue}
+        if(m.kind==='video'&&!(await validVideo(f))){last=new Error('route returned a corrupted file');continue}
+        m.file=f;return;
+      }catch(e){last=e}
     }
-    throw new Error('Google is blocking anonymous downloads of this file right now. Retry in a minute, drag the file in directly, or use Sign in with Google once — then it always works.');
+    throw new Error('All 3 anonymous download routes failed for this file ('+(last?last.message:'')+'). Sign in with Google fixes it permanently — or drag the file in directly.');
   }
   throw new Error('no downloadable source');
 }
@@ -1614,6 +1640,7 @@ async function inlineEdit(i){
         <div class="field"><label>Music (optional)</label><input id="iedMus" type="file" accept="audio/*,video/*" style="padding:7px"></div>
       </div>
       <div class="row" style="margin-top:4px">
+        <button class="btn" id="iedPrev">▶ Preview cut (live)</button>
         <button class="btn primary" id="iedSaveNew">💾 Save as new clip</button>
         <button class="btn" id="iedReplace">Replace this file</button>
         <button class="btn" onclick="closeInline()">Cancel</button>
@@ -1625,6 +1652,19 @@ async function inlineEdit(i){
   const v=p.querySelector('#iedV');
   v.onloadedmetadata=()=>{p.querySelector('#iedOut').value=(v.duration||0).toFixed(1)};
   if(v.readyState>=1)p.querySelector('#iedOut').value=(v.duration||0).toFixed(1);
+  v.onerror=()=>{p.querySelector('#iedStat').textContent='⚠ This copy is corrupted — hit ✎ again, it will re-download through another route.';m.file=null;m.vurl=null};
+  p.querySelector('#iedMute').onchange=e=>{v.muted=e.target.value==='mute'};
+  let prevTimer=null;
+  p.querySelector('#iedPrev').onclick=()=>{
+    const inT=Math.max(0,parseFloat(p.querySelector('#iedIn').value)||0);
+    const outT=parseFloat(p.querySelector('#iedOut').value)||v.duration;
+    v.muted=p.querySelector('#iedMute').value==='mute';
+    v.playbackRate=parseFloat(p.querySelector('#iedSp').value)||1;
+    v.currentTime=inT;v.play();
+    if(prevTimer)clearInterval(prevTimer);
+    prevTimer=setInterval(()=>{if(v.currentTime>=outT){v.pause();clearInterval(prevTimer)}},50);
+    p.querySelector('#iedStat').textContent='previewing your cut live — this is exactly what gets rendered';
+  };
   const go=async(replace)=>{
     const inT=Math.max(0,parseFloat(p.querySelector('#iedIn').value)||0);
     const outT=parseFloat(p.querySelector('#iedOut').value)||v.duration;
