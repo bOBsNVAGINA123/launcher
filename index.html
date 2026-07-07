@@ -186,6 +186,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
     <div class="step" data-pane="review"><div class="n">5</div><div><div class="lbl">Preview & launch</div><div class="sub2" id="ss-review">see it, ship it</div></div></div>
     <div class="spacer"></div>
     <a class="navlink" href="studio.html" target="_blank">🎨 Content Studio</a>
+    <a class="navlink" href="#" onclick="openTT();return false">⇪ Sync to TikTok</a>
     <button class="navlink" onclick="copyTeamLink(event)">Copy team link</button>
     <button class="navlink" onclick="openSettings()">Settings</button>
   </nav>
@@ -441,7 +442,34 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
   <div class="field"><label>Google Client ID (optional — unlocks private Drive folders)</label><input id="cfgGoogleId" class="mono" placeholder="xxxx.apps.googleusercontent.com"></div>
   <div class="field"><label>Supabase URL (optional, launch history)</label><input id="cfgSbUrl" placeholder="https://xxxx.supabase.co" class="mono"></div>
   <div class="field"><label>Supabase anon key (optional)</label><input id="cfgSbKey" type="password" class="mono"></div>
+  <div class="field"><label>TikTok access token (Marketing API — unlocks Sync to TikTok)</label><input id="cfgTtTok" type="password" class="mono" placeholder="optional"></div>
+  <div class="field"><label>TikTok Advertiser ID</label><input id="cfgTtAdv" class="mono" placeholder="e.g. 7012345678901234567"></div>
   <div class="mfoot"><button class="btn" onclick="closeSettings()">Cancel</button><button class="btn primary" onclick="saveSettings()">Save & Sync</button></div>
+</div></div>
+
+<!-- tiktok sync modal -->
+<div class="modal" id="ttModal"><div class="mbox" style="max-width:560px">
+  <h2>⇪ Sync videos to TikTok</h2>
+  <div class="note">Pushes every video card from step 1 into a TikTok campaign — new ad group cloned from a previous one's settings, or straight into an existing ad group.</div>
+  <div class="field"><label>Campaign</label><select id="ttCamp" onchange="ttLoadAdgroups()"></select></div>
+  <div class="field"><label>Where do the ads go</label><select id="ttMode" onchange="ttModeUI()">
+    <option value="new">New ad group — clone settings from a previous one</option>
+    <option value="exist">Into an existing ad group</option>
+  </select></div>
+  <div class="field" id="ttSrcWrap"><label>Clone settings from</label><select id="ttSrc" onchange="ttPrefillFromSrc()"></select></div>
+  <div class="row" id="ttNewRow">
+    <div class="field"><label>New ad group name</label><input id="ttName"></div>
+    <div class="field"><label>Daily budget</label><input id="ttBudget" type="number" step="0.01"></div>
+  </div>
+  <div class="field" id="ttDstWrap" style="display:none"><label>Ad group</label><select id="ttDst"></select></div>
+  <div class="field"><label>Identity (who the ads post as)</label><select id="ttIdent"></select></div>
+  <div class="field"><label>Ad text (TikTok max 100 chars)</label><input id="ttText" maxlength="100"></div>
+  <div class="row">
+    <div class="field" style="flex:2"><label>Landing URL</label><input id="ttUrl" placeholder="https://..."></div>
+    <div class="field"><label>Launch as</label><select id="ttStatus"><option value="DISABLE">Paused — review first</option><option value="ENABLE">Live immediately</option></select></div>
+  </div>
+  <div id="ttLog" class="hint" style="max-height:150px;overflow:auto;white-space:pre-wrap;min-height:16px"></div>
+  <div class="mfoot"><button class="btn" onclick="closeTT()">Close</button><button class="btn primary" id="ttGo" onclick="runTTSync()">⇪ Sync videos</button></div>
 </div></div>
 
 <!-- edit entity modal -->
@@ -529,6 +557,8 @@ function openSettings(){
   document.getElementById('cfgSbUrl').value=cfg.sbUrl||'';
   document.getElementById('cfgGoogleId').value=cfg.gClientId||'';
   document.getElementById('cfgSbKey').value=cfg.sbKey||'';
+  document.getElementById('cfgTtTok').value=cfg.ttTok||'';
+  document.getElementById('cfgTtAdv').value=cfg.ttAdv||'';
   document.getElementById('modal').classList.add('show');
 }
 function closeSettings(){document.getElementById('modal').classList.remove('show')}
@@ -537,6 +567,8 @@ function saveSettings(){
   cfg.appId=document.getElementById('cfgAppId').value.trim();
   cfg.sbUrl=document.getElementById('cfgSbUrl').value.trim().replace(/\/$/,'');
   cfg.sbKey=document.getElementById('cfgSbKey').value.trim();
+  cfg.ttTok=document.getElementById('cfgTtTok').value.trim();
+  cfg.ttAdv=document.getElementById('cfgTtAdv').value.trim();
   cfg.gClientId=document.getElementById('cfgGoogleId').value.trim();
   localStorage.setItem('launcher_cfg',JSON.stringify(cfg));
   closeSettings(); syncAll();
@@ -2073,6 +2105,163 @@ async function renderInline(m,o,prog){
   const blob=new Blob(chunks,{type:rec.mimeType});
   const ext=rec.mimeType.includes('mp4')?'mp4':'webm';
   return new File([blob],m.name.replace(/\.[^.]+$/,'')+'_edit_'+Date.now()+'.'+ext,{type:blob.type});
+}
+
+/* ===== SYNC TO TIKTOK (Marketing API v1.3) ===== */
+const TT_BASE='https://business-api.tiktok.com/open_api/v1.3';
+let TTC={};try{TTC=JSON.parse(localStorage.getItem('ttcache')||'{}')}catch(e){}
+function ttcKey(m){return (m.driveId?('d_'+m.driveId):('l_'+m.name+'_'+(m.size||0)))}
+function ttcGet(m){return (TTC[cfg.ttAdv]||{})[ttcKey(m)]}
+function ttcSet(m,v){TTC[cfg.ttAdv]=TTC[cfg.ttAdv]||{};TTC[cfg.ttAdv][ttcKey(m)]=v;try{localStorage.setItem('ttcache',JSON.stringify(TTC))}catch(e){}}
+function ttlog(t,err){const d=document.getElementById('ttLog');d.textContent+=(err?'✗ ':'')+t+'\n';d.scrollTop=d.scrollHeight;log('TikTok: '+t,err?'err':'busy')}
+async function ttFetch(path,opt){
+  opt=opt||{};
+  const url=TT_BASE+path+(opt.qs?('?'+new URLSearchParams(opt.qs).toString()):'');
+  const init={method:opt.method||'GET',headers:Object.assign({'Access-Token':cfg.ttTok},opt.json?{'Content-Type':'application/json'}:{})};
+  if(opt.json)init.body=JSON.stringify(opt.json);
+  if(opt.form)init.body=opt.form;
+  let r=null;
+  try{r=await fetch(url,init)}catch(e){ /* CORS — go through the proxy */
+    r=await fetch('https://corsproxy.io/?url='+encodeURIComponent(url),init);
+  }
+  const j=await r.json().catch(()=>({code:-1,message:'TikTok answered HTTP '+r.status+' with no JSON'}));
+  if(j.code!==0) throw new Error(j.message||('TikTok error code '+j.code));
+  return j.data;
+}
+let ttMd5Lib=null;
+function ttLoadMd5(){return ttMd5Lib?Promise.resolve():new Promise((res,rej)=>{const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/spark-md5/3.0.2/spark-md5.min.js';sc.onload=()=>{ttMd5Lib=true;res()};sc.onerror=()=>rej(new Error('Could not load MD5 helper'));document.head.appendChild(sc)})}
+async function ttMd5(file){
+  await ttLoadMd5();
+  const spark=new SparkMD5.ArrayBuffer();const CH=8*1024*1024;
+  for(let off=0;off<file.size;off+=CH){spark.append(await file.slice(off,off+CH).arrayBuffer())}
+  return spark.end();
+}
+function closeTT(){document.getElementById('ttModal').classList.remove('show')}
+async function openTT(){
+  if(!cfg.ttTok||!cfg.ttAdv){alert('First add your TikTok access token + Advertiser ID in Settings (left menu), then reopen Sync to TikTok.');openSettings();return}
+  const vids=S.media.filter(m=>m.kind==='video');
+  if(!vids.length){alert('No video cards in step 1 yet — add videos first, then sync.');return}
+  document.getElementById('ttModal').classList.add('show');
+  document.getElementById('ttLog').textContent='';
+  document.getElementById('ttText').value=document.getElementById('ttText').value||(S.body||'').replace(/\s+/g,' ').slice(0,100);
+  document.getElementById('ttUrl').value=document.getElementById('ttUrl').value||linkFor(null)||'';
+  document.getElementById('ttGo').textContent='⇪ Sync '+vids.length+' video'+(vids.length>1?'s':'');
+  ttlog('Loading campaigns + identities…');
+  try{
+    const [camps,idents]=await Promise.all([
+      ttFetch('/campaign/get/',{qs:{advertiser_id:cfg.ttAdv,page_size:50}}),
+      ttFetch('/identity/get/',{qs:{advertiser_id:cfg.ttAdv,page_size:50}})
+    ]);
+    const list=(camps.list||[]).filter(c=>!/DELETE/.test(c.secondary_status||''));
+    list.sort((a,b)=>(b.operation_status==='ENABLE')-(a.operation_status==='ENABLE'));
+    document.getElementById('ttCamp').innerHTML=list.map(c=>`<option value="${c.campaign_id}">${c.operation_status==='ENABLE'?'🟢 LIVE':'⏸'} ${esc(c.campaign_name)}</option>`).join('')||'<option value="">(no campaigns found)</option>';
+    const il=(idents.identity_list||[]);
+    document.getElementById('ttIdent').innerHTML=il.map(i=>`<option value="${i.identity_id}|${i.identity_type}">${esc(i.display_name||i.identity_id)}</option>`).join('')||'<option value="">(none — link a TikTok identity in TikTok Ads Manager first)</option>';
+    document.getElementById('ttLog').textContent='';
+    ttlog(list.length+' campaign(s), '+il.length+' identity(ies) loaded.');
+    await ttLoadAdgroups();
+  }catch(e){ttlog(e.message,1)}
+}
+async function ttLoadAdgroups(){
+  const campId=val('ttCamp'); if(!campId)return;
+  try{
+    const d=await ttFetch('/adgroup/get/',{qs:{advertiser_id:cfg.ttAdv,page_size:50,filtering:JSON.stringify({campaign_ids:[campId]})}});
+    const list=(d.list||[]).filter(a=>!/DELETE/.test(a.secondary_status||''));
+    list.sort((a,b)=>(b.operation_status==='ENABLE')-(a.operation_status==='ENABLE'));
+    window._ttAdgroups=list;
+    const opts=list.map(a=>`<option value="${a.adgroup_id}">${a.operation_status==='ENABLE'?'🟢':'⏸'} ${esc(a.adgroup_name)}</option>`).join('');
+    document.getElementById('ttSrc').innerHTML=opts||'<option value="">(campaign has no ad groups — pick another)</option>';
+    document.getElementById('ttDst').innerHTML=opts||'<option value="">(none)</option>';
+    ttPrefillFromSrc();
+  }catch(e){ttlog(e.message,1)}
+}
+function ttPrefillFromSrc(){
+  const src=(window._ttAdgroups||[]).find(a=>a.adgroup_id===val('ttSrc'));
+  if(!src)return;
+  if(!val('ttName'))document.getElementById('ttName').value='NEW '+new Date().toLocaleString('en',{month:'short',day:'numeric'})+' tt';
+  if(src.budget)document.getElementById('ttBudget').value=src.budget;
+}
+function ttModeUI(){
+  const nw=val('ttMode')==='new';
+  document.getElementById('ttSrcWrap').style.display=nw?'block':'none';
+  document.getElementById('ttNewRow').style.display=nw?'flex':'none';
+  document.getElementById('ttDstWrap').style.display=nw?'none':'block';
+}
+const TT_CLONE_KEYS=['placement_type','placements','comment_disabled','video_download_disabled','share_disabled','promotion_type','promotion_target_type','location_ids','gender','age_groups','languages','operating_systems','network_types','budget_mode','optimization_goal','billing_event','bid_type','bid_price','conversion_bid_price','deep_bid_type','pacing','pixel_id','optimization_event','click_attribution_window','view_attribution_window','attribution_event_count','auto_targeting_enabled','interest_category_ids','interest_keyword_ids','audience_ids','excluded_audience_ids','device_price_ranges','min_android_version','min_ios_version','store_id','identity_id','identity_type','shopping_ads_type','product_source','store_authorized_bc_id'];
+async function ttEnsureAdgroup(){
+  if(val('ttMode')!=='new') return val('ttDst');
+  const src=(window._ttAdgroups||[]).find(a=>a.adgroup_id===val('ttSrc'));
+  if(!src) throw new Error('Pick an ad group to clone settings from.');
+  const pl={advertiser_id:cfg.ttAdv,campaign_id:val('ttCamp'),adgroup_name:val('ttName')||('NEW '+Date.now()),operation_status:val('ttStatus')};
+  TT_CLONE_KEYS.forEach(k=>{const v=src[k];if(v!==null&&v!==undefined&&v!==''&&!(Array.isArray(v)&&!v.length))pl[k]=v});
+  pl.budget_mode=src.budget_mode||'BUDGET_MODE_DAY';
+  if(val('ttBudget'))pl.budget=parseFloat(val('ttBudget'));else if(src.budget)pl.budget=src.budget;
+  pl.schedule_type='SCHEDULE_FROM_NOW';
+  pl.schedule_start_time=new Date(Date.now()+120000).toISOString().slice(0,19).replace('T',' ');
+  ttlog('Creating ad group "'+pl.adgroup_name+'" (settings cloned from "'+src.adgroup_name+'")…');
+  const d=await ttFetch('/adgroup/create/',{method:'POST',json:pl});
+  ttlog('Ad group created · '+d.adgroup_id);
+  return d.adgroup_id;
+}
+async function ttUploadVideo(m){
+  const c=ttcGet(m);
+  if(c&&c.video_id){ttlog(m.name+' — already on TikTok, skipped upload');return c}
+  if(!m.file){ttlog(m.name+' — fetching file…');await csEnsureFile(m,(pc,got)=>{},msg=>{})}
+  let up;
+  if(m.file){
+    ttlog(m.name+' — MD5 + upload ('+(m.file.size/1048576).toFixed(1)+' MB)…');
+    const sig=await ttMd5(m.file);
+    const fd=new FormData();
+    fd.append('advertiser_id',cfg.ttAdv);fd.append('upload_type','UPLOAD_BY_FILE');
+    fd.append('video_signature',sig);fd.append('video_file',m.file,m.name);fd.append('file_name',m.name);
+    up=await ttFetch('/file/video/ad/upload/',{method:'POST',form:fd});
+  }else if(m.url){
+    ttlog(m.name+' — upload by URL…');
+    up=await ttFetch('/file/video/ad/upload/',{method:'POST',json:{advertiser_id:cfg.ttAdv,upload_type:'UPLOAD_BY_URL',video_url:m.url,file_name:m.name}});
+  }else throw new Error(m.name+': no file and no URL to upload from');
+  const vid=(Array.isArray(up)?up[0]:up).video_id;
+  if(!vid)throw new Error(m.name+': TikTok returned no video_id');
+  /* cover image: suggested cover -> image upload */
+  let image_id='';
+  try{
+    const cov=await ttFetch('/file/video/suggestcover/',{qs:{advertiser_id:cfg.ttAdv,video_id:vid}});
+    const urlc=((cov.list||[])[0]||{}).url;
+    if(urlc){const im=await ttFetch('/file/image/ad/upload/',{method:'POST',json:{advertiser_id:cfg.ttAdv,upload_type:'UPLOAD_BY_URL',image_url:urlc}});image_id=im.image_id||''}
+  }catch(e){ttlog(m.name+' — no auto cover ('+e.message+'), TikTok will pick one')}
+  const out={video_id:vid,image_id};
+  ttcSet(m,out);
+  ttlog(m.name+' — uploaded ✓');
+  return out;
+}
+async function runTTSync(){
+  const btn=document.getElementById('ttGo');
+  const vids=S.media.filter(m=>m.kind==='video');
+  const [identId,identType]=(val('ttIdent')||'|').split('|');
+  try{
+    if(!vids.length)throw new Error('No videos to sync.');
+    if(!val('ttCamp'))throw new Error('Pick a campaign.');
+    if(!identId)throw new Error('No TikTok identity — link one in TikTok Ads Manager (Assets → Identities), then reopen.');
+    if(!val('ttText'))throw new Error('Write the ad text.');
+    if(!/^https?:\/\//.test(val('ttUrl')))throw new Error('Landing URL must start with https://');
+    btn.disabled=true;btn.textContent='Syncing…';
+    const agId=await ttEnsureAdgroup();
+    const adIds=[];
+    for(const m of vids){
+      const {video_id,image_id}=await ttUploadVideo(m);
+      const cr={ad_name:(m.adName||m.name).slice(0,512),identity_id:identId,identity_type:identType||'CUSTOMIZED_USER',ad_format:'SINGLE_VIDEO',video_id,ad_text:val('ttText'),call_to_action:'SHOP_NOW',landing_page_url:val('ttUrl')};
+      if(image_id)cr.image_ids=[image_id];
+      const d=await ttFetch('/ad/create/',{method:'POST',json:{advertiser_id:cfg.ttAdv,adgroup_id:agId,creatives:[cr]}});
+      const ids=d.ad_ids||((d.creatives||[]).map(x=>x.ad_id));
+      adIds.push(...(ids||[]));
+      ttlog('Ad created for '+m.name+' ✓');
+    }
+    if(val('ttStatus')==='DISABLE'&&val('ttMode')!=='new'&&adIds.length){
+      try{await ttFetch('/ad/status/update/',{method:'POST',json:{advertiser_id:cfg.ttAdv,ad_ids:adIds,operation_status:'DISABLE'}});ttlog('Ads paused for review ✓')}catch(e){ttlog('Could not pause ads: '+e.message,1)}
+    }
+    ttlog('DONE — '+adIds.length+' ad(s) on TikTok. Check TikTok Ads Manager.');
+    btn.textContent='✓ Synced';
+  }catch(e){ttlog(e.message,1);btn.textContent='⇪ Retry sync'}
+  finally{btn.disabled=false}
 }
 
 /* ===== CLIP STUDIO (in-launcher editor) + send photos to Content Studio ===== */
