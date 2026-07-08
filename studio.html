@@ -3420,6 +3420,19 @@ async function blankBrokenImages(stage){
    }));});
   if(jobs.length)await Promise.all(jobs);
 }
+async function inlineRemoteBg(root){
+  const proxy=u=>'https://images.weserv.nl/?url='+encodeURIComponent(u.replace(/^https?:\/\//,''))+'&n=-1';
+  const toData=async u=>{const b=await fetch(proxy(u),{mode:'cors'}).then(r=>r.ok?r.blob():Promise.reject());return await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(b);});};
+  const jobs=[];
+  const els=[root,...root.querySelectorAll('*')];
+  for(const el of els){
+    let bi='';try{bi=getComputedStyle(el).backgroundImage||'';}catch(_){}
+    const m=/url\(["']?(https?:\/\/[^"')]+)["']?\)/i.exec(bi);
+    if(m&&!/^data:/.test(m[1])){jobs.push(toData(m[1]).then(d=>{el.style.backgroundImage='url("'+d+'")';}).catch(()=>{}));}
+    if(el.tagName==='IMG'&&/^https?:/.test(el.src)&&!/^data:/.test(el.src)){jobs.push(toData(el.src).then(d=>{el.src=d;}).catch(()=>{}));}
+  }
+  await Promise.all(jobs);
+}
 function capture(f,scale){return new Promise((res,rej)=>{
  EXPORTING=true;
  const W=DIMS[state.aspect][0],H=DIMS[state.aspect][1];
@@ -3431,6 +3444,7 @@ function capture(f,scale){return new Promise((res,rej)=>{
  stage.querySelectorAll('.ph').forEach(p=>p.style.display='none');
  setTimeout(async()=>{
   try{await blankBrokenImages(stage)}catch(e){}
+  try{await inlineRemoteBg(stage)}catch(e){}
   html2canvas(stage,{useCORS:true,allowTaint:false,scale:scale||3,backgroundColor:null,logging:false,imageTimeout:0})
   .then(c=>{host.innerHTML='';EXPORTING=false;res(c)})
   .catch(e=>{host.innerHTML='';EXPORTING=false;rej(e&&e.message?e:new Error('render failed'))})},12)})}
