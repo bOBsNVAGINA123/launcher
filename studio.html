@@ -3431,7 +3431,7 @@ function capture(f,scale){return new Promise((res,rej)=>{
  stage.querySelectorAll('.ph').forEach(p=>p.style.display='none');
  setTimeout(async()=>{
   try{await blankBrokenImages(stage)}catch(e){}
-  html2canvas(stage,{scale:scale||3,backgroundColor:null,logging:false,imageTimeout:0})
+  html2canvas(stage,{useCORS:true,allowTaint:false,scale:scale||3,backgroundColor:null,logging:false,imageTimeout:0})
   .then(c=>{host.innerHTML='';EXPORTING=false;res(c)})
   .catch(e=>{host.innerHTML='';EXPORTING=false;rej(e&&e.message?e:new Error('render failed'))})},12)})}
 async function exportOne(f){try{const c=await capture(f,3);
