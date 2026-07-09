@@ -3389,22 +3389,40 @@ function _imgLoads(src){return new Promise(r=>{
 // re-bake any image to a clean canvas-baked PNG data URL so html2canvas can always draw it
 // (normalizes EXIF/CMYK/progressive JPEGs, blobs, etc. that html2canvas otherwise renders as a grey box)
 const _bakeCache=new Map();
+/* proxy for cross-origin images so the canvas never gets tainted */
+function _wsrv(u){return 'https://images.weserv.nl/?url='+encodeURIComponent(String(u).replace(/^https?:\/\//,''))+'&n=-1';}
 function _bakeImg(src){return new Promise(res=>{
   if(!src){res(null);return}
   if(_bakeCache.has(src)){res(_bakeCache.get(src));return}
-  const im=new Image();let done=false;
-  const fail=()=>{if(done)return;done=true;_bakeCache.set(src,null);res(null)};
-  im.onload=()=>{if(done)return;done=true;
+  let done=false,tried=0;
+  const finish=(u)=>{if(done)return;done=true;_bakeCache.set(src,u);res(u)};
+  const draw=(im)=>{
     try{const w=im.naturalWidth||im.width,h=im.naturalHeight||im.height;
-      if(!w||!h){_bakeCache.set(src,null);return res(null)}
-      const cap=2200,sc=Math.min(1,cap/Math.max(w,h));
+      if(!w||!h)return null;
+      const cap=4000,sc=Math.min(1,cap/Math.max(w,h));
       const cv=document.createElement('canvas');cv.width=Math.round(w*sc);cv.height=Math.round(h*sc);
-      cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);
-      const u=cv.toDataURL('image/jpeg',0.92);_bakeCache.set(src,u);res(u);
-    }catch(e){_bakeCache.set(src,null);res(null)}};
-  im.onerror=fail;
-  try{im.src=src}catch(e){fail()}
-  setTimeout(fail,3500);});}
+      const cx=cv.getContext('2d');cx.imageSmoothingEnabled=true;cx.imageSmoothingQuality='high';
+      cx.drawImage(im,0,0,cv.width,cv.height);
+      return cv.toDataURL('image/png');
+    }catch(e){return null}
+  };
+  const attempt=(url)=>{
+    const im=new Image();
+    if(!/^data:/.test(url))im.crossOrigin='anonymous';
+    im.onload=()=>{if(done)return;const u=draw(im);
+      if(u)return finish(u);
+      retry();};
+    im.onerror=retry;
+    try{im.src=url}catch(e){retry()}
+  };
+  const retry=()=>{
+    if(done)return;
+    tried++;
+    if(tried===1&&/^https?:/.test(src))return attempt(_wsrv(src));
+    finish(null);
+  };
+  attempt(src);
+  setTimeout(()=>{if(!done){if(tried===0&&/^https?:/.test(src)){tried=1;attempt(_wsrv(src));setTimeout(()=>finish(null),9000);}else finish(null)}},6000);});}
 async function blankBrokenImages(stage){
   const nodes=stage.querySelectorAll('*');const jobs=[];
   nodes.forEach(n=>{
@@ -3414,6 +3432,7 @@ async function blankBrokenImages(stage){
    const bi=n.style.backgroundImage||getComputedStyle(n).backgroundImage;
    if(!bi||/gradient/.test(bi))return;
    const m=/url\(["']?(.*?)["']?\)/.exec(bi);if(!m||!m[1])return;
+   if(/^data:/.test(m[1]))return; /* already inlined by inlineRemoteBg - leave it alone */
    jobs.push(_bakeImg(m[1]).then(u=>{
      if(u){n.style.backgroundImage=`url("${u}")`;}
      else{n.style.backgroundImage='none';n.style.background='transparent';n.style.border='none';n.style.boxShadow='none';}
@@ -3443,8 +3462,8 @@ function capture(f,scale){return new Promise((res,rej)=>{
  stage.insertAdjacentHTML('beforeend',staticElsHTML(f));
  stage.querySelectorAll('.ph').forEach(p=>p.style.display='none');
  setTimeout(async()=>{
-  try{await blankBrokenImages(stage)}catch(e){}
   try{await inlineRemoteBg(stage)}catch(e){}
+  try{await blankBrokenImages(stage)}catch(e){}
   html2canvas(stage,{useCORS:true,allowTaint:false,scale:scale||3,backgroundColor:null,logging:false,imageTimeout:0})
   .then(c=>{host.innerHTML='';EXPORTING=false;res(c)})
   .catch(e=>{host.innerHTML='';EXPORTING=false;rej(e&&e.message?e:new Error('render failed'))})},12)})}
@@ -4497,6 +4516,23 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   function ago(ts){if(!ts)return'never';const s=(Date.now()-ts)/1000;if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago'}
   function saveCols(){try{localStorage.setItem(LS,JSON.stringify(COLS))}catch(e){/* quota: drop product caches of oldest */try{const c2=COLS.map(c=>({...c,products:c.products.slice(0,60)}));localStorage.setItem(LS,JSON.stringify(c2))}catch(_){}}}
 
+  /* ---------- Shopify CDN: rewrite any sized URL back to the master file ----------
+     strips _1024x1024 / _600x / _x800 / _grande / _large / _medium / _small / _compact / _icon / _thumb
+     and drops the width/height query params so we always pull the original upload. */
+  const SIZE_RE=/_(?:\d+x\d*|x\d+|pico|icon|thumb|small|compact|medium|large|grande|master|\d+x)(?:@\dx)?(?=\.(?:jpe?g|png|webp|gif|avif)\b)/i;
+  function hiRes(u){
+   if(!u)return '';
+   if(u.startsWith('//'))u='https:'+u;
+   try{
+    const url=new URL(u,'https://x');
+    ['width','height','crop','format'].forEach(k=>url.searchParams.delete(k));
+    url.pathname=url.pathname.replace(SIZE_RE,'');
+    return url.origin==='https://x'?url.pathname+url.search:url.toString();
+   }catch(e){return u.replace(SIZE_RE,'')}
+  }
+  /* toggled by the "every image" checkbox in the sync panel */
+  let ALLIMG=(localStorage.getItem('studio_allimg')==='1');
+
   /* ---------- fetch a shopify collection (any store) ---------- */
   async function fetchCollection(url){
    const m=url.match(/^(https?:\/\/[^\/]+)\/.*?collections\/([\w\-\.%]+)/i)||url.match(/^(https?:\/\/[^\/]+)\/?$/);
@@ -4508,7 +4544,18 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
     let j=null,last;
     for(const p of PROX){try{const r=await fetch(p(api));if(r.ok){j=await r.json();break}last=new Error('HTTP '+r.status)}catch(e){last=e}}
     if(!j){if(page===1)throw last||new Error('Could not read the collection');break}
-    const batch=(j.products||[]).map(p=>({title:p.title,price:(p.variants&&p.variants[0]&&p.variants[0].price)||'',img:(p.images&&p.images[0]&&p.images[0].src)||'',img2:(p.images&&p.images[1]&&p.images[1].src)||''})).filter(p=>p.img);
+    const batch=[];
+    (j.products||[]).forEach(p=>{
+     const price=(p.variants&&p.variants[0]&&p.variants[0].price)||'';
+     const raw=(p.images||[]).map(im=>im.src).filter(Boolean);
+     const imgs=raw.map(hiRes);
+     if(!imgs.length)return;
+     if(ALLIMG){
+      imgs.forEach((u,k)=>batch.push({title:p.title+(imgs.length>1?' \u00b7 '+(k+1):''),price,img:u,fb:raw[k],img2:imgs[k+1]||''}));
+     }else{
+      batch.push({title:p.title,price,img:imgs[0],fb:raw[0],img2:imgs[1]||''});
+     }
+    });
     prods=prods.concat(batch);
     if((j.products||[]).length<250)break;
    }
@@ -4528,11 +4575,28 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    while((mt=re.exec(html))!==null){const id=mt[1],name=mt[2].trim();
     const isImg=/\.(jpe?g|png|webp|gif|avif)$/i.test(name), isVid=/\.(mp4|mov|webm|m4v)$/i.test(name);
     if(!isImg&&!isVid)continue;
-    prods.push({title:name,img:'https://drive.google.com/thumbnail?id='+id+'&sz=w1600',img2:'',kind:isVid?'video':'image',driveId:id});}
+    prods.push({title:name,img:'https://drive.google.com/thumbnail?id='+id+'&sz=w4000',img2:'',kind:isVid?'video':'image',driveId:id});}
    if(!prods.length)throw new Error('nothing found — share the folder as Anyone with the link');
    return {url:u,origin:'drive',handle:'drive_'+fm[1].slice(0,10),name:'📁 Drive · '+prods.length+' files',products:prods,last:Date.now()};
   }
   function fetchAny(u){return /\/folders\//.test(u)?fetchDriveFolder(u):fetchCollection(u)}
+
+  /* ---------- always land a real data URI in the slot (direct, then weserv proxy) ---------- */
+  const _rd=b=>new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=()=>res(null);fr.readAsDataURL(b)});
+  async function _one(u){
+   try{const r=await fetch(u,{mode:'cors'});if(r.ok){const b=await r.blob();if(b.size>512)return await _rd(b);}}catch(e){}
+   try{const px='https://images.weserv.nl/?url='+encodeURIComponent(u.replace(/^https?:\/\//,''))+'&n=-1';
+       const r=await fetch(px,{mode:'cors'});if(r.ok){const b=await r.blob();if(b.size>512)return await _rd(b);}}catch(e){}
+   return null;
+  }
+  /* try the master-res rewrite first; if that URL is dead, fall back to the CDN URL Shopify gave us */
+  async function toData(u,fb){
+   if(!u)return null;
+   if(/^data:/.test(u))return u;
+   let d=await _one(u);
+   if(!d&&fb&&fb!==u)d=await _one(fb);
+   return d;
+  }
 
   /* ---------- add an item into the next free slot ---------- */
   async function addToSlot(item){
@@ -4541,7 +4605,8 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    if(!t){growSlots(NSLOT+1);t=NSLOT}
    let data=null;
    if(item.file){data=await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(item.file)})}
-   else{try{const b=await fetch(item.img,{mode:'cors'}).then(r=>r.blob());data=await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(b)})}catch(e){data=item.img}}
+   else{data=await toData(item.img,item.fb);}
+   if(!data){stat('\u26a0 could not load '+item.title);return}
    state.slots[t].src=data;
    try{state.slots[t].disp=await makeThumb(data)}catch(e){state.slots[t].disp=data}
    try{const c=await sampleColor(data);if(c)state.slotColors[t]=c}catch(e){}
@@ -4570,12 +4635,17 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   const slots=document.getElementById('slots');
   const box=document.createElement('div');box.id='syncLib';box.style.cssText='margin:0 0 14px;padding:10px;border:1px solid #2b3040;border-radius:10px;background:#101218';
   box.innerHTML='<div class="lbl" style="display:flex;justify-content:space-between;align-items:center">Synced library <span id="syAgo" style="font-size:9px;color:#6b7280;text-transform:none;letter-spacing:0"></span></div>'
-   +'<div style="display:flex;gap:6px;margin-bottom:6px"><input id="syUrl" placeholder="paste a collection or Drive folder link…" style="flex:1;background:#14161c;color:#e8e9ec;border:1px solid #262a33;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;min-width:0"><button id="syAddCol" class="btn ghost" style="flex-shrink:0">Sync</button></div>'
+   +'<style>#syUrl::placeholder{color:#8b93a3;opacity:1}#syUrl:focus{border-color:#7ea2ff;box-shadow:0 0 0 2px rgba(126,162,255,.18);outline:none}</style>'
+   +'<div style="font-size:10px;letter-spacing:.08em;color:#7ea2ff;font-weight:700;margin:2px 0 4px">\ud83d\udd17 PASTE A SHOPIFY COLLECTION LINK HERE</div>'
+   +'<div style="display:flex;gap:6px;margin-bottom:4px"><input id="syUrl" placeholder="https://goplaymore.com/collections/swimwear" style="flex:1;background:#0f1116;color:#fff;border:1.5px solid #3d4658;border-radius:8px;padding:9px 10px;font-size:12.5px;font-family:inherit;min-width:0"><button id="syAddCol" class="btn ghost" style="flex-shrink:0;border-color:#7ea2ff;color:#7ea2ff;font-weight:700">Sync</button></div>'
+   +'<div style="font-size:10px;color:#6b7280;margin-bottom:6px">any Shopify store \u00b7 or a Google Drive folder link \u2192 then hit Import Drive folder</div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syAddDrive" class="btn ghost" style="flex:1">📁 Import Drive folder</button><button id="syAddFol" class="btn ghost" style="flex:1">+ Local folder</button><button id="syRe" class="btn ghost" style="flex-shrink:0">↻</button></div>'
    +'<div id="sySources" style="margin-bottom:6px"></div>'
    +'<input id="sySearch" placeholder="search…" style="width:100%;background:#14161c;color:#e8e9ec;border:1px solid #262a33;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;margin-bottom:6px">'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syLoadSel" class="btn ghost" style="flex:1">Add selected</button><button id="syLoadAll" class="btn ghost" style="flex:1">Load all shown</button></div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syToLauncher" class="btn ghost" style="flex:1;border-color:#4a7">🚀 → Launcher (selected, or all shown)</button></div>'
+   +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syDlAll" class="btn ghost" style="flex:1;border-color:#77a">⬇ Download full-res (selected, or all shown)</button></div>'
+   +'<label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="syAllImg"> pull <b>every</b> image per product (not just the first)</label>'
    +'<div id="syGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;max-height:230px;overflow:auto;padding-right:3px"></div>'
    +'<div id="syStatus" style="font-size:10px;color:#8b8470;margin:6px 0 2px;min-height:12px"></div>';
   const dh=document.getElementById('dhLib');
@@ -4634,6 +4704,37 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
     stat('🚀 '+picked.length+' sent — open the Launcher, they land in Media automatically');
    }catch(e){stat('⚠ '+e.message)}
   };
+  /* every-image toggle */
+  const ai=document.getElementById('syAllImg');
+  if(ai){ai.checked=ALLIMG;
+   ai.onchange=()=>{ALLIMG=ai.checked;localStorage.setItem('studio_allimg',ALLIMG?'1':'0');
+    stat(ALLIMG?'every image mode on \u2014 hit \u21bb on a collection to re-sync':'first image only \u2014 hit \u21bb to re-sync');};}
+
+  /* bulk full-res download (drag the folder into Drive) */
+  document.getElementById('syDlAll').onclick=async()=>{
+   let picked=SHOWN.filter(it=>sel.has(it.key));
+   if(!picked.length)picked=SHOWN.slice(0,240);
+   if(!picked.length){stat('nothing to download');return}
+   const clean=n=>String(n||'img').replace(/[^\w\-. ]+/g,'_').slice(0,70);
+   let ok=0;
+   for(let i=0;i<picked.length;i++){
+    const it=picked[i];
+    stat('downloading '+(i+1)+' / '+picked.length+'\u2026');
+    try{
+     let d=null;
+     if(it.file)d=await _rd(it.file);
+     else d=await toData(it.img,it.fb);
+     if(!d)continue;
+     const a=document.createElement('a');
+     a.href=d;a.download=clean(it.title)+'_'+String(i+1).padStart(3,'0')+'.png';
+     document.body.appendChild(a);a.click();a.remove();
+     ok++;
+     await new Promise(r=>setTimeout(r,320));
+    }catch(e){}
+   }
+   stat('\u2b07 '+ok+' / '+picked.length+' saved at full res \u2014 drag the folder into Google Drive');
+  };
+
   document.getElementById('sySearch').oninput=paintGrid;
   document.getElementById('syAddCol').onclick=async()=>{
    const u=document.getElementById('syUrl').value.trim();if(!u){stat('paste a collection link first');return}
