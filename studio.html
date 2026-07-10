@@ -406,6 +406,7 @@ body.mp4editing #insp{z-index:560}
     <div style="font-size:11px;color:var(--mut);margin-top:4px">Set the track\u2019s BPM so the photo cuts land on the beat, then use Beat cut \u2192 Build &amp; drop.</div>
     <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--txt);cursor:pointer"><input type="checkbox" id="mp4click" style="width:16px;height:16px"> \ud83e\udd41 Beat click \u2014 metronome on the beat so you can hear the cuts land</label>
     <button class="btn acc" id="mp4go" style="margin-top:14px">Export MP4</button>
+    <button class="btn" id="mp4send" style="margin-top:8px;border-color:#4a7">&#128640; Export &#8594; Launcher</button>
     <div id="mp4prog" style="margin-top:12px;display:none">
      <div style="height:8px;background:var(--card);border-radius:6px;overflow:hidden;border:1px solid var(--line2)">
       <div id="mp4bar" style="height:100%;width:0;background:#fff;transition:width .2s"></div></div>
@@ -437,6 +438,7 @@ body.mp4editing #insp{z-index:560}
      </div>
     </div>
     <button class="btn acc" id="carExport" style="margin-top:16px;width:100%">&#11015; Download all slides (as a carousel)</button>
+    <button class="btn" id="carSend" style="margin-top:8px;width:100%;border-color:#4a7">&#128640; Send all slides &#8594; Launcher (carousel cards)</button>
     <div id="carprog" style="margin-top:12px;display:none">
      <div style="height:8px;background:var(--card);border-radius:6px;overflow:hidden;border:1px solid var(--line2)"><div id="carbar" style="height:100%;width:0;background:#fff;transition:width .2s"></div></div>
      <div id="carmsg" style="font-size:11px;color:var(--mut);margin-top:6px">Preparing&#8230;</div>
@@ -467,6 +469,7 @@ body.mp4editing #insp{z-index:560}
      <select class="gsel" id="stAspect"><option value="story" selected>9:16 Reel</option><option value="feed">4:5 Feed</option><option value="square">1:1 Square</option></select>
      <span style="font-size:11px;color:var(--mut)">speed</span><select class="gsel" id="stPace"><option value="1400">slow</option><option value="950" selected>normal</option><option value="600">fast</option></select>
      <button class="go" id="stExport">⬇ Export MP4</button>
+     <button class="go" id="stSend" style="border-color:#4a7">&#128640; &#8594; Launcher</button>
     </div>
     <div class="sub" id="stStatus" style="margin:0"></div>
    </div>
@@ -2707,6 +2710,11 @@ document.querySelectorAll('#aspectseg button').forEach(b=>b.onclick=()=>{
 
 /* ============ export ============ */
 function dl(url,name){const a=document.createElement('a');a.download=name;a.href=url;a.click()}
+/* drop a blob into the Launcher inbox (IndexedDB bridge). The Launcher imports it on open. */
+async function bridgePut(name,blob){
+ const db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+ await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').put({name:name,blob:blob,t:Date.now()});t.oncomplete=res});
+}
 
 /* ============ Playmore product copy packs ============ */
 const USP_CHIPS_BASE=['MADE IN EGYPT','FREE DELIVERY OVER 999 EGP','FREE 30-DAY RETURNS','MADE FOR EVERYDAY PLAY'];
@@ -3499,7 +3507,7 @@ document.getElementById('exportall').onclick=async()=>{
 /* ============ MP4 video ============ */
 function pickMime(){const opts=['video/mp4;codecs=avc1.4d002a,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm'];
  for(const m of opts)if(window.MediaRecorder&&MediaRecorder.isTypeSupported(m))return m;return ''}
-async function recordFrames(frames,delay,name,statusFn,forceMime){
+async function recordFrames(frames,delay,name,statusFn,forceMime,sink){
  if(!frames.length)return;
  const W=frames[0].width,H=frames[0].height;
  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const ctx=cv.getContext('2d');
@@ -3526,9 +3534,9 @@ async function recordFrames(frames,delay,name,statusFn,forceMime){
  if(blob.size===0&&mime.indexOf('mp4')>-1){
   const wb=MediaRecorder.isTypeSupported('video/webm;codecs=vp9')?'video/webm;codecs=vp9':'video/webm';
   if(statusFn)statusFn('Retrying…');
-  return recordFrames(frames,delay,name,statusFn,wb)}
+  return recordFrames(frames,delay,name,statusFn,wb,sink)}
  const ext=mime.indexOf('mp4')>-1?'mp4':'webm';
- dl(URL.createObjectURL(blob),name+'.'+ext);
+ if(sink){await sink(blob,ext)}else{dl(URL.createObjectURL(blob),name+'.'+ext);}
  if(statusFn)statusFn(ext==='webm'?'Saved as WEBM (uploads to Meta fine)':'Done')}
 // ====== MP4 dialog: per-photo timing, preview, progress ======
 /* ============ synth sound effects for MP4 (self-contained, no files) ============ */
@@ -3935,7 +3943,7 @@ document.getElementById('mp4play').onclick=async()=>{
   if(idx!==lastIdx){const c=MP4.frames[idx];if(c){cv.width=c.width;cv.height=c.height;cx.drawImage(c,0,0)}playSfxPreviewFor(idx);lastIdx=idx}
   MP4.raf=requestAnimationFrame(tick)};
  MP4.raf=requestAnimationFrame(tick)};
-document.getElementById('mp4go').onclick=async()=>{
+async function mp4Export(sink){
  await ensureFreshFrames();
  if(!MP4.ready||!MP4.frames.length){alert('Frames still preparing, one sec.');return}
  const prog=document.getElementById('mp4prog'),bar=document.getElementById('mp4bar'),msg=document.getElementById('mp4msg');
@@ -3951,10 +3959,14 @@ document.getElementById('mp4go').onclick=async()=>{
   for(let i=0;i<MP4.frames.length;i++){let k=(MP4.sfxPer&&MP4.sfxPer[i])?MP4.sfxPer[i]:curSfx();const kind=(k&&k!=='none'&&k!=='global')?k:null;if(kind)hasSfx=true;cutFrames.push(seq.length);sfxKinds.push(kind);const n=counts[i];for(let q=0;q<n;q++)seq.push(MP4.frames[i])}
   const audio={music:m,musicVol:musicVol(),sfxVol:sfxVol(),cutFrames,sfxKinds,hasSfx,total:seq.length/fps,beatSec:plan.beatSec,clickOn:clickOn(),trackBuf:MP4.audioBuf||null,trackEl:(typeof MP4!=="undefined"&&MP4.mediaEl)||null,trackStart:trackStart()};
   await recordFramesProg(seq,Math.round(1000/fps),MP4.f+'_'+state.aspect,p=>{
-   bar.style.width=Math.round(p*100)+'%';msg.textContent='Encoding… '+Math.round(p*100)+'%'},undefined,audio);
-  bar.style.width='100%';msg.textContent='Done — saved to your downloads.';
- }catch(e){msg.textContent='Failed: '+(e&&e.message||'unknown')}};
-async function recordFramesProg(frames,frameMs,name,onProg,forceMime,audio){
+   bar.style.width=Math.round(p*100)+'%';msg.textContent='Encoding… '+Math.round(p*100)+'%'},undefined,audio,sink);
+  bar.style.width='100%';
+  msg.textContent=sink?'🚀 Sent — open the Launcher, the video lands in Media automatically.':'Done — saved to your downloads.';
+ }catch(e){msg.textContent='Failed: '+(e&&e.message||'unknown')}}
+document.getElementById('mp4go').onclick=()=>mp4Export(null);
+document.getElementById('mp4send').onclick=()=>mp4Export(async(blob,ext)=>{
+ await bridgePut(MP4.f+'_'+state.aspect+'_'+Date.now()+'.'+ext,blob);});
+async function recordFramesProg(frames,frameMs,name,onProg,forceMime,audio,sink){
  if(!frames.length)return;
  const W=frames[0].width,H=frames[0].height;
  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const ctx=cv.getContext('2d');
@@ -3984,9 +3996,10 @@ async function recordFramesProg(frames,frameMs,name,onProg,forceMime,audio){
  try{rec.requestData()}catch(e){}await sleep(450);rec.stop();await stopped;try{if(audio&&audio.trackEl){audio.trackEl.pause();}}catch(_){}
  const blob=new Blob(chunks,{type:mime});
  if(blob.size===0&&mime.indexOf('mp4')>-1){const wb=MediaRecorder.isTypeSupported('video/webm;codecs=vp9')?'video/webm;codecs=vp9':'video/webm';
-  return recordFramesProg(frames,frameMs,name,onProg,wb,audio)}
+  return recordFramesProg(frames,frameMs,name,onProg,wb,audio,sink)}
  const ext=mime.indexOf('mp4')>-1?'mp4':'webm';
- dl(URL.createObjectURL(blob),name+'.'+ext);if(onProg)onProg(1)}
+ if(sink){await sink(blob,ext)}else{dl(URL.createObjectURL(blob),name+'.'+ext);}
+ if(onProg)onProg(1)}
 
 /* ============ video studio (BASIC: preview + speed + captions, no cuts) ============ */
 const STUDIO={open:false,aspect:'story',pace:950,scenes:[],imgs:{},sceneSel:0,playing:false,raf:null};
@@ -4079,7 +4092,7 @@ function studioAddFiles(files){
    STUDIO.imgs[id]=fr.result;STUDIO.scenes.push({img:id,copy:''});
    buildSceneList();drawStill()};
   fr.readAsDataURL(f)})}
-async function studioExport(){
+async function studioExport(sink){
  if(!STUDIO.scenes.length){document.getElementById('stStatus').textContent='Add at least one shot.';return}
  stopPlay();const st=document.getElementById('stStatus');st.textContent='Rendering slides…';
  const W=STC.width,H=STC.height;
@@ -4089,7 +4102,8 @@ async function studioExport(){
   await renderScene(cv.getContext('2d'),W,H,STUDIO.scenes[i]);frames.push(cv);
   st.textContent=`Rendering ${i+1}/${STUDIO.scenes.length}…`}
  st.textContent='Encoding video…';
- await recordFrames(frames,STUDIO.pace,'reel_'+STUDIO.aspect,t=>st.textContent=t)}
+ await recordFrames(frames,STUDIO.pace,'reel_'+STUDIO.aspect,t=>st.textContent=t,undefined,sink);
+ if(sink)st.textContent='\ud83d\ude80 Sent \u2014 open the Launcher, the video lands in Media automatically.'}
 document.getElementById('openStudio').onclick=openStudio;
 document.getElementById('stClose').onclick=closeStudio;
 document.getElementById('studio').onclick=e=>{if(e.target.id==='studio')closeStudio()};
@@ -4102,7 +4116,8 @@ stIn.onchange=e=>studioAddFiles(e.target.files);
 document.getElementById('stPlay').onclick=()=>{if(STUDIO.playing)stopPlay();else playLoop()};
 document.getElementById('stAspect').onchange=e=>{stopPlay();STUDIO.aspect=e.target.value;sizeCanvas();drawStill()};
 document.getElementById('stPace').onchange=e=>{STUDIO.pace=+e.target.value;if(STUDIO.playing){stopPlay();playLoop()}};
-document.getElementById('stExport').onclick=studioExport;
+document.getElementById('stExport').onclick=()=>studioExport(null);
+document.getElementById('stSend').onclick=()=>studioExport(async(blob,ext)=>{await bridgePut('reel_'+STUDIO.aspect+'_'+Date.now()+'.'+ext,blob)});
 
 buildSlots();renderAll();buildInspectorBase();renderMirror();
 
@@ -4378,6 +4393,21 @@ function carRenderControls(){
  const oi=document.createElement('input');oi.value=CAR.cta.offer;oi.placeholder='offer line';oi.style.fontWeight='400';oi.oninput=()=>{CAR.cta.offer=oi.value;carRebuild()};
  w3.appendChild(xi);w3.appendChild(oi);cr.appendChild(xt);cr.appendChild(w3);c.appendChild(cr);
 }
+async function carSendAll(){
+ if(CAR.busy){alert('Still building, one sec.');return}
+ if(!CAR.frames.length)await carRenderAll();
+ if(!CAR.frames.length){alert('No slides to send.');return}
+ const prog=document.getElementById('carprog'),bar=document.getElementById('carbar'),msg=document.getElementById('carmsg');
+ if(prog)prog.style.display='block';
+ const stamp=Date.now().toString(36);
+ for(let i=0;i<CAR.frames.length;i++){
+  if(msg)msg.textContent='Sending card '+(i+1)+' of '+CAR.frames.length+'\u2026';
+  if(bar)bar.style.width=Math.round((i+1)/CAR.frames.length*100)+'%';
+  const blob=await new Promise(r=>CAR.frames[i].toBlob(r,'image/png'));
+  await bridgePut('car_'+stamp+'_'+String(i+1).padStart(2,'0')+'.png',blob);
+ }
+ if(msg)msg.textContent='\ud83d\ude80 '+CAR.frames.length+' cards sent in order \u2014 open the Launcher and pick "Carousel (files become cards)" in step 4.';
+}
 async function carExportAll(){
  if(CAR.busy){alert('Still building, one sec.');return}
  if(!CAR.frames.length)await carRenderAll();
@@ -4407,6 +4437,7 @@ function carClose(){document.getElementById('cardlg').style.display='none'}
  const cb=document.getElementById('carBtn');if(cb)cb.onclick=carOpen;
  const cc=document.getElementById('carclose');if(cc)cc.onclick=carClose;
  const ce=document.getElementById('carExport');if(ce)ce.onclick=carExportAll;
+ const cs=document.getElementById('carSend');if(cs)cs.onclick=carSendAll;
  document.querySelectorAll('#carDimSeg button').forEach(b=>b.onclick=()=>carSetDim(b.dataset.d));
  document.querySelectorAll('#carThemeSeg button').forEach(b=>b.onclick=()=>carSetTheme(b.dataset.t));
  const dlg=document.getElementById('cardlg');if(dlg)dlg.onclick=e=>{if(e.target.id==='cardlg')carClose()};
