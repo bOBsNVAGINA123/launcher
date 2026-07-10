@@ -1905,9 +1905,14 @@ paint();
         S.media.push({kind:'image',src:'drive',url:it.url,name:it.name||'image',preview:it.url,link:'',adName:(it.name||'image').replace(/\.[^.]+$/,''),target:''});return;
       }
       if(!it.blob)return;
-      const f=new File([it.blob],it.name,{type:'image/png'});
+      /* videos from the Content Studio arrive here too - detect kind from name/blob type instead of forcing image/png */
+      const bk=kindOf(it.name,it.blob.type||'')||'image';
+      const bt=it.blob.type||(bk==='video'?'video/mp4':'image/png');
+      const f=new File([it.blob],it.name,{type:bt});
       if(S.media.some(x=>x.name===it.name))return;
-      S.media.push({kind:'image',src:'local',file:f,name:it.name,size:f.size,link:'',adName:it.name.replace(/\.[^.]+$/,''),preview:URL.createObjectURL(f)});});
+      const rec={kind:bk,src:'local',file:f,name:it.name,size:f.size,link:'',adName:it.name.replace(/\.[^.]+$/,''),target:''};
+      if(bk==='image')rec.preview=URL.createObjectURL(f);
+      S.media.push(rec);});
     sortMedia();renderMedia();paint();
     log(items.length+' creative(s) imported from Content Studio','ok');
     await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').clear();t.oncomplete=res});
