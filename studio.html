@@ -4666,12 +4666,12 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   const slots=document.getElementById('slots');
   const box=document.createElement('div');box.id='syncLib';box.style.cssText='margin:0 0 14px;padding:10px;border:1px solid #2b3040;border-radius:10px;background:#101218';
   box.innerHTML='<div class="lbl" style="display:flex;justify-content:space-between;align-items:center">Synced library <span id="syAgo" style="font-size:9px;color:#6b7280;text-transform:none;letter-spacing:0"></span></div>'
-   +'<style>#syUrl::placeholder{color:#8b93a3;opacity:1}#syUrl:focus{border-color:#7ea2ff;box-shadow:0 0 0 3px rgba(126,162,255,.22);outline:none}#syAddCol{transition:filter .12s,transform .05s}#syAddCol:hover{filter:brightness(1.08)}#syAddCol:active{transform:translateY(1px)}</style>'
+   +'<style>#syUrl::placeholder{color:#8b93a3;opacity:1}#syUrl:focus{border-color:#7ea2ff;box-shadow:0 0 0 3px rgba(126,162,255,.22);outline:none}#syAddCol{transition:filter .12s,transform .05s}#syAddCol:hover{filter:brightness(1.08)}#syAddCol:active{transform:translateY(1px)}#syProgWrap{height:3px;background:#1b2030;border-radius:3px;overflow:hidden;margin:-2px 0 8px;display:none}#syProgWrap.on{display:block}#syProgWrap>i{display:block;position:relative;height:100%;width:38%;background:#7ea2ff;border-radius:3px;animation:syprog 1s linear infinite}@keyframes syprog{0%{left:-40%}100%{left:100%}}#syAddCol[disabled]{opacity:.7;cursor:default}.syChk{width:14px;height:14px;flex-shrink:0;cursor:pointer;accent-color:#7ea2ff;margin:0}</style>'
    +'<div style="font-size:11px;letter-spacing:.05em;color:#7ea2ff;font-weight:700;margin:4px 0 8px">\ud83d\udd17 PASTE A SHOPIFY COLLECTION LINK HERE</div>'
-   +'<input id="syUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://goplaymore.com/collections/swimwear" style="display:block;width:100%;box-sizing:border-box;background:#0f1116;color:#fff;border:1.5px solid #3d4658;border-radius:10px;padding:13px 12px;font-size:13px;line-height:1.2;font-family:inherit;margin-bottom:8px"><button id="syAddCol" class="btn ghost" style="display:block;width:100%;box-sizing:border-box;padding:12px;background:#7ea2ff;border:1.5px solid #7ea2ff;color:#0f1116;font-weight:800;font-size:14px;border-radius:10px;cursor:pointer;margin-bottom:2px">Sync collection</button>'
+   +'<input id="syUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://goplaymore.com/collections/swimwear" style="display:block;width:100%;box-sizing:border-box;background:#0f1116;color:#fff;border:1.5px solid #3d4658;border-radius:10px;padding:13px 12px;font-size:13px;line-height:1.2;font-family:inherit;margin-bottom:8px"><button id="syAddCol" class="btn ghost" style="display:block;width:100%;box-sizing:border-box;padding:12px;background:#7ea2ff;border:1.5px solid #7ea2ff;color:#0f1116;font-weight:800;font-size:14px;border-radius:10px;cursor:pointer;margin-bottom:2px">Sync collection</button><div id="syProgWrap"><i></i></div>'
    +'<div style="font-size:10px;color:#6b7280;margin-bottom:6px">any Shopify store \u00b7 or a Google Drive folder link \u2192 then hit Import Drive folder</div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syAddDrive" class="btn ghost" style="flex:1">📁 Import Drive folder</button><button id="syAddFol" class="btn ghost" style="flex:1">+ Local folder</button><button id="syRe" class="btn ghost" style="flex-shrink:0">↻</button></div>'
-   +'<div id="sySources" style="margin-bottom:6px"></div>'
+   +'<div id="sySources" style="margin-bottom:4px"></div>'+'<button id="syAnother" class="btn ghost" style="width:100%;box-sizing:border-box;padding:8px;font-size:11.5px;color:#7ea2ff;border-color:#2b3550;background:#0f1116;border-radius:8px;margin-bottom:8px;cursor:pointer">+ Add another collection</button>'
    +'<input id="sySearch" placeholder="search…" style="width:100%;background:#14161c;color:#e8e9ec;border:1px solid #262a33;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;margin-bottom:6px">'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syLoadSel" class="btn ghost" style="flex:1">Add selected</button><button id="syLoadAll" class="btn ghost" style="flex:1">Load all shown</button></div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syToLauncher" class="btn ghost" style="flex:1;border-color:#4a7">🚀 → Launcher (selected, or all shown)</button></div>'
@@ -4683,28 +4683,30 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   slots.parentNode.insertBefore(box,dh||slots);
   const stat=m=>{document.getElementById('syStatus').textContent=m};
 
-  let FILTER='';
+  let FILTER='';const ENABLED=new Set();const enOn=k=>!ENABLED.size||ENABLED.has(k);
   function items(){
    const q=(document.getElementById('sySearch').value||'').toLowerCase();
    const out=[];
-   COLS.forEach(c=>{if(FILTER&&FILTER!=='col_'+c.handle)return;c.products.forEach(p=>{if(!q||p.title.toLowerCase().indexOf(q)>=0)out.push({title:p.title,img:p.img,thumb:p.img,kind:p.kind||'image',driveId:p.driveId||null,key:'c'+c.handle+(p.driveId||p.img)})})});
-   if(!FILTER||FILTER==='inbox')INBOX.forEach(it=>{if(!q||it.title.toLowerCase().indexOf(q)>=0)out.push(it)});
-   FOLDERS.forEach(f=>{if(FILTER&&FILTER!=='fol_'+f.key)return;(f.files||[]).forEach(fl=>{if(!q||fl.name.toLowerCase().indexOf(q)>=0)out.push({title:fl.name,file:fl,thumb:null,key:'f'+f.key+fl.name+fl.size})})});
+   COLS.forEach(c=>{if(!enOn('col_'+c.handle))return;c.products.forEach(p=>{if(!q||p.title.toLowerCase().indexOf(q)>=0)out.push({title:p.title,img:p.img,thumb:p.img,kind:p.kind||'image',driveId:p.driveId||null,key:'c'+c.handle+(p.driveId||p.img)})})});
+   if(enOn('inbox'))INBOX.forEach(it=>{if(!q||it.title.toLowerCase().indexOf(q)>=0)out.push(it)});
+   FOLDERS.forEach(f=>{if(!enOn('fol_'+f.key))return;(f.files||[]).forEach(fl=>{if(!q||fl.name.toLowerCase().indexOf(q)>=0)out.push({title:fl.name,file:fl,thumb:null,key:'f'+f.key+fl.name+fl.size})})});
    return out;
   }
   const OURL=new Map();
   function thumbOf(it){if(it.thumb)return it.thumb;if(!OURL.has(it.key))OURL.set(it.key,URL.createObjectURL(it.file));return OURL.get(it.key)}
   function paintSources(){
    document.getElementById('sySources').innerHTML=
-    COLS.map(c=>'<div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;padding:3px 0"><span style="cursor:pointer;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'+(FILTER==='col_'+c.handle?'#7ea2ff':'#aeb4bf')+'" data-flt="col_'+c.handle+'">🛒 '+c.name+' · '+c.products.length+'</span><span style="color:#6b7280">'+ago(c.last)+'</span><span style="cursor:pointer" data-rc="'+c.handle+'">↻</span><span style="cursor:pointer;color:#874" data-xc="'+c.handle+'">×</span></div>').join('')
-   +(INBOX.length?'<div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;padding:3px 0"><span style="cursor:pointer;flex:1;color:'+(FILTER==='inbox'?'#7ea2ff':'#aeb4bf')+'" data-flt="inbox">🚀 From Launcher · '+INBOX.length+'</span></div>':'')
-   +FOLDERS.map(f=>'<div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;padding:3px 0"><span style="cursor:pointer;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'+(FILTER==='fol_'+f.key?'#7ea2ff':'#aeb4bf')+'" data-flt="fol_'+f.key+'">📁 '+f.name+' · '+(f.stale?'<i style="color:#c90">reconnect</i>':(f.files||[]).length)+'</span><span style="color:#6b7280">'+ago(f.last)+'</span><span style="cursor:pointer" data-rf="'+f.key+'">↻</span><span style="cursor:pointer;color:#874" data-xf="'+f.key+'">×</span></div>').join('');
+    ((COLS.length||FOLDERS.length)?'<div style="font-size:9.5px;color:#6b7280;margin:2px 0 5px">tick a collection to show only its products · untick all to show everything</div>':'')+COLS.map(c=>'<div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;padding:3px 0"><input type="checkbox" class="syChk" data-en="col_'+c.handle+'"'+(ENABLED.has('col_'+c.handle)?' checked':'')+'><span style="cursor:pointer;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'+(ENABLED.has('col_'+c.handle)?'#7ea2ff':'#cdd2db')+'" data-flt="col_'+c.handle+'">🛒 '+c.name+' · '+c.products.length+'</span><span style="color:#6b7280">'+ago(c.last)+'</span><span style="cursor:pointer" data-rc="'+c.handle+'">↻</span><span style="cursor:pointer;color:#874" data-xc="'+c.handle+'">×</span></div>').join('')
+   +(INBOX.length?'<div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;padding:3px 0"><input type="checkbox" class="syChk" data-en="inbox"'+(ENABLED.has('inbox')?' checked':'')+'><span style="cursor:pointer;flex:1;color:'+(ENABLED.has('inbox')?'#7ea2ff':'#cdd2db')+'" data-flt="inbox">🚀 From Launcher · '+INBOX.length+'</span></div>':'')
+   +FOLDERS.map(f=>'<div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;padding:3px 0"><input type="checkbox" class="syChk" data-en="fol_'+f.key+'"'+(ENABLED.has('fol_'+f.key)?' checked':'')+'><span style="cursor:pointer;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'+(ENABLED.has('fol_'+f.key)?'#7ea2ff':'#cdd2db')+'" data-flt="fol_'+f.key+'">📁 '+f.name+' · '+(f.stale?'<i style="color:#c90">reconnect</i>':(f.files||[]).length)+'</span><span style="color:#6b7280">'+ago(f.last)+'</span><span style="cursor:pointer" data-rf="'+f.key+'">↻</span><span style="cursor:pointer;color:#874" data-xf="'+f.key+'">×</span></div>').join('');
    const S=document.getElementById('sySources');
-   S.querySelectorAll('[data-flt]').forEach(el=>el.onclick=()=>{FILTER=FILTER===el.dataset.flt?'':el.dataset.flt;paintSources();paintGrid()});
+   const tog=k=>{ENABLED.has(k)?ENABLED.delete(k):ENABLED.add(k);paintSources();paintGrid()};
+   S.querySelectorAll('[data-en]').forEach(el=>el.onchange=()=>tog(el.dataset.en));
+   S.querySelectorAll('[data-flt]').forEach(el=>el.onclick=()=>tog(el.dataset.flt));
    S.querySelectorAll('[data-rc]').forEach(el=>el.onclick=async()=>{const c=COLS.find(x=>x.handle===el.dataset.rc);if(!c)return;stat('re-syncing '+c.name+'…');try{const n=await fetchAny(c.url);Object.assign(c,n);saveCols();paintSources();paintGrid();stat(c.name+': '+c.products.length+' products · synced')}catch(e){stat(e.message)}});
-   S.querySelectorAll('[data-xc]').forEach(el=>el.onclick=()=>{COLS=COLS.filter(x=>x.handle!==el.dataset.xc);saveCols();paintSources();paintGrid()});
+   S.querySelectorAll('[data-xc]').forEach(el=>el.onclick=()=>{ENABLED.delete('col_'+el.dataset.xc);COLS=COLS.filter(x=>x.handle!==el.dataset.xc);saveCols();paintSources();paintGrid()});
    S.querySelectorAll('[data-rf]').forEach(el=>el.onclick=async()=>{const f=FOLDERS.find(x=>x.key===el.dataset.rf);if(!f)return;stat('re-syncing '+f.name+'…');await syncFolder(f);paintSources();paintGrid();stat(f.name+': '+(f.files||[]).length+' photos in '+(f.ms||0)+'ms')});
-   S.querySelectorAll('[data-xf]').forEach(el=>el.onclick=async()=>{await idbDel(el.dataset.xf);FOLDERS=FOLDERS.filter(x=>x.key!==el.dataset.xf);paintSources();paintGrid()});
+   S.querySelectorAll('[data-xf]').forEach(el=>el.onclick=async()=>{ENABLED.delete('fol_'+el.dataset.xf);await idbDel(el.dataset.xf);FOLDERS=FOLDERS.filter(x=>x.key!==el.dataset.xf);paintSources();paintGrid()});
    const newest=Math.max(0,...COLS.map(c=>c.last||0),...FOLDERS.map(f=>f.last||0));
    document.getElementById('syAgo').textContent=newest?('last sync '+ago(newest)):'';
   }
@@ -4769,10 +4771,13 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   document.getElementById('sySearch').oninput=paintGrid;
   document.getElementById('syAddCol').onclick=async()=>{
    let u=document.getElementById('syUrl').value.trim();if(!u){stat('paste a collection link first');return}if(!/^https?:\/\//i.test(u)&&!/^data:/i.test(u))u='https://'+u.replace(/^\/+/,'');
-   stat('syncing collection…');
-   try{const c=await fetchAny(u);const i=COLS.findIndex(x=>x.handle===c.handle&&x.origin===c.origin);i>=0?COLS[i]=c:COLS.push(c);saveCols();document.getElementById('syUrl').value='';paintSources();paintGrid();stat(c.name+': '+c.products.length+' products synced')}
+   const _b=document.getElementById('syAddCol'),_pw=document.getElementById('syProgWrap'),_lbl=_b.textContent;
+   _b.disabled=true;_b.textContent='Syncing…';if(_pw)_pw.classList.add('on');stat('syncing '+u.replace(/^https?:\/\//,'').slice(0,42)+'…');
+   try{const c=await fetchAny(u);const i=COLS.findIndex(x=>x.handle===c.handle&&x.origin===c.origin);i>=0?COLS[i]=c:COLS.push(c);saveCols();document.getElementById('syUrl').value='';paintSources();paintGrid();stat('✓ '+c.name+': '+c.products.length+' products synced · tick it above to show only it')}
    catch(e){stat('⚠ '+e.message)}
+   finally{_b.disabled=false;_b.textContent=_lbl;if(_pw)_pw.classList.remove('on')}
   };
+  {const _an=document.getElementById('syAnother');if(_an)_an.onclick=()=>{const i=document.getElementById('syUrl');i.value='';i.focus();try{i.scrollIntoView({block:'nearest'})}catch(_){}stat('paste the next collection link, then hit Sync collection')};}
   document.getElementById('syAddFol').onclick=addFolder;
   document.getElementById('syAddDrive').onclick=async()=>{
    let u=document.getElementById('syUrl').value.trim();
