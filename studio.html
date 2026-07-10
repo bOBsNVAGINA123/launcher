@@ -5390,9 +5390,9 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   var wrap=document.createElement('div');
   wrap.style.cssText='margin-top:10px;padding-top:10px;border-top:1px dashed #46396f';
   wrap.innerHTML=
-   '<div style="font-size:11px;color:#b9aee8;margin-bottom:6px;font-weight:700">📸 Or paste an Instagram Reel link — audio gets ripped straight into the video</div>'+
+   '<div style="font-size:11px;color:#b9aee8;margin-bottom:6px;font-weight:700">📸 Or paste an Instagram Reel / Pinterest Pin link — audio gets ripped straight into the video</div>'+
    '<div style="display:flex;gap:6px">'+
-    '<input id="igReelUrl" type="text" placeholder="https://www.instagram.com/reel/…" spellcheck="false" autocomplete="off" style="flex:1;min-width:0;background:#1a1528;color:#fff;border:1px solid #46396f;border-radius:8px;padding:8px 10px;font-size:12px">'+
+    '<input id="igReelUrl" type="text" placeholder="Instagram Reel or Pinterest Pin link…" spellcheck="false" autocomplete="off" style="flex:1;min-width:0;background:#1a1528;color:#fff;border:1px solid #46396f;border-radius:8px;padding:8px 10px;font-size:12px">'+
     '<button id="igReelBtn" style="flex:none;background:#6d4fd0;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">🎵 Grab audio</button>'+
    '</div>'+
    '<div id="igReelProg" style="display:none;margin-top:8px">'+
@@ -5455,6 +5455,22 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
  /* candidate producers, tried in order until one yields playable media */
  function producers(url){
   var list=[];
+  /* Pinterest: page scrape first (pin pages expose direct 720p mp4) */
+  if(/pinterest\.[a-z.]+\/pin\/|pin\.it\//i.test(url)){
+   var pm=url.match(/pinterest\.[a-z.]+\/pin\/(\d+)/);
+   var pageUrl=pm?('https://www.pinterest.com/pin/'+pm[1]+'/'):url;
+   PROXIES.forEach(function(px,i){
+    list.push({label:'pinterest route '+(i+1),run:async function(){
+     var r=await fetchT(px(pageUrl),{},15000);
+     if(!r.ok)return null;
+     var html=await r.text();
+     var m=html.match(/https:[^"'\\]*?v1?\.pinimg\.com[^"'\\]*?_720w\.mp4[^"'\\]*/)||html.match(/https:[^"'\\]*?v1?\.pinimg\.com[^"'\\]*?\.mp4[^"'\\]*/);
+     if(!m)return null;
+     var vurl=m[0].replace(/\\u0026/g,'&').replace(/\\\//g,'/').replace(/&amp;/g,'&');
+     return {url:vurl,name:'pin_'+(pm?pm[1]:'clip')+'.mp4',cors:false,proxyIdx:i};
+    }});
+   });
+  }
   COBALT.forEach(function(c,i){
    ['audio','auto'].forEach(function(mode){
     list.push({label:'server '+(i+1)+(mode==='audio'?'':' (video)'),run:async function(){
@@ -5584,7 +5600,8 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   var isIG=/instagram\.com/i.test(url);
   var isDirect=/\.(mp4|m4a|mp3|mov|webm|aac|wav)(\?|#|$)/i.test(url);
   var isOther=/tiktok\.com|youtu\.?be|facebook\.com|fb\.watch/i.test(url);
-  if(!isIG&&!isDirect&&!isOther){prog(0,'That does not look like an Instagram / TikTok / YouTube link.',true);return}
+  var isPin=/pinterest\.[a-z.]+\/pin\/|pin\.it\//i.test(url);
+  if(!isIG&&!isDirect&&!isOther&&!isPin){prog(0,'That does not look like an Instagram / Pinterest / TikTok / YouTube link.',true);return}
   var btn=$('igReelBtn');busy=true;btn.disabled=true;btn.style.opacity=.6;
   var creep=15;
   try{
@@ -5612,7 +5629,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
      res=out;
     }catch(e){/* try next */}
    }
-   if(!res)throw new Error('Instagram blocked every route for this reel. Download the clip (downloader app/site or screen record), then hit 🎵 Use reference music above and pick the file — everything else works the same.');
+   if(!res)throw new Error('Every route got blocked for this link. Download the clip (downloader app/site or screen record), then hit 🎵 Use reference music above and pick the file — everything else works the same.');
    if(res.kind==='buf'){
     prog(94,'Detecting BPM…');
     await new Promise(function(r){setTimeout(r,30)});
