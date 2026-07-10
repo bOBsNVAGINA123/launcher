@@ -5356,7 +5356,9 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
 </script>
 
 <script>
-/* ===== IG Reel -> reference music: paste link, rip audio, progress bar ===== */
+/* ===== IG Reel -> reference music: paste link, rip audio, progress bar (v2) =====
+   v2: validates file magic bytes (rejects thumbnail JPEGs), tries audio then video
+   mode per server, verifies audio actually decoded before reporting success. */
 (function(){
  'use strict';
  var COBALT=[
@@ -5379,6 +5381,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   opts=opts||{};opts.signal=ctl.signal;
   return fetch(url,opts).finally(function(){clearTimeout(t)});
  }
+ var IMG_EXT=/\.(jpe?g|png|webp|gif|heic|avif)(\?|#|$)/i;
  /* ---------- UI ---------- */
  function inject(){
   var btn=$('dhRefMusicBtn');if(!btn)return false;
@@ -5412,50 +5415,69 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   if(txt!=null)msg.textContent=txt;
   msg.style.color=isErr?'#ff9b9e':'#b9aee8';
  }
- /* ---------- resolve ---------- */
+ /* ---------- helpers ---------- */
  function shortcode(u){var m=u.match(/instagram\.com\/(?:[A-Za-z0-9_.]+\/)?(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);return m?m[1]:null}
- function tryCobalt(url,onNote){
-  var i=-1;
-  function next(){
-   i++;if(i>=COBALT.length)return Promise.resolve(null);
-   var c=COBALT[i];
-   onNote('Resolving link… (server '+(i+1)+'/'+COBALT.length+')');
-   var body=c.v>=10?{url:url,downloadMode:'audio',audioFormat:'mp3'}:{url:url,isAudioOnly:true};
-   return fetchT(c.api,{method:'POST',headers:{'Accept':'application/json','Content-Type':'application/json'},body:JSON.stringify(body)},12000)
-    .then(function(r){return r.json()})
-    .then(function(j){
-     if(j&&(j.status==='tunnel'||j.status==='redirect'||j.status==='stream')&&j.url)
-      return {url:j.url,name:(j.filename||'ig_audio.mp3'),cors:true};
-     if(j&&j.status==='picker'&&j.picker&&j.picker.length){
-      var pick=null;
-      for(var k=0;k<j.picker.length;k++){if(j.picker[k].type==='video'){pick=j.picker[k];break}}
-      pick=pick||j.picker[0];
-      if(pick&&pick.url)return {url:pick.url,name:'ig_reel.mp4',cors:true};
-     }
-     return next();
-    })
-    .catch(function(){return next()});
-  }
-  return next();
+ async function sniff(blob){
+  try{
+   var b=new Uint8Array(await blob.slice(0,16).arrayBuffer());
+   var s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);
+   if(b[0]===0xFF&&b[1]===0xD8)return 'image';
+   if(b[0]===0x89&&s.slice(1,4)==='PNG')return 'image';
+   if(s.slice(0,4)==='RIFF'&&s.slice(8,12)==='WEBP')return 'image';
+   if(s.slice(0,3)==='GIF')return 'image';
+   if(s.slice(0,1)==='<')return 'html';
+   if(s.slice(4,8)==='ftyp')return 'av';
+   if(s.slice(0,3)==='ID3'||(b[0]===0xFF&&(b[1]&0xE0)===0xE0))return 'av';
+   if(s.slice(0,4)==='OggS'||s.slice(0,4)==='fLaC')return 'av';
+   if(s.slice(0,4)==='RIFF')return 'av';
+   if(b[0]===0x1A&&b[1]===0x45&&b[2]===0xDF&&b[3]===0xA3)return 'av';
+   return 'unknown';
+  }catch(e){return 'unknown'}
  }
- function tryEmbed(url,onNote){
-  var code=shortcode(url);if(!code)return Promise.resolve(null);
-  var embed='https://www.instagram.com/p/'+code+'/embed/captioned/';
-  var i=-1;
-  function next(){
-   i++;if(i>=PROXIES.length)return Promise.resolve(null);
-   onNote('Resolving via embed page… (route '+(i+1)+'/'+PROXIES.length+')');
-   return fetchT(PROXIES[i](embed),{},15000)
-    .then(function(r){if(!r.ok)throw 0;return r.text()})
-    .then(function(html){
+ function cobaltBody(c,url,mode){
+  if(c.v>=10)return mode==='audio'?{url:url,downloadMode:'audio',audioFormat:'mp3'}:{url:url,downloadMode:'auto',videoQuality:'720'};
+  return mode==='audio'?{url:url,isAudioOnly:true}:{url:url};
+ }
+ function parseCobalt(j){
+  if(!j)return null;
+  if((j.status==='tunnel'||j.status==='redirect'||j.status==='stream')&&j.url){
+   if(j.filename&&IMG_EXT.test(j.filename))return null; /* thumbnail, not media */
+   return {url:j.url,name:j.filename||'ig_clip.mp4',cors:true};
+  }
+  if(j.status==='picker'&&j.picker&&j.picker.length){
+   for(var k=0;k<j.picker.length;k++){
+    var p=j.picker[k];
+    if(p&&p.url&&(p.type==='video'||(!p.type&&!IMG_EXT.test(p.url))))return {url:p.url,name:'ig_reel.mp4',cors:true};
+   }
+  }
+  return null;
+ }
+ /* candidate producers, tried in order until one yields playable media */
+ function producers(url){
+  var list=[];
+  COBALT.forEach(function(c,i){
+   ['audio','auto'].forEach(function(mode){
+    list.push({label:'server '+(i+1)+(mode==='audio'?'':' (video)'),run:async function(){
+     var r=await fetchT(c.api,{method:'POST',headers:{'Accept':'application/json','Content-Type':'application/json'},body:JSON.stringify(cobaltBody(c,url,mode))},12000);
+     return parseCobalt(await r.json());
+    }});
+   });
+  });
+  var code=shortcode(url);
+  if(code){
+   PROXIES.forEach(function(px,i){
+    list.push({label:'embed route '+(i+1),run:async function(){
+     var r=await fetchT(px('https://www.instagram.com/p/'+code+'/embed/captioned/'),{},15000);
+     if(!r.ok)return null;
+     var html=await r.text();
      var m=html.match(/"video_url":"([^"]+)"/)||html.match(/property="og:video"[^>]*content="([^"]+)"/);
-     if(!m)return next();
+     if(!m)return null;
      var vurl=m[1].replace(/\\u0026/g,'&').replace(/\\\//g,'/').replace(/&amp;/g,'&');
      return {url:vurl,name:'ig_reel_'+code+'.mp4',cors:false,proxyIdx:i};
-    })
-    .catch(function(){return next()});
+    }});
+   });
   }
-  return next();
+  return list;
  }
  /* ---------- download with progress ---------- */
  async function download(src,onPct){
@@ -5474,7 +5496,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
     var total=+(r.headers.get('Content-Length')||0);
     if(!r.body||!r.body.getReader){
      var b=await r.blob();
-     if(b.size<2048)throw new Error('empty response');
+     if(b.size<4096)throw new Error('empty response');
      onPct(1,b.size);return b;
     }
     var reader=r.body.getReader(),chunks=[],got=0;
@@ -5484,13 +5506,13 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
      chunks.push(st.value);got+=st.value.length;
      onPct(total?got/total:null,got);
     }
-    if(got<2048)throw new Error('empty response');
+    if(got<4096)throw new Error('empty response');
     return new Blob(chunks,{type:r.headers.get('Content-Type')||'video/mp4'});
    }catch(e){lastErr=e;}
   }
   throw lastErr||new Error('download failed');
  }
- /* ---------- BPM detect (onset autocorrelation) ---------- */
+ /* ---------- BPM detect ---------- */
  function estimateBPM(buf){
   try{
    var sr=buf.sampleRate,ch=buf.getChannelData(0);
@@ -5531,6 +5553,27 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    }
   }catch(e){}
  }
+ /* ---------- hand off to the track pipeline and VERIFY it decoded ---------- */
+ async function handoff(blob,name){
+  var ext=(blob.type&&blob.type.indexOf('audio')>=0)?'.mp3':'.mp4';
+  if(!/\.[a-z0-9]{2,4}$/i.test(name))name+=ext;
+  if(IMG_EXT.test(name))name=name.replace(IMG_EXT,'.mp4'); /* never hand an image name */
+  var tk=$('mp4track');if(!tk)throw new Error('MP4 dialog not ready — open Make MP4 first.');
+  var file=new File([blob],name,{type:blob.type||'video/mp4'});
+  var dt=new DataTransfer();dt.items.add(file);tk.files=dt.files;
+  if(typeof MP4!=='undefined'){MP4.audioBuf=null;if(MP4.mediaEl){try{MP4.mediaEl.remove()}catch(_){}
+   MP4.mediaEl=null;}}
+  tk.dispatchEvent(new Event('change',{bubbles:true}));
+  for(var w=0;w<120;w++){
+   await new Promise(function(r){setTimeout(r,100)});
+   if(typeof MP4!=='undefined'&&MP4.audioBuf)return {kind:'buf',buf:MP4.audioBuf};
+   if(typeof MP4!=='undefined'&&MP4.mediaEl){
+    var d=MP4.mediaEl.duration;
+    if(isFinite(d)&&d>0.5)return {kind:'media',dur:d};
+   }
+  }
+  return null;
+ }
  /* ---------- main ---------- */
  var busy=false;
  async function go(){
@@ -5545,42 +5588,39 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   var btn=$('igReelBtn');busy=true;btn.disabled=true;btn.style.opacity=.6;
   var creep=15;
   try{
-   prog(4,'Resolving link…');
-   var src=null;
-   if(isDirect)src={url:url,name:(url.split('/').pop()||'clip.mp4').split('?')[0],cors:true};
-   if(!src)src=await tryCobalt(url,function(t){prog(8,t)});
-   if(!src&&isIG)src=await tryEmbed(url,function(t){prog(12,t)});
-   if(!src)throw new Error('Could not reach the reel — Instagram is blocking the free routes right now. Download the reel (app or a downloader site) and load the file with the 🎵 Use reference music button above.');
-   prog(15,'Downloading audio…');
-   var blob=await download(src,function(frac,got){
-    var mb=((got||0)/1048576).toFixed(1);
-    if(frac!=null)prog(15+Math.round(frac*70),'Downloading… '+Math.round(frac*100)+'% ('+mb+' MB)');
-    else{creep=Math.min(80,creep+1);prog(creep,'Downloading… '+mb+' MB');}
-   });
-   prog(88,'Extracting audio…');
-   var ext=(blob.type&&blob.type.indexOf('audio')>=0)?'.mp3':'.mp4';
-   var nm=src.name||('ig_reel'+ext);if(!/\.[a-z0-9]{2,4}$/i.test(nm))nm+=ext;
-   var file=new File([blob],nm,{type:blob.type||'video/mp4'});
-   var tk=$('mp4track');if(!tk)throw new Error('MP4 dialog not ready — open Make MP4 first.');
-   var dt=new DataTransfer();dt.items.add(file);tk.files=dt.files;
-   if(typeof MP4!=='undefined'){MP4.audioBuf=null;}
-   tk.dispatchEvent(new Event('change',{bubbles:true}));
-   var okBuf=null,gotMedia=false;
-   for(var w=0;w<120;w++){
-    await new Promise(function(r){setTimeout(r,100)});
-    if(typeof MP4!=='undefined'&&MP4.audioBuf){okBuf=MP4.audioBuf;break}
-    if(typeof MP4!=='undefined'&&MP4.mediaEl){gotMedia=true;break}
+   var cands=isDirect?[{label:'direct link',run:async function(){return {url:url,name:(url.split('/').pop()||'clip.mp4').split('?')[0],cors:true}}}]:producers(url);
+   var res=null,tried=0;
+   for(var i=0;i<cands.length&&!res;i++){
+    var cand=cands[i];tried++;
+    try{
+     prog(Math.min(12,4+tried),'Resolving… ('+cand.label+')');
+     var src=await cand.run();
+     if(!src)continue;
+     prog(15,'Downloading… ('+cand.label+')');
+     creep=15;
+     var blob=await download(src,function(frac,got){
+      var mb=((got||0)/1048576).toFixed(1);
+      if(frac!=null)prog(15+Math.round(frac*65),'Downloading… '+Math.round(frac*100)+'% ('+mb+' MB)');
+      else{creep=Math.min(78,creep+1);prog(creep,'Downloading… '+mb+' MB');}
+     });
+     var kind=await sniff(blob);
+     if(kind==='image'){prog(15,'Got a thumbnail, not the video — trying next route…');continue}
+     if(kind==='html'){prog(15,'Route returned a web page — trying next route…');continue}
+     prog(84,'Extracting audio…');
+     var out=await handoff(blob,src.name||'ig_clip');
+     if(!out){prog(15,'File would not decode — trying next route…');continue}
+     res=out;
+    }catch(e){/* try next */}
    }
-   if(okBuf){
+   if(!res)throw new Error('Instagram blocked every route for this reel. Download the clip (downloader app/site or screen record), then hit 🎵 Use reference music above and pick the file — everything else works the same.');
+   if(res.kind==='buf'){
     prog(94,'Detecting BPM…');
     await new Promise(function(r){setTimeout(r,30)});
-    var bpm=estimateBPM(okBuf);
-    if(bpm){syncCuts(bpm);prog(100,'✓ Reel audio loaded · '+okBuf.duration.toFixed(1)+'s · ~'+bpm+' bpm — cuts synced to the beat. Hit ▶ Preview.');}
-    else prog(100,'✓ Reel audio loaded · '+okBuf.duration.toFixed(1)+'s. Set Track BPM, then Apply rhythm.');
-   }else if(gotMedia){
-    prog(100,'✓ Reel loaded — its audio plays under the video. Hit ▶ Preview.');
+    var bpm=estimateBPM(res.buf);
+    if(bpm){syncCuts(bpm);prog(100,'✓ Reel audio loaded · '+res.buf.duration.toFixed(1)+'s · ~'+bpm+' bpm — cuts synced to the beat. Hit ▶ Preview.');}
+    else prog(100,'✓ Reel audio loaded · '+res.buf.duration.toFixed(1)+'s. Set Track BPM, then Apply rhythm.');
    }else{
-    prog(100,'Downloaded, but the audio would not decode — try the 🎵 Use reference music button with a downloaded file instead.',true);
+    prog(100,'✓ Reel video loaded ('+res.dur.toFixed(1)+'s) — its audio plays under the video. Hit ▶ Preview.');
    }
    var rm=$('dhRefMsg'),tm=$('mp4trackmsg');if(rm&&tm&&tm.textContent)rm.textContent=tm.textContent;
   }catch(e){
