@@ -634,7 +634,7 @@ const PATTERN_FORMATS={
 };
 
 /* ============ vibes + surfaces + layout ============ */
-const POOL={dh_ednew:'photo',dh_taped:'cream',dh_collage:'photo',dh_splice:'photo',dh_envelope:'cream',dh_homeedit:'cream',dh_clippile:'photo',dh_spec:'photo',dh_reveal:'photo',dh_spread:'cream',dh_catalog:'cream',drop:'photo',word:'photo',chips:'photo',zoom:'photo',versus:'photo',comment:'photo',igstory:'photo',poll:'photo',
+const POOL={dh_ednew:'photo',dh_edprint:'photo',dh_edstrobe:'photo',dh_edwords:'photo',dh_edwall:'photo',dh_edmag:'photo',dh_taped:'cream',dh_collage:'photo',dh_splice:'photo',dh_envelope:'cream',dh_homeedit:'cream',dh_clippile:'photo',dh_spec:'photo',dh_reveal:'photo',dh_spread:'cream',dh_catalog:'cream',drop:'photo',word:'photo',chips:'photo',zoom:'photo',versus:'photo',comment:'photo',igstory:'photo',poll:'photo',
  blocks:'fill',offer:'fill',review:'fill',reasons:'fill',split:'fill',lineup:'fill',grid4:'fill',headliner:'fill',spotlight:'fill',stack:'fill',ticker:'fill',
  catalog:'cream',flatlay:'cream',rail:'cream',collage:'cream',mascot:'cream',
  beforeafter:'photo',bestseller:'photo',bundle:'cream',sizerun:'fill',ugcstrip:'cream',urgency:'photo',
@@ -977,7 +977,7 @@ function els(f){const k=fKey(f);
  return state.els[k]}
 
 /* ============ structural stages ============ */
-const FORMATS={dh_ednew:{label:'Editorial \u00b7 New DecoHome'},dh_taped:{label:'DecoHome · Taped Print'},dh_collage:{label:'DecoHome · Editorial Stack'},dh_splice:{label:'DecoHome · Center Card'},dh_envelope:{label:'DecoHome · Envelope'},dh_homeedit:{label:'DecoHome · The Home Edit'},dh_clippile:{label:'DecoHome · Clipped Pile'},dh_spec:{label:'DecoHome · Spec Card'},dh_reveal:{label:'DecoHome · Taped Reveal'},dh_spread:{label:'DecoHome · Printed Spread'},dh_catalog:{label:'DecoHome · Catalog Grid'},pinned:{label:'Pinned Cards'},lookshop:{label:'Shop Card Overlay'},specsheet:{label:'Spec Sheet'},fabricbook:{label:'Fabric Notebook'},patch:{label:'Stitched Patch'},capsule:{label:'Capsule Card'},pinwall:{label:'Pinned Lookbook'},polaroidgrid:{label:'Polaroid Grid'},callouts:{label:'Detail Callouts'},pantone:{label:'Pantone Card'},weekoutfits:{label:'Outfit Duo'},sleeve:{label:'Binder Sleeve'},capsulegrid:{label:'Fabric Tag Grid'},wishitem:{label:'Wish Item'},moodboard:{label:'Annotated Moodboard'},drop:{label:'Drop'},mascot:{label:'Big Image + Claim'},headliner:{label:'Headliner'},filmstrip:{label:'Filmstrip'},memphis:{label:'Sticker Pop'},tags:{label:'Hangtags'},magcover:{label:'Magazine Cover'},storyframe:{label:'Stories Frame'},
+const FORMATS={dh_ednew:{label:'Editorial \u00b7 New DecoHome'},dh_edprint:{label:'Editorial \u00b7 Paper Print'},dh_edstrobe:{label:'Editorial \u00b7 A/B Strobe'},dh_edwords:{label:'Editorial \u00b7 Split Words'},dh_edwall:{label:'Editorial \u00b7 Wall Grid'},dh_edmag:{label:'Editorial \u00b7 Mag Cycle'},dh_taped:{label:'DecoHome · Taped Print'},dh_collage:{label:'DecoHome · Editorial Stack'},dh_splice:{label:'DecoHome · Center Card'},dh_envelope:{label:'DecoHome · Envelope'},dh_homeedit:{label:'DecoHome · The Home Edit'},dh_clippile:{label:'DecoHome · Clipped Pile'},dh_spec:{label:'DecoHome · Spec Card'},dh_reveal:{label:'DecoHome · Taped Reveal'},dh_spread:{label:'DecoHome · Printed Spread'},dh_catalog:{label:'DecoHome · Catalog Grid'},pinned:{label:'Pinned Cards'},lookshop:{label:'Shop Card Overlay'},specsheet:{label:'Spec Sheet'},fabricbook:{label:'Fabric Notebook'},patch:{label:'Stitched Patch'},capsule:{label:'Capsule Card'},pinwall:{label:'Pinned Lookbook'},polaroidgrid:{label:'Polaroid Grid'},callouts:{label:'Detail Callouts'},pantone:{label:'Pantone Card'},weekoutfits:{label:'Outfit Duo'},sleeve:{label:'Binder Sleeve'},capsulegrid:{label:'Fabric Tag Grid'},wishitem:{label:'Wish Item'},moodboard:{label:'Annotated Moodboard'},drop:{label:'Drop'},mascot:{label:'Big Image + Claim'},headliner:{label:'Headliner'},filmstrip:{label:'Filmstrip'},memphis:{label:'Sticker Pop'},tags:{label:'Hangtags'},magcover:{label:'Magazine Cover'},storyframe:{label:'Stories Frame'},
  comment:{label:'Social Proof'},lineup:{label:'Line-Up'},split:{label:'Split · PDP'},
  blocks:{label:'Color Block'},grid4:{label:'Grid of 4'},word:{label:'Hero Callout'},
  catalog:{label:'Catalog'},rail:{label:'Colorway Rail'},flatlay:{label:'Flatlay'},
@@ -994,6 +994,8 @@ const FORMATS={dh_ednew:{label:'Editorial \u00b7 New DecoHome'},dh_taped:{label:
  lookpair:{label:'Lookbook Pair'},emojireact:{label:'Emoji React'},foundernote:{label:'Founder Note'},
  printstory:{label:'Print Story'},printcrop:{label:'Print Close-Up'},printmix:{label:'Print Mix'},
  edframe:{label:'Editorial · Frame'},edsplit:{label:'Editorial · Split'},edinfo:{label:'Editorial · Info Card'},edcollage:{label:'Editorial · Collage'},edgrid:{label:'Editorial · Color Grid'},edlook:{label:'Editorial · Lookbook'},edtrio:{label:'Editorial · Trio'}};
+(function(){const KEEP=['dh_ednew','dh_edprint','dh_edstrobe','dh_edwords','dh_edwall','dh_edmag','dh_catalog','lookshop','specsheet','patch','polaroidgrid','callouts','drop','comment','lineup','blocks','catalog','rail','offer','chips','versus','reasons','beforeafter','bestseller','urgency','everycolor','grid8','splitfeat','pricedrop','trio','lookpair','foundernote','moodboard','zoom'];for(const k of Object.keys(FORMATS))if(KEEP.indexOf(k)<0)delete FORMATS[k];})();
+
 function printBgLayer(f){
  // returns an absolutely-positioned tiled-print layer if this format has a print background set
  const k=fKey(f);const tb=state.tilebg&&state.tilebg[k];
@@ -1094,8 +1096,139 @@ if(f==='dh_ednew'){
   ${hasTape1?tape(mx+Math.round(mw*(0.18+rA()*0.4)),my-PHx(0.012),P(0.11+rA()*0.03),(rA()*24-12).toFixed(1)):''}
   ${hasTape2?tape(tx-P(0.02),ty+th-PHx(0.01),P(0.10),(rA()*20-10).toFixed(1)):''}
   ${hasPerf?perf(P(rA()>0.5?0.015:0.945),PHx(0.08+rA()*0.3),PHx(0.42)):''}
-  ${hasHand?CAP(f,'scap','DecoHome · the home edit',`left:${P(0.30)}px;top:${H-PHx(0.075)}px;width:${P(0.66)}px;text-align:right;font-family:'Caveat',cursive;font-weight:600;font-size:${P(0.040)}px;color:${INK};z-index:42`):''}
-  ${hasHand?CAP(f,'scap2','(volume one)',`left:${P(0.30)}px;top:${H-PHx(0.042)}px;width:${P(0.66)}px;text-align:right;font-family:'Caveat',cursive;font-weight:600;font-size:${P(0.030)}px;color:rgba(51,48,42,.75);z-index:42`):''}
+ </div>`}
+
+/* ===== EDITORIAL REFERENCE WORLDS (refs 1,2,3,6,7) — stop-motion engines ===== */
+
+/* REF 1 — taped paper print on dark fabric; print swaps, card + vellum overlays land between */
+if(f==='dh_edprint'){
+ const rot=state.rot||0,GL=6,group=Math.floor(rot/GL),step=rot%GL;
+ const mk=s=>{let t=(s*2654435761+1013904223)>>>0;return()=>{t^=t<<13;t>>>=0;t^=t>>>17;t^=t<<5;t>>>=0;return t/4294967296}};
+ const P=n=>Math.round(W*n),PHx=n=>Math.round(H*n);
+ const fl=filled(),len=fl.length;
+ const pin=j=>{const idx=(((j%len)+len)%len-(rot%len)+len)%len;return fl[idx]};
+ const rA=mk(group*131+step*29+7);
+ const photoIdx=group*3+Math.floor(step/2); /* photo swaps every 2 steps */
+ const pw=P(0.82),ph2=PHx(0.78),px=Math.round((W-pw)/2),py=PHx(0.075);
+ const pr=(mk(group*131+Math.floor(step/2)*17)()*3-1.5).toFixed(2);
+ const hasCard=step===1||step===4,hasVellum=step===3||step===5,hasTape=step>=2;
+ const vw=P(0.56),vh=PHx(0.15),vx=px+pw-Math.round(vw*0.8),vy=py+ph2-Math.round(vh*0.7),vr=(rA()*6-3).toFixed(1);
+ const bw2=P(0.30),bh2=PHx(0.085),bx2=px+Math.round(rA()*pw*0.4),by2=py+ph2-PHx(0.02),br2=(rA()*8-4).toFixed(1);
+ const crease=`<div style="position:absolute;left:0;top:49%;width:100%;height:${PHx(0.012)}px;background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(255,255,255,.15) 55%,rgba(0,0,0,.05));z-index:9"></div>`;
+ return open+`background:#453538">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 32% 18%,rgba(255,255,255,.08),rgba(0,0,0,0) 58%),radial-gradient(ellipse at 72% 88%,rgba(0,0,0,.30),rgba(0,0,0,0) 55%);z-index:1"></div>
+  ${dhShadow(px,py,pw,ph2,+pr)}
+  <div style="position:absolute;left:${px}px;top:${py}px;width:${pw}px;height:${ph2}px;background:#fbfaf7;padding:${P(0.02)}px;transform:rotate(${pr}deg);z-index:6"><div style="position:relative;width:100%;height:100%;overflow:hidden;background:#e5e1d6">${C(f,'m1',pin(photoIdx),'position:absolute;inset:0',true,0)}<div style="position:absolute;inset:0;background:rgba(214,196,168,.08);z-index:3"></div>${crease}</div></div>
+  ${hasTape?dhTape(px+Math.round(pw*0.36),py-PHx(0.012),P(0.15),(rA()*10-5).toFixed(1)):''}
+  ${hasVellum?dhShadow(vx,vy,vw,vh,+vr)+`<div style="position:absolute;left:${vx}px;top:${vy}px;width:${vw}px;height:${vh}px;transform:rotate(${vr}deg);background:rgba(250,248,242,.66);z-index:23"></div>`:''}
+  ${hasCard?dhShadow(bx2,by2,bw2,bh2,+br2)+`<div style="position:absolute;left:${bx2}px;top:${by2}px;width:${bw2}px;height:${bh2}px;background:#f7f4ec;transform:rotate(${br2}deg);z-index:25;display:flex;align-items:center;justify-content:center"></div>`:''}
+ </div>`}
+
+/* REF 2 — A/B strobe: clean studio, wordmark + typed headline, two products alternate every frame */
+if(f==='dh_edstrobe'){
+ const rot=state.rot||0,step=rot%6;
+ const P=n=>Math.round(W*n),PHx=n=>Math.round(H*n);
+ const fl=filled(),len=fl.length;
+ const pin=j=>{const idx=(((j%len)+len)%len-(rot%len)+len)%len;return fl[idx]};
+ const jShow=rot%2; /* strict A/B alternation */
+ const mk=s=>{let t=(s*2654435761+1013904223)>>>0;return()=>{t^=t<<13;t>>>=0;t^=t>>>17;t^=t<<5;t>>>=0;return t/4294967296}};
+ const jit=(mk(rot*37+5)()*0.03-0.015);
+ const pw=P(0.60*(1+jit)),ph2=PHx(0.46*(1+jit)),px=Math.round((W-pw)/2),py=PHx(0.265);
+ return open+`background:#ececea">
+  <div style="position:absolute;left:0;top:${PHx(0.60)}px;width:${W}px;height:${PHx(0.40)}px;background:#f4f4f2;z-index:1"></div>
+  <div style="position:absolute;left:${P(0.12)}px;top:${PHx(0.575)}px;width:${P(0.76)}px;height:${PHx(0.09)}px;background:radial-gradient(ellipse at 50% 0,rgba(0,0,0,.15),rgba(0,0,0,0) 70%);z-index:2"></div>
+  ${C(f,jShow?'pB':'pA',pin(jShow),`left:${px}px;top:${py}px;width:${pw}px;height:${ph2}px`,true,0)}
+ </div>`}
+
+/* REF 3 — two stacked photo panels cutting independently under static serif words */
+if(f==='dh_edwords'){
+ const rot=state.rot||0;
+ const P=n=>Math.round(W*n),PHx=n=>Math.round(H*n);
+ const fl=filled(),len=fl.length;
+ const pin=j=>{const idx=(((j%len)+len)%len-(rot%len)+len)%len;return fl[idx]};
+ const th=PHx(0.5);
+ const jT=rot,jB=Math.floor(rot/2)+3; /* top cuts every frame, bottom every 2 */
+ const wfs=P(0.070),wst=`width:${W}px;text-align:center;font-family:'Newsreader',serif;font-weight:400;font-size:${wfs}px;letter-spacing:.32em;color:#f4f1ea;text-shadow:0 1px 16px rgba(0,0,0,.35);z-index:10`;
+ return open+`background:#141210">
+  ${C(f,'t',pin(jT),`left:0;top:0;width:${W}px;height:${th}px`,true,0)}
+  ${C(f,'b',pin(jB),`left:0;top:${th}px;width:${W}px;height:${H-th}px`,true,0)}
+  ${CAP(f,'wa','HOME',`left:0;top:${PHx(0.225)}px;${wst}`)}
+  ${CAP(f,'wb','AS',`left:0;top:${th-Math.round(wfs*0.62)}px;${wst}`)}
+  ${CAP(f,'wc','ART',`left:0;top:${PHx(0.735)}px;${wst}`)}
+ </div>`}
+
+/* REF 6 — wall grid of small prints on beige; staggered cells swap photos, blank brand cards mixed in */
+if(f==='dh_edwall'){
+ const rot=state.rot||0,GL=6,group=Math.floor(rot/GL),step=rot%GL;
+ const mk=s=>{let t=(s*2654435761+1013904223)>>>0;return()=>{t^=t<<13;t>>>=0;t^=t>>>17;t^=t<<5;t>>>=0;return t/4294967296}};
+ const P=n=>Math.round(W*n),PHx=n=>Math.round(H*n);
+ const fl=filled(),len=fl.length;
+ const pin=j=>{const idx=(((j%len)+len)%len-(rot%len)+len)%len;return fl[idx]};
+ const cols=4,rows=H>1500?6:5;
+ const gx=P(0.018),cw=Math.round((W-gx*2)/cols),gy=Math.round((H-PHx(0.03)*2)/rows);
+ let cells='';
+ for(let i=0;i<cols*rows;i++){
+  const rc=mk(i*613+29); /* static per cell: jitter, rotation, blank-ness */
+  const cx2=gx+(i%cols)*cw+Math.round(rc()*P(0.008)-P(0.004));
+  const cy2=PHx(0.03)+Math.floor(i/cols)*gy+Math.round(rc()*P(0.008)-P(0.004));
+  const rr=(rc()*3.6-1.8).toFixed(1);
+  const iw=cw-P(0.012),ih=gy-P(0.012);
+  const isBlank=(i*7+3)%13===0;
+  if(isBlank){
+   cells+=`<div style="position:absolute;left:${cx2}px;top:${cy2}px;width:${iw}px;height:${ih}px;background:#faf8f2;transform:rotate(${rr}deg);z-index:5;box-shadow:0 1px 6px rgba(40,32,22,.18);display:flex;align-items:center;justify-content:center;flex-direction:column"></div>`;
+  }else{
+   /* staggered swap: each cell advances its photo on its own beat */
+   const phase=(i*5+1)%GL,adv=Math.floor((step+phase)/2);
+   const j=group*3+i+adv;
+   const pol=(i*11+5)%17===0; /* occasional polaroid-style bottom margin */
+   const pad=P(0.006),pb=pol?Math.round(pad*4):pad;
+   cells+=`<div style="position:absolute;left:${cx2}px;top:${cy2}px;width:${iw}px;height:${ih}px;background:#fbfaf7;padding:${pad}px ${pad}px ${pb}px;transform:rotate(${rr}deg);z-index:6;box-shadow:0 1px 6px rgba(40,32,22,.2)"><div style="position:relative;width:100%;height:100%;overflow:hidden;background:#e5e1d6">${C(f,'g'+(i%12+1),pin(j),'position:absolute;inset:0',true,0)}<div style="position:absolute;inset:0;background:rgba(214,196,168,.10);z-index:3"></div></div></div>`;
+  }}
+ return open+`background:#dfd8c8">
+  <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(0,0,0,0) 40%,rgba(52,44,32,.08));z-index:1"></div>
+  ${cells}
+ </div>`}
+
+/* REF 7 — editorial magazine cycle: split panels / label close-up / catalog spread / envelope collage */
+if(f==='dh_edmag'){
+ const rot=state.rot||0,GL=6,group=Math.floor(rot/GL),step=rot%GL;
+ const mk=s=>{let t=(s*2654435761+1013904223)>>>0;return()=>{t^=t<<13;t>>>=0;t^=t>>>17;t^=t<<5;t>>>=0;return t/4294967296}};
+ const P=n=>Math.round(W*n),PHx=n=>Math.round(H*n);
+ const fl=filled(),len=fl.length;
+ const pin=j=>{const idx=(((j%len)+len)%len-(rot%len)+len)%len;return fl[idx]};
+ const rA=mk(group*151+step*31+3);
+ const jb=group*4;
+ const micro=(x,y,col,lines)=>`<div style="position:absolute;left:${x}px;top:${y}px;font-family:'Courier Prime',monospace;font-size:${P(0.0145)}px;line-height:1.6;letter-spacing:.08em;color:${col};z-index:21">${lines.join('<br>')}</div>`;
+ if(step===1||step===4){ /* label close-up */
+  return open+`background:#2c2320">
+   ${C(f,'lab',pin(jb+step),'position:absolute;inset:0',true,0)}
+   <div style="position:absolute;inset:0;background:rgba(44,30,24,.18);z-index:2"></div>
+   ${dhShadow(P(0.24),PHx(0.375),P(0.52),PHx(0.115),0)}
+   <div style="position:absolute;left:${P(0.24)}px;top:${PHx(0.375)}px;width:${P(0.52)}px;height:${PHx(0.115)}px;background:#f4f1ea;z-index:6;display:flex;align-items:center;justify-content:center"></div>
+  </div>`}
+ if(step===2){ /* catalog spread with binder rings */
+  const r1=(rA()*2-1).toFixed(1),r2=(rA()*4-2).toFixed(1),r3=(rA()*4-2).toFixed(1);
+  return open+`background:#efece4">
+   ${dhCard(C(f,'s1',pin(jb),'position:absolute;inset:0',true,0),P(0.19),PHx(0.05),P(0.62),PHx(0.295),P(0.014),+r1,6)}
+   <div style="position:absolute;left:${P(0.16)}px;top:${PHx(0.362)}px;width:${P(0.68)}px;height:${PHx(0.013)}px;background:repeating-linear-gradient(90deg,#1a1712 0 ${P(0.016)}px,rgba(0,0,0,0) ${P(0.016)}px ${P(0.032)}px);border-radius:${P(0.006)}px;z-index:22"></div>
+   ${dhCard(C(f,'s2',pin(jb+1),'position:absolute;inset:0',true,0),P(0.11),PHx(0.42),P(0.37),PHx(0.25),P(0.012),+r2,7)}
+   ${dhCard(C(f,'s3',pin(jb+2),'position:absolute;inset:0',true,0),P(0.54),PHx(0.44),P(0.36),PHx(0.22),P(0.012),+r3,8)}
+   <div style="position:absolute;left:${W-P(0.37)}px;top:${H-PHx(0.165)}px;width:${P(0.32)}px;height:${PHx(0.105)}px;background:#fbfaf7;transform:rotate(-2.5deg);z-index:24;box-shadow:0 3px 10px rgba(40,32,22,.22)"></div>
+  </div>`}
+ if(step===5){ /* dark conceptual card */
+  return open+`background:#241a16">
+   ${C(f,'cc',pin(jb+3),'position:absolute;inset:0',true,0)}
+   <div style="position:absolute;inset:0;background:rgba(30,20,15,.42);z-index:2"></div>
+   ${dhCard(C(f,'cp',pin(jb+1),'position:absolute;inset:0',true,0),P(0.30),PHx(0.52),P(0.44),PHx(0.34),P(0.012),(rA()*6-3).toFixed(1),8)}
+  </div>`}
+ /* steps 0,3: vertical split panels + caption card */
+ const sw2=Math.round(W*0.55);
+ return open+`background:#3a2420">
+  ${C(f,'v1',pin(jb+(step===3?2:0)),`left:0;top:0;width:${sw2}px;height:${H}px`,true,0)}
+  ${C(f,'v2',pin(jb+(step===3?3:1)),`left:${sw2+P(0.006)}px;top:0;width:${W-sw2-P(0.006)}px;height:${H}px`,true,0)}
+  <div style="position:absolute;inset:0;background:rgba(46,28,22,.10);z-index:2"></div>
+  ${dhShadow(P(0.42),PHx(0.76),P(0.30),PHx(0.10),-2)}
+  <div style="position:absolute;left:${P(0.42)}px;top:${PHx(0.76)}px;width:${P(0.30)}px;height:${PHx(0.10)}px;background:#f6f3ec;transform:rotate(-2deg);z-index:8"></div>
  </div>`}
 
 /* 1) TAPED COLLAGE — full bleed + taped portrait card + tilted card on gray + sprocket (pin_1) */
@@ -5468,10 +5601,10 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
  function ready(){return typeof makeFormatMP4==='function'&&typeof renderAllMp4Frames==='function'&&typeof MP4!=='undefined'}
  function init(){
   var _mk=makeFormatMP4;
-  makeFormatMP4=function(f){MP4._ednew=(f==='dh_ednew');return _mk.call(this,f)};
+  makeFormatMP4=function(f){MP4._ednew=(f&&f.indexOf('dh_ed')===0);return _mk.call(this,f)};
   var _r=renderAllMp4Frames;
   renderAllMp4Frames=async function(bar,msg){
-   if(MP4._ednew&&MP4.f==='dh_ednew'&&MP4.real&&MP4.real.length){
+   if(MP4._ednew&&MP4.f&&MP4.f.indexOf('dh_ed')===0&&MP4.real&&MP4.real.length){
     MP4._ednew=false;
     var base=MP4.real.slice(),target=Math.max(24,Math.ceil(24/base.length)*base.length);
     while(MP4.real.length<target)MP4.real=MP4.real.concat(base.slice(0,target-MP4.real.length));
