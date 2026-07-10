@@ -1042,194 +1042,194 @@ function dhBinder(cx,y,w,h){return `<div style="position:absolute;left:${cx-Math
 function dhPaperclip(x,y,w,rot){return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${Math.round(w*2.1)}px;border:3px solid #9a9a9a;border-radius:${w}px;transform:rotate(${rot}deg);z-index:31"></div>`;}
 function dhMicro(x,y,fs,col,lines){return `<div style="position:absolute;left:${x}px;top:${y}px;font-family:'Courier Prime',monospace;font-size:${fs}px;line-height:1.5;letter-spacing:.06em;color:${col||'rgba(50,44,36,.55)'};z-index:21">${lines.join('<br>')}</div>`;}
 
-/* 0) EDITORIAL NEW DECOHOME — scrapbook print-pile engine (pin_4 world).
-   Stop-motion choreography: every frame is a full pile; the BASE print holds its exact
-   position for a whole 6-step group, the MID print swaps every 2 steps, the TOP print
-   swaps every step, accents (tape / handwriting / accent card / perforation strip)
-   toggle per step. One warm paper palette for the whole video. */
-if(f==='dh_ednew'){
- const rot=state.rot||0,GL=6,group=Math.floor(rot/GL),step=rot%GL;
- const mk=s=>{let t=(s*2654435761+1013904223)>>>0;return()=>{t^=t<<13;t>>>=0;t^=t>>>17;t^=t<<5;t>>>=0;return t/4294967296}};
- const P=n=>Math.round(W*n),PHx=n=>Math.round(H*n);
- const fl=filled(),len=fl.length;
- const pin=j=>{const idx=(((j%len)+len)%len - (rot%len) + len)%len;return fl[idx]};
- const INK='#33302a',PAPER='#f6f3ec';
- const grade=`<div style="position:absolute;inset:0;background:rgba(214,196,168,.10);z-index:3"></div>`;
- /* print = white-bordered photo card, heavier bottom margin, soft shadow */
- const print=(role,j,x,y,w,h,r,z,rr)=>{
-  const pad=Math.max(8,P(0.014)),pb=Math.round(pad*2.3);
-  return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;transform:rotate(${r}deg);background:${PAPER};padding:${pad}px ${pad}px ${pb}px;z-index:${z};box-shadow:0 ${PHx(0.006)}px ${PHx(0.02)}px rgba(28,23,17,.22),0 1px 2px rgba(28,23,17,.14)"><div style="position:relative;width:100%;height:100%;overflow:hidden;background:#e5e1d6">${C(f,role,pin(j),'position:absolute;inset:0',true,0)}${grade}</div></div>`};
- const tape=(x,y,w,r)=>`<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${Math.round(w*0.30)}px;transform:rotate(${r}deg);background:linear-gradient(105deg,rgba(238,231,212,.92),rgba(224,215,192,.88) 55%,rgba(233,226,206,.92));box-shadow:0 1px 3px rgba(28,23,17,.18);z-index:40"></div>`;
- const perf=(x,y,h)=>`<div style="position:absolute;left:${x}px;top:${y}px;width:${P(0.030)}px;height:${h}px;background-color:#f1ede2;background-image:radial-gradient(circle at 50% 50%,rgba(43,38,30,.75) 0 ${P(0.0055)}px,rgba(0,0,0,0) ${P(0.0075)}px);background-size:100% ${P(0.026)}px;box-shadow:0 1px 6px rgba(28,23,17,.2);z-index:38"></div>`;
- /* --- seeded layouts --- */
- const rB=mk(group*97+11);      /* base: fixed for whole group */
- const rM=mk(group*97+23+Math.floor(step/2)*7);  /* mid: re-seeds every 2 steps */
- const rT=mk(group*97+41+step*13);               /* top: re-seeds every step  */
- const rA=mk(group*97+67+step*17);               /* accents */
- /* base print: huge, can bleed past edges */
- const bw=P(0.84+rB()*0.22),bh=PHx(0.52+rB()*0.18);
- const bx=P(-0.08+rB()*0.14),by=PHx(-0.03+rB()*0.10);
- const br=(rB()*5-2.5).toFixed(2);
- /* mid print */
- const mw=P(0.52+rM()*0.16),mh=PHx(0.34+rM()*0.12);
- const mTop=rM()>0.5;
- const mx=P(rM()>0.5?0.42:-0.04)+Math.round(rM()*P(0.10));
- const my=mTop?PHx(0.04+rM()*0.08):PHx(0.48+rM()*0.12);
- const mr=(rM()*7-3.5).toFixed(2);
- /* top print */
- const tw=P(0.40+rT()*0.14),th=PHx(0.26+rT()*0.10);
- const tx=P(0.04+rT()*0.48),ty=PHx(0.18+rT()*0.42);
- const tr=(rT()*8-4).toFixed(2);
- /* photo indices: base pinned per group, mid every 2 steps, top every step */
- const jB=group*4,jM=group*4+1+Math.floor(step/2),jT=group*4+3+step;
- /* accents */
- const hasTape1=rA()>0.25,hasTape2=rA()>0.55,hasCard=rA()>0.62,hasPerf=rA()>0.72,hasHand=step>=1;
- const cw=P(0.20+rA()*0.09),ch=PHx(0.11+rA()*0.05);
- const cx=P(0.05+rA()*0.6),cy=PHx(0.62+rA()*0.22),crr=(rA()*8-4).toFixed(2);
- const cardCol=rA()>0.5?'#5c1710':'#efe9da';
- return open+`background:#e9e5db">
-  <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(0,0,0,0) 30%,rgba(0,0,0,0) 72%,rgba(38,32,24,.10));z-index:1"></div>
-  ${print('m1',jB,bx,by,bw,bh,br,6)}
-  ${print('m2',jM,mx,my,mw,mh,mr,10)}
-  ${print('m3',jT,tx,ty,tw,th,tr,14)}
-  ${hasCard?`<div style="position:absolute;left:${cx}px;top:${cy}px;width:${cw}px;height:${ch}px;background:${cardCol};transform:rotate(${crr}deg);z-index:12;box-shadow:0 ${PHx(0.005)}px ${PHx(0.016)}px rgba(28,23,17,.25)"></div>`:''}
-  ${hasTape1?tape(mx+Math.round(mw*(0.18+rA()*0.4)),my-PHx(0.012),P(0.11+rA()*0.03),(rA()*24-12).toFixed(1)):''}
-  ${hasTape2?tape(tx-P(0.02),ty+th-PHx(0.01),P(0.10),(rA()*20-10).toFixed(1)):''}
-  ${hasPerf?perf(P(rA()>0.5?0.015:0.945),PHx(0.08+rA()*0.3),PHx(0.42)):''}
- </div>`}
+/* 0) EDITORIAL NEW DECOHOME + REF WORLDS v3 — material/finishing pass.
+   Runtime textures (grain, paper tooth, fabric weave), dual shadows (contact+ambient),
+   graded photos, directional light + vignette, disciplined composition. */
+if(f&&f.indexOf('dh_ed')===0){
+ /* ---- one-time texture bake ---- */
+ if(!window.__EDTEX){
+  (function(){
+   function noise(sz,a){var c=document.createElement('canvas');c.width=c.height=sz;var g=c.getContext('2d');var id=g.createImageData(sz,sz);for(var i=0;i<id.data.length;i+=4){var v=(Math.random()*255)|0;id.data[i]=id.data[i+1]=id.data[i+2]=v;id.data[i+3]=a;}g.putImageData(id,0,0);return c.toDataURL()}
+   function weave(sz){var c=document.createElement('canvas');c.width=c.height=sz;var g=c.getContext('2d');
+    for(var y=0;y<sz;y+=3){g.fillStyle='rgba(255,255,255,'+(0.02+Math.random()*0.03)+')';g.fillRect(0,y,sz,1);}
+    for(var x=0;x<sz;x+=3){g.fillStyle='rgba(0,0,0,'+(0.03+Math.random()*0.04)+')';g.fillRect(x,0,1,sz);}
+    for(var i=0;i<sz*14;i++){g.fillStyle=Math.random()>0.5?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)';g.fillRect((Math.random()*sz)|0,(Math.random()*sz)|0,1,1);}
+    return c.toDataURL()}
+   window.__EDTEX={grain:noise(150,16),tooth:noise(110,7),weave:weave(220)};
+  })();
+ }
+ var TEX=window.__EDTEX;
+ var rot=state.rot||0,GL=6,group=Math.floor(rot/GL),step=rot%GL;
+ var mk=function(s){var t=(s*2654435761+1013904223)>>>0;return function(){t^=t<<13;t>>>=0;t^=t>>>17;t^=t<<5;t>>>=0;return t/4294967296}};
+ var P=function(n){return Math.round(W*n)},PHx=function(n){return Math.round(H*n)};
+ var fl=filled(),len=fl.length;
+ var pin=function(j){var idx=(((j%len)+len)%len-(rot%len)+len)%len;return fl[idx]};
+ /* graded photo: warm cast + gentle contrast shaping */
+ var GRADE='<div style="position:absolute;inset:0;background:rgba(205,182,150,.13);z-index:3"></div>'+
+  '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,253,248,.07),rgba(0,0,0,0) 30%,rgba(0,0,0,0) 68%,rgba(20,14,8,.10));z-index:3"></div>';
+ /* paper print: warm mat, uneven margins, hairlines, dual shadow */
+ var print=function(role,j,x,y,w,h2,r,z){
+  var pad=Math.max(8,P(0.013)),pb=Math.round(pad*2.6);
+  return '<div style="position:absolute;left:'+x+'px;top:'+y+'px;width:'+w+'px;height:'+h2+'px;transform:rotate('+r+'deg);background:linear-gradient(175deg,#f9f6ef,#efebdf);padding:'+pad+'px '+pad+'px '+pb+'px;z-index:'+z+';box-shadow:0 1px 2px rgba(25,19,12,.32),0 '+PHx(0.014)+'px '+PHx(0.035)+'px rgba(25,19,12,.26);border:1px solid rgba(0,0,0,.045)">'+
+   '<div style="position:absolute;inset:0;background-image:url('+TEX.tooth+');opacity:.55;pointer-events:none"></div>'+
+   '<div style="position:relative;width:100%;height:100%;overflow:hidden;background:#e2ddd0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.09)">'+C(f,role,pin(j),'position:absolute;inset:0',true,0)+GRADE+'</div></div>'};
+ /* translucent wrinkled tape */
+ var tape=function(x,y,w,r){var h2=Math.round(w*0.30);
+  return '<div style="position:absolute;left:'+x+'px;top:'+(y+3)+'px;width:'+w+'px;height:'+h2+'px;transform:rotate('+r+'deg);background:rgba(20,14,8,.16);filter:blur(2px);z-index:39"></div>'+
+  '<div style="position:absolute;left:'+x+'px;top:'+y+'px;width:'+w+'px;height:'+h2+'px;transform:rotate('+r+'deg);background:linear-gradient(100deg,rgba(240,233,214,.78),rgba(226,217,194,.66) 30%,rgba(243,237,220,.82) 55%,rgba(228,219,196,.70) 80%,rgba(238,231,212,.78));box-shadow:inset 0 0 0 1px rgba(120,106,82,.18);z-index:40"></div>'};
+ /* punched perforation strip */
+ var perf=function(x,y,h2){return '<div style="position:absolute;left:'+x+'px;top:'+y+'px;width:'+P(0.026)+'px;height:'+h2+'px;background-color:#f2eee3;background-image:url('+TEX.tooth+'),radial-gradient(circle at 50% 50%,rgba(30,22,14,.8) 0 '+P(0.005)+'px,rgba(0,0,0,0) '+P(0.007)+'px);background-size:auto,100% '+P(0.024)+'px;box-shadow:0 1px 2px rgba(25,19,12,.3),0 '+PHx(0.008)+'px '+PHx(0.02)+'px rgba(25,19,12,.2);z-index:38"></div>'};
+ /* finishing pass: directional light, vignette, film grain over everything */
+ var FIN='<div style="position:absolute;inset:0;background:linear-gradient(118deg,rgba(255,252,244,.10),rgba(0,0,0,0) 42%);z-index:87;pointer-events:none"></div>'+
+  '<div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 36%,rgba(0,0,0,0) 52%,rgba(22,16,10,.24) 100%);z-index:88;pointer-events:none"></div>'+
+  '<div style="position:absolute;inset:0;background-image:url('+TEX.grain+');opacity:.5;z-index:89;pointer-events:none"></div>';
 
-/* ===== EDITORIAL REFERENCE WORLDS (refs 1,2,3,6,7) — stop-motion engines ===== */
+ /* ============ NEW DECOHOME · print pile (refs 4/5) ============ */
+ if(f==='dh_ednew'){
+  var rB=mk(group*97+11),rM=mk(group*97+23+Math.floor(step/2)*7),rT=mk(group*97+41+step*13),rA=mk(group*97+67+step*17);
+  var bw=P(0.94+rB()*0.20),bh=PHx(0.60+rB()*0.16);
+  var bx=Math.round((W-bw)/2)+P(rB()*0.10-0.05),by=PHx(-0.05+rB()*0.09);
+  var br=(rB()*3.6-1.8).toFixed(2);
+  var mw=P(0.50+rM()*0.12),mh=PHx(0.34+rM()*0.10);
+  var mLeft=rM()>0.5;
+  var mx=mLeft?P(-0.045+rM()*0.05):W-mw-P(-0.045+rM()*0.05)-P(0.02);
+  var my=PHx(0.46+rM()*0.16);
+  var mr=(rM()*5-2.5).toFixed(2);
+  var tw=P(0.38+rT()*0.08),th=PHx(0.26+rT()*0.08);
+  var tx=mLeft?W-tw-P(0.02+rT()*0.08):P(0.02+rT()*0.08);
+  var ty=PHx(0.30+rT()*0.34);
+  var tr=(rT()*6-3).toFixed(2);
+  var jB=group*4,jM=group*4+1+Math.floor(step/2),jT=group*4+3+step;
+  var hasTape1=rA()>0.3,hasCard=rA()>0.74,hasPerf=rA()>0.8;
+  var cw=P(0.17+rA()*0.06),ch=PHx(0.10+rA()*0.04);
+  var cx=P(0.10+rA()*0.55),cy=PHx(0.66+rA()*0.16),crr=(rA()*6-3).toFixed(2);
+  return open+'background:#e7e2d6">'+
+   '<div style="position:absolute;inset:0;background-image:url('+TEX.weave+');opacity:.7;z-index:1"></div>'+
+   '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(0,0,0,0) 34%,rgba(0,0,0,0) 70%,rgba(40,32,22,.10));z-index:1"></div>'+
+   print('m1',jB,bx,by,bw,bh,br,6)+
+   print('m2',jM,mx,my,mw,mh,mr,10)+
+   print('m3',jT,tx,ty,tw,th,tr,14)+
+   (hasCard?'<div style="position:absolute;left:'+cx+'px;top:'+cy+'px;width:'+cw+'px;height:'+ch+'px;background:linear-gradient(170deg,#5f1a12,#4c130d);transform:rotate('+crr+'deg);z-index:12;box-shadow:0 1px 2px rgba(25,19,12,.35),0 '+PHx(0.010)+'px '+PHx(0.025)+'px rgba(25,19,12,.28)"></div>':'')+
+   (hasTape1?tape(mx+Math.round(mw*(0.25+rA()*0.35)),my-PHx(0.011),P(0.105+rA()*0.02),(rA()*16-8).toFixed(1)):'')+
+   (rA()>0.5?tape(tx+Math.round(tw*0.3),ty-PHx(0.009),P(0.095),(rA()*14-7).toFixed(1)):'')+
+   (hasPerf?perf(P(rA()>0.5?0.012:0.955),PHx(0.10+rA()*0.28),PHx(0.40)):'')+
+   FIN+'</div>'}
 
-/* REF 1 — taped paper print on dark fabric; print swaps, card + vellum overlays land between */
-if(f==='dh_edprint'){
- const rot=state.rot||0,GL=6,group=Math.floor(rot/GL),step=rot%GL;
- const mk=s=>{let t=(s*2654435761+1013904223)>>>0;return()=>{t^=t<<13;t>>>=0;t^=t>>>17;t^=t<<5;t>>>=0;return t/4294967296}};
- const P=n=>Math.round(W*n),PHx=n=>Math.round(H*n);
- const fl=filled(),len=fl.length;
- const pin=j=>{const idx=(((j%len)+len)%len-(rot%len)+len)%len;return fl[idx]};
- const rA=mk(group*131+step*29+7);
- const photoIdx=group*3+Math.floor(step/2); /* photo swaps every 2 steps */
- const pw=P(0.82),ph2=PHx(0.78),px=Math.round((W-pw)/2),py=PHx(0.075);
- const pr=(mk(group*131+Math.floor(step/2)*17)()*3-1.5).toFixed(2);
- const hasCard=step===1||step===4,hasVellum=step===3||step===5,hasTape=step>=2;
- const vw=P(0.56),vh=PHx(0.15),vx=px+pw-Math.round(vw*0.8),vy=py+ph2-Math.round(vh*0.7),vr=(rA()*6-3).toFixed(1);
- const bw2=P(0.30),bh2=PHx(0.085),bx2=px+Math.round(rA()*pw*0.4),by2=py+ph2-PHx(0.02),br2=(rA()*8-4).toFixed(1);
- const crease=`<div style="position:absolute;left:0;top:49%;width:100%;height:${PHx(0.012)}px;background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(255,255,255,.15) 55%,rgba(0,0,0,.05));z-index:9"></div>`;
- return open+`background:#453538">
-  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 32% 18%,rgba(255,255,255,.08),rgba(0,0,0,0) 58%),radial-gradient(ellipse at 72% 88%,rgba(0,0,0,.30),rgba(0,0,0,0) 55%);z-index:1"></div>
-  ${dhShadow(px,py,pw,ph2,+pr)}
-  <div style="position:absolute;left:${px}px;top:${py}px;width:${pw}px;height:${ph2}px;background:#fbfaf7;padding:${P(0.02)}px;transform:rotate(${pr}deg);z-index:6"><div style="position:relative;width:100%;height:100%;overflow:hidden;background:#e5e1d6">${C(f,'m1',pin(photoIdx),'position:absolute;inset:0',true,0)}<div style="position:absolute;inset:0;background:rgba(214,196,168,.08);z-index:3"></div>${crease}</div></div>
-  ${hasTape?dhTape(px+Math.round(pw*0.36),py-PHx(0.012),P(0.15),(rA()*10-5).toFixed(1)):''}
-  ${hasVellum?dhShadow(vx,vy,vw,vh,+vr)+`<div style="position:absolute;left:${vx}px;top:${vy}px;width:${vw}px;height:${vh}px;transform:rotate(${vr}deg);background:rgba(250,248,242,.66);z-index:23"></div>`:''}
-  ${hasCard?dhShadow(bx2,by2,bw2,bh2,+br2)+`<div style="position:absolute;left:${bx2}px;top:${by2}px;width:${bw2}px;height:${bh2}px;background:#f7f4ec;transform:rotate(${br2}deg);z-index:25;display:flex;align-items:center;justify-content:center"></div>`:''}
- </div>`}
+ /* ============ PAPER PRINT (ref 1) ============ */
+ if(f==='dh_edprint'){
+  var rA2=mk(group*131+step*29+7);
+  var photoIdx=group*3+Math.floor(step/2);
+  var pw=P(0.88),ph2=PHx(0.82),px=Math.round((W-pw)/2),py=PHx(0.055);
+  var pr=(mk(group*131+Math.floor(step/2)*17)()*2.4-1.2).toFixed(2);
+  var hasCard2=step===1||step===4,hasVellum=step===3||step===5,hasTape2=step>=2;
+  var vw=P(0.58),vh=PHx(0.16),vx=px+pw-Math.round(vw*0.82),vy=py+ph2-Math.round(vh*0.62),vr=(rA2()*5-2.5).toFixed(1);
+  var bw2=P(0.27),bh2=PHx(0.075),bx2=px-P(0.02),by2=py+ph2-PHx(0.028),br2=(rA2()*7-3.5).toFixed(1);
+  var pad2=P(0.018);
+  return open+'background:#463639">'+
+   '<div style="position:absolute;inset:0;background-image:url('+TEX.weave+');opacity:.85;z-index:1"></div>'+
+   '<div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 16%,rgba(255,248,240,.10),rgba(0,0,0,0) 55%),radial-gradient(ellipse at 74% 90%,rgba(0,0,0,.32),rgba(0,0,0,0) 55%);z-index:1"></div>'+
+   '<div style="position:absolute;left:'+px+'px;top:'+py+'px;width:'+pw+'px;height:'+ph2+'px;transform:rotate('+pr+'deg);background:linear-gradient(176deg,#f9f6ef,#eeeade);padding:'+pad2+'px;z-index:6;box-shadow:0 2px 3px rgba(15,10,6,.4),0 '+PHx(0.02)+'px '+PHx(0.05)+'px rgba(15,10,6,.35);border:1px solid rgba(0,0,0,.05)">'+
+    '<div style="position:absolute;inset:0;background-image:url('+TEX.tooth+');opacity:.55;pointer-events:none"></div>'+
+    '<div style="position:relative;width:100%;height:100%;overflow:hidden;background:#e2ddd0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.09)">'+C(f,'m1',pin(photoIdx),'position:absolute;inset:0',true,0)+GRADE+
+     '<div style="position:absolute;left:0;top:49.2%;width:100%;height:'+PHx(0.009)+'px;background:linear-gradient(180deg,rgba(0,0,0,.14),rgba(255,255,255,.16) 55%,rgba(0,0,0,.05));z-index:9"></div>'+
+    '</div></div>'+
+   (hasTape2?tape(px+Math.round(pw*0.40),py-PHx(0.011),P(0.13),(rA2()*8-4).toFixed(1)):'')+
+   (hasVellum?'<div style="position:absolute;left:'+vx+'px;top:'+(vy+4)+'px;width:'+vw+'px;height:'+vh+'px;transform:rotate('+vr+'deg);background:rgba(15,10,6,.28);filter:blur(4px);z-index:22"></div>'+
+    '<div style="position:absolute;left:'+vx+'px;top:'+vy+'px;width:'+vw+'px;height:'+vh+'px;transform:rotate('+vr+'deg);background:rgba(248,244,236,.60);background-image:url('+TEX.tooth+');box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);z-index:23"></div>':'')+
+   (hasCard2?'<div style="position:absolute;left:'+bx2+'px;top:'+(by2+3)+'px;width:'+bw2+'px;height:'+bh2+'px;transform:rotate('+br2+'deg);background:rgba(15,10,6,.3);filter:blur(3px);z-index:24"></div>'+
+    '<div style="position:absolute;left:'+bx2+'px;top:'+by2+'px;width:'+bw2+'px;height:'+bh2+'px;background:linear-gradient(174deg,#f8f5ec,#ece7d9);transform:rotate('+br2+'deg);z-index:25;border:1px solid rgba(0,0,0,.05)"></div>':'')+
+   FIN+'</div>'}
 
-/* REF 2 — A/B strobe: clean studio, wordmark + typed headline, two products alternate every frame */
-if(f==='dh_edstrobe'){
- const rot=state.rot||0,step=rot%6;
- const P=n=>Math.round(W*n),PHx=n=>Math.round(H*n);
- const fl=filled(),len=fl.length;
- const pin=j=>{const idx=(((j%len)+len)%len-(rot%len)+len)%len;return fl[idx]};
- const jShow=rot%2; /* strict A/B alternation */
- const mk=s=>{let t=(s*2654435761+1013904223)>>>0;return()=>{t^=t<<13;t>>>=0;t^=t>>>17;t^=t<<5;t>>>=0;return t/4294967296}};
- const jit=(mk(rot*37+5)()*0.03-0.015);
- const pw=P(0.60*(1+jit)),ph2=PHx(0.46*(1+jit)),px=Math.round((W-pw)/2),py=PHx(0.265);
- return open+`background:#ececea">
-  <div style="position:absolute;left:0;top:${PHx(0.60)}px;width:${W}px;height:${PHx(0.40)}px;background:#f4f4f2;z-index:1"></div>
-  <div style="position:absolute;left:${P(0.12)}px;top:${PHx(0.575)}px;width:${P(0.76)}px;height:${PHx(0.09)}px;background:radial-gradient(ellipse at 50% 0,rgba(0,0,0,.15),rgba(0,0,0,0) 70%);z-index:2"></div>
-  ${C(f,jShow?'pB':'pA',pin(jShow),`left:${px}px;top:${py}px;width:${pw}px;height:${ph2}px`,true,0)}
- </div>`}
+ /* ============ A/B STROBE (ref 2) ============ */
+ if(f==='dh_edstrobe'){
+  var jShow=rot%2;
+  var jit=(mk(rot*37+5)()*0.03-0.015);
+  var pw3=P(0.62*(1+jit)),ph3=PHx(0.50*(1+jit)),px3=Math.round((W-pw3)/2),py3=PHx(0.24);
+  return open+'background:#eceae4">'+
+   '<div style="position:absolute;inset:0;background:linear-gradient(180deg,#efedE7 0%,#e9e7e0 55%,#e2e0d8 100%);z-index:0"></div>'+
+   '<div style="position:absolute;left:0;top:'+PHx(0.62)+'px;width:'+W+'px;height:'+PHx(0.38)+'px;background:linear-gradient(180deg,#f2f0ea,#e8e6de);z-index:1"></div>'+
+   '<div style="position:absolute;left:'+P(0.10)+'px;top:'+PHx(0.585)+'px;width:'+P(0.80)+'px;height:'+PHx(0.10)+'px;background:radial-gradient(ellipse at 50% 0,rgba(0,0,0,.18),rgba(0,0,0,0) 68%);z-index:2"></div>'+
+   C(f,jShow?'pB':'pA',pin(jShow),'left:'+px3+'px;top:'+py3+'px;width:'+pw3+'px;height:'+ph3+'px',true,0)+
+   FIN+'</div>'}
 
-/* REF 3 — two stacked photo panels cutting independently under static serif words */
-if(f==='dh_edwords'){
- const rot=state.rot||0;
- const P=n=>Math.round(W*n),PHx=n=>Math.round(H*n);
- const fl=filled(),len=fl.length;
- const pin=j=>{const idx=(((j%len)+len)%len-(rot%len)+len)%len;return fl[idx]};
- const th=PHx(0.5);
- const jT=rot,jB=Math.floor(rot/2)+3; /* top cuts every frame, bottom every 2 */
- const wfs=P(0.070),wst=`width:${W}px;text-align:center;font-family:'Newsreader',serif;font-weight:400;font-size:${wfs}px;letter-spacing:.32em;color:#f4f1ea;text-shadow:0 1px 16px rgba(0,0,0,.35);z-index:10`;
- return open+`background:#141210">
-  ${C(f,'t',pin(jT),`left:0;top:0;width:${W}px;height:${th}px`,true,0)}
-  ${C(f,'b',pin(jB),`left:0;top:${th}px;width:${W}px;height:${H-th}px`,true,0)}
-  ${CAP(f,'wa','HOME',`left:0;top:${PHx(0.225)}px;${wst}`)}
-  ${CAP(f,'wb','AS',`left:0;top:${th-Math.round(wfs*0.62)}px;${wst}`)}
-  ${CAP(f,'wc','ART',`left:0;top:${PHx(0.735)}px;${wst}`)}
- </div>`}
+ /* ============ SPLIT WORDS (ref 3) ============ */
+ if(f==='dh_edwords'){
+  var th4=PHx(0.5);
+  var jT4=rot,jB4=Math.floor(rot/2)+3;
+  var wfs=P(0.068),wst='width:'+W+'px;text-align:center;font-family:\'Newsreader\',serif;font-weight:400;font-size:'+wfs+'px;letter-spacing:.34em;color:#f4f1ea;text-shadow:0 1px 18px rgba(0,0,0,.4);z-index:10';
+  return open+'background:#141210">'+
+   C(f,'t',pin(jT4),'left:0;top:0;width:'+W+'px;height:'+th4+'px',true,0)+
+   C(f,'b',pin(jB4),'left:0;top:'+th4+'px;width:'+W+'px;height:'+(H-th4)+'px',true,0)+
+   '<div style="position:absolute;left:0;top:'+(th4-1)+'px;width:'+W+'px;height:2px;background:rgba(20,16,12,.5);z-index:5"></div>'+
+   CAP(f,'wa','HOME','left:0;top:'+PHx(0.225)+'px;'+wst)+
+   CAP(f,'wb','AS','left:0;top:'+(th4-Math.round(wfs*0.62))+'px;'+wst)+
+   CAP(f,'wc','ART','left:0;top:'+PHx(0.735)+'px;'+wst)+
+   FIN+'</div>'}
 
-/* REF 6 — wall grid of small prints on beige; staggered cells swap photos, blank brand cards mixed in */
-if(f==='dh_edwall'){
- const rot=state.rot||0,GL=6,group=Math.floor(rot/GL),step=rot%GL;
- const mk=s=>{let t=(s*2654435761+1013904223)>>>0;return()=>{t^=t<<13;t>>>=0;t^=t>>>17;t^=t<<5;t>>>=0;return t/4294967296}};
- const P=n=>Math.round(W*n),PHx=n=>Math.round(H*n);
- const fl=filled(),len=fl.length;
- const pin=j=>{const idx=(((j%len)+len)%len-(rot%len)+len)%len;return fl[idx]};
- const cols=4,rows=H>1500?6:5;
- const gx=P(0.018),cw=Math.round((W-gx*2)/cols),gy=Math.round((H-PHx(0.03)*2)/rows);
- let cells='';
- for(let i=0;i<cols*rows;i++){
-  const rc=mk(i*613+29); /* static per cell: jitter, rotation, blank-ness */
-  const cx2=gx+(i%cols)*cw+Math.round(rc()*P(0.008)-P(0.004));
-  const cy2=PHx(0.03)+Math.floor(i/cols)*gy+Math.round(rc()*P(0.008)-P(0.004));
-  const rr=(rc()*3.6-1.8).toFixed(1);
-  const iw=cw-P(0.012),ih=gy-P(0.012);
-  const isBlank=(i*7+3)%13===0;
-  if(isBlank){
-   cells+=`<div style="position:absolute;left:${cx2}px;top:${cy2}px;width:${iw}px;height:${ih}px;background:#faf8f2;transform:rotate(${rr}deg);z-index:5;box-shadow:0 1px 6px rgba(40,32,22,.18);display:flex;align-items:center;justify-content:center;flex-direction:column"></div>`;
-  }else{
-   /* staggered swap: each cell advances its photo on its own beat */
-   const phase=(i*5+1)%GL,adv=Math.floor((step+phase)/2);
-   const j=group*3+i+adv;
-   const pol=(i*11+5)%17===0; /* occasional polaroid-style bottom margin */
-   const pad=P(0.006),pb=pol?Math.round(pad*4):pad;
-   cells+=`<div style="position:absolute;left:${cx2}px;top:${cy2}px;width:${iw}px;height:${ih}px;background:#fbfaf7;padding:${pad}px ${pad}px ${pb}px;transform:rotate(${rr}deg);z-index:6;box-shadow:0 1px 6px rgba(40,32,22,.2)"><div style="position:relative;width:100%;height:100%;overflow:hidden;background:#e5e1d6">${C(f,'g'+(i%12+1),pin(j),'position:absolute;inset:0',true,0)}<div style="position:absolute;inset:0;background:rgba(214,196,168,.10);z-index:3"></div></div></div>`;
-  }}
- return open+`background:#dfd8c8">
-  <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(0,0,0,0) 40%,rgba(52,44,32,.08));z-index:1"></div>
-  ${cells}
- </div>`}
+ /* ============ WALL GRID (ref 6) ============ */
+ if(f==='dh_edwall'){
+  var cols=4,rows=H>1500?6:5;
+  var gx=P(0.016),cw5=Math.round((W-gx*2)/cols),gy=Math.round((H-PHx(0.026)*2)/rows);
+  var cells='';
+  for(var i=0;i<cols*rows;i++){
+   var rc=mk(i*613+29);
+   var cx5=gx+(i%cols)*cw5+Math.round(rc()*P(0.007)-P(0.0035));
+   var cy5=PHx(0.026)+Math.floor(i/cols)*gy+Math.round(rc()*P(0.007)-P(0.0035));
+   var rr5=(rc()*3-1.5).toFixed(1);
+   var iw=cw5-P(0.010),ih=gy-P(0.010);
+   var isBlank=(i*7+3)%13===0;
+   if(isBlank){
+    cells+='<div style="position:absolute;left:'+cx5+'px;top:'+cy5+'px;width:'+iw+'px;height:'+ih+'px;background:linear-gradient(175deg,#faf7f0,#f0ecdf);transform:rotate('+rr5+'deg);z-index:5;box-shadow:0 1px 2px rgba(30,23,15,.25),0 '+PHx(0.006)+'px '+PHx(0.016)+'px rgba(30,23,15,.18);border:1px solid rgba(0,0,0,.04)"><div style="position:absolute;inset:0;background-image:url('+TEX.tooth+');opacity:.5"></div></div>';
+   }else{
+    var phase=(i*5+1)%GL,adv=Math.floor((step+phase)/2);
+    var j5=group*3+i+adv;
+    var pol=(i*11+5)%17===0;
+    var pad5=P(0.005),pb5=pol?Math.round(pad5*4.5):pad5;
+    cells+='<div style="position:absolute;left:'+cx5+'px;top:'+cy5+'px;width:'+iw+'px;height:'+ih+'px;background:linear-gradient(175deg,#fbf8f1,#f1ede0);padding:'+pad5+'px '+pad5+'px '+pb5+'px;transform:rotate('+rr5+'deg);z-index:6;box-shadow:0 1px 2px rgba(30,23,15,.28),0 '+PHx(0.007)+'px '+PHx(0.018)+'px rgba(30,23,15,.2);border:1px solid rgba(0,0,0,.04)"><div style="position:relative;width:100%;height:100%;overflow:hidden;background:#e2ddd0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)">'+C(f,'g'+(i%12+1),pin(j5),'position:absolute;inset:0',true,0)+GRADE+'</div></div>';
+   }}
+  return open+'background:#ddd5c4">'+
+   '<div style="position:absolute;inset:0;background-image:url('+TEX.weave+');opacity:.5;z-index:1"></div>'+
+   '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(0,0,0,0) 40%,rgba(52,44,32,.10));z-index:1"></div>'+
+   cells+FIN+'</div>'}
 
-/* REF 7 — editorial magazine cycle: split panels / label close-up / catalog spread / envelope collage */
-if(f==='dh_edmag'){
- const rot=state.rot||0,GL=6,group=Math.floor(rot/GL),step=rot%GL;
- const mk=s=>{let t=(s*2654435761+1013904223)>>>0;return()=>{t^=t<<13;t>>>=0;t^=t>>>17;t^=t<<5;t>>>=0;return t/4294967296}};
- const P=n=>Math.round(W*n),PHx=n=>Math.round(H*n);
- const fl=filled(),len=fl.length;
- const pin=j=>{const idx=(((j%len)+len)%len-(rot%len)+len)%len;return fl[idx]};
- const rA=mk(group*151+step*31+3);
- const jb=group*4;
- const micro=(x,y,col,lines)=>`<div style="position:absolute;left:${x}px;top:${y}px;font-family:'Courier Prime',monospace;font-size:${P(0.0145)}px;line-height:1.6;letter-spacing:.08em;color:${col};z-index:21">${lines.join('<br>')}</div>`;
- if(step===1||step===4){ /* label close-up */
-  return open+`background:#2c2320">
-   ${C(f,'lab',pin(jb+step),'position:absolute;inset:0',true,0)}
-   <div style="position:absolute;inset:0;background:rgba(44,30,24,.18);z-index:2"></div>
-   ${dhShadow(P(0.24),PHx(0.375),P(0.52),PHx(0.115),0)}
-   <div style="position:absolute;left:${P(0.24)}px;top:${PHx(0.375)}px;width:${P(0.52)}px;height:${PHx(0.115)}px;background:#f4f1ea;z-index:6;display:flex;align-items:center;justify-content:center"></div>
-  </div>`}
- if(step===2){ /* catalog spread with binder rings */
-  const r1=(rA()*2-1).toFixed(1),r2=(rA()*4-2).toFixed(1),r3=(rA()*4-2).toFixed(1);
-  return open+`background:#efece4">
-   ${dhCard(C(f,'s1',pin(jb),'position:absolute;inset:0',true,0),P(0.19),PHx(0.05),P(0.62),PHx(0.295),P(0.014),+r1,6)}
-   <div style="position:absolute;left:${P(0.16)}px;top:${PHx(0.362)}px;width:${P(0.68)}px;height:${PHx(0.013)}px;background:repeating-linear-gradient(90deg,#1a1712 0 ${P(0.016)}px,rgba(0,0,0,0) ${P(0.016)}px ${P(0.032)}px);border-radius:${P(0.006)}px;z-index:22"></div>
-   ${dhCard(C(f,'s2',pin(jb+1),'position:absolute;inset:0',true,0),P(0.11),PHx(0.42),P(0.37),PHx(0.25),P(0.012),+r2,7)}
-   ${dhCard(C(f,'s3',pin(jb+2),'position:absolute;inset:0',true,0),P(0.54),PHx(0.44),P(0.36),PHx(0.22),P(0.012),+r3,8)}
-   <div style="position:absolute;left:${W-P(0.37)}px;top:${H-PHx(0.165)}px;width:${P(0.32)}px;height:${PHx(0.105)}px;background:#fbfaf7;transform:rotate(-2.5deg);z-index:24;box-shadow:0 3px 10px rgba(40,32,22,.22)"></div>
-  </div>`}
- if(step===5){ /* dark conceptual card */
-  return open+`background:#241a16">
-   ${C(f,'cc',pin(jb+3),'position:absolute;inset:0',true,0)}
-   <div style="position:absolute;inset:0;background:rgba(30,20,15,.42);z-index:2"></div>
-   ${dhCard(C(f,'cp',pin(jb+1),'position:absolute;inset:0',true,0),P(0.30),PHx(0.52),P(0.44),PHx(0.34),P(0.012),(rA()*6-3).toFixed(1),8)}
-  </div>`}
- /* steps 0,3: vertical split panels + caption card */
- const sw2=Math.round(W*0.55);
- return open+`background:#3a2420">
-  ${C(f,'v1',pin(jb+(step===3?2:0)),`left:0;top:0;width:${sw2}px;height:${H}px`,true,0)}
-  ${C(f,'v2',pin(jb+(step===3?3:1)),`left:${sw2+P(0.006)}px;top:0;width:${W-sw2-P(0.006)}px;height:${H}px`,true,0)}
-  <div style="position:absolute;inset:0;background:rgba(46,28,22,.10);z-index:2"></div>
-  ${dhShadow(P(0.42),PHx(0.76),P(0.30),PHx(0.10),-2)}
-  <div style="position:absolute;left:${P(0.42)}px;top:${PHx(0.76)}px;width:${P(0.30)}px;height:${PHx(0.10)}px;background:#f6f3ec;transform:rotate(-2deg);z-index:8"></div>
- </div>`}
+ /* ============ MAG CYCLE (ref 7) ============ */
+ if(f==='dh_edmag'){
+  var rA7=mk(group*151+step*31+3);
+  var jb7=group*4;
+  if(step===1||step===4){
+   return open+'background:#2c2320">'+
+    C(f,'lab',pin(jb7+step),'position:absolute;inset:0',true,0)+
+    '<div style="position:absolute;inset:0;background:rgba(40,28,22,.20);z-index:2"></div>'+
+    '<div style="position:absolute;left:'+P(0.24)+'px;top:'+(PHx(0.375)+4)+'px;width:'+P(0.52)+'px;height:'+PHx(0.115)+'px;background:rgba(10,7,5,.35);filter:blur(5px);z-index:5"></div>'+
+    '<div style="position:absolute;left:'+P(0.24)+'px;top:'+PHx(0.375)+'px;width:'+P(0.52)+'px;height:'+PHx(0.115)+'px;background:linear-gradient(176deg,#f6f3ec,#eae5d8);z-index:6;border:1px solid rgba(0,0,0,.05)"><div style="position:absolute;inset:0;background-image:url('+TEX.tooth+');opacity:.5"></div></div>'+
+    FIN+'</div>'}
+  if(step===2){
+   var r17=(rA7()*2-1).toFixed(1),r27=(rA7()*3.6-1.8).toFixed(1),r37=(rA7()*3.6-1.8).toFixed(1);
+   var card7=function(role,j,x,y,w,h2,r){return print(role,j,x,y,w,h2,r,7)};
+   return open+'background:#efece4">'+
+    '<div style="position:absolute;inset:0;background-image:url('+TEX.tooth+');opacity:.6;z-index:1"></div>'+
+    card7('s1',jb7,P(0.19),PHx(0.045),P(0.62),PHx(0.30),r17)+
+    '<div style="position:absolute;left:'+P(0.16)+'px;top:'+PHx(0.372)+'px;width:'+P(0.68)+'px;height:'+PHx(0.012)+'px;background:repeating-linear-gradient(90deg,#1a1712 0 '+P(0.015)+'px,rgba(0,0,0,0) '+P(0.015)+'px '+P(0.030)+'px);border-radius:'+P(0.006)+'px;box-shadow:0 2px 4px rgba(0,0,0,.3);z-index:22"></div>'+
+    card7('s2',jb7+1,P(0.11),PHx(0.425),P(0.37),PHx(0.255),r27)+
+    card7('s3',jb7+2,P(0.54),PHx(0.445),P(0.36),PHx(0.225),r37)+
+    '<div style="position:absolute;left:'+(W-P(0.37))+'px;top:'+(H-PHx(0.165)+3)+'px;width:'+P(0.32)+'px;height:'+PHx(0.105)+'px;transform:rotate(-2.5deg);background:rgba(30,23,15,.28);filter:blur(4px);z-index:23"></div>'+
+    '<div style="position:absolute;left:'+(W-P(0.37))+'px;top:'+(H-PHx(0.165))+'px;width:'+P(0.32)+'px;height:'+PHx(0.105)+'px;background:linear-gradient(176deg,#fbf8f1,#efebde);transform:rotate(-2.5deg);z-index:24;border:1px solid rgba(0,0,0,.04)"></div>'+
+    FIN+'</div>'}
+  if(step===5){
+   return open+'background:#241a16">'+
+    C(f,'cc',pin(jb7+3),'position:absolute;inset:0',true,0)+
+    '<div style="position:absolute;inset:0;background:rgba(28,18,13,.46);z-index:2"></div>'+
+    print('cp',jb7+1,P(0.30),PHx(0.50),P(0.44),PHx(0.36),(rA7()*5-2.5).toFixed(1),8)+
+    FIN+'</div>'}
+  var sw7=Math.round(W*0.55);
+  return open+'background:#3a2420">'+
+   C(f,'v1',pin(jb7+(step===3?2:0)),'left:0;top:0;width:'+sw7+'px;height:'+H+'px',true,0)+
+   C(f,'v2',pin(jb7+(step===3?3:1)),'left:'+(sw7+P(0.005))+'px;top:0;width:'+(W-sw7-P(0.005))+'px;height:'+H+'px',true,0)+
+   '<div style="position:absolute;inset:0;background:rgba(46,28,22,.12);z-index:2"></div>'+
+   '<div style="position:absolute;left:'+P(0.42)+'px;top:'+(PHx(0.76)+4)+'px;width:'+P(0.30)+'px;height:'+PHx(0.10)+'px;transform:rotate(-2deg);background:rgba(10,7,5,.35);filter:blur(5px);z-index:7"></div>'+
+   '<div style="position:absolute;left:'+P(0.42)+'px;top:'+PHx(0.76)+'px;width:'+P(0.30)+'px;height:'+PHx(0.10)+'px;background:linear-gradient(176deg,#f6f3ec,#eae5d8);transform:rotate(-2deg);z-index:8;border:1px solid rgba(0,0,0,.05)"></div>'+
+   FIN+'</div>'}
+}
 
 /* 1) TAPED COLLAGE — full bleed + taped portrait card + tilted card on gray + sprocket (pin_1) */
 if(f==='dh_taped'){
