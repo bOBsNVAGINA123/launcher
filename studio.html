@@ -4666,9 +4666,9 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   const slots=document.getElementById('slots');
   const box=document.createElement('div');box.id='syncLib';box.style.cssText='margin:0 0 14px;padding:10px;border:1px solid #2b3040;border-radius:10px;background:#101218';
   box.innerHTML='<div class="lbl" style="display:flex;justify-content:space-between;align-items:center">Synced library <span id="syAgo" style="font-size:9px;color:#6b7280;text-transform:none;letter-spacing:0"></span></div>'
-   +'<style>#syUrl::placeholder{color:#8b93a3;opacity:1}#syUrl:focus{border-color:#7ea2ff;box-shadow:0 0 0 2px rgba(126,162,255,.18);outline:none}</style>'
-   +'<div style="font-size:10px;letter-spacing:.08em;color:#7ea2ff;font-weight:700;margin:2px 0 4px">\ud83d\udd17 PASTE A SHOPIFY COLLECTION LINK HERE</div>'
-   +'<div style="display:flex;gap:6px;margin-bottom:4px"><input id="syUrl" placeholder="https://goplaymore.com/collections/swimwear" style="flex:1;background:#0f1116;color:#fff;border:1.5px solid #3d4658;border-radius:8px;padding:9px 10px;font-size:12.5px;font-family:inherit;min-width:0"><button id="syAddCol" class="btn ghost" style="flex-shrink:0;border-color:#7ea2ff;color:#7ea2ff;font-weight:700">Sync</button></div>'
+   +'<style>#syUrl::placeholder{color:#8b93a3;opacity:1}#syUrl:focus{border-color:#7ea2ff;box-shadow:0 0 0 3px rgba(126,162,255,.22);outline:none}#syAddCol{transition:filter .12s,transform .05s}#syAddCol:hover{filter:brightness(1.08)}#syAddCol:active{transform:translateY(1px)}</style>'
+   +'<div style="font-size:11px;letter-spacing:.05em;color:#7ea2ff;font-weight:700;margin:4px 0 8px">\ud83d\udd17 PASTE A SHOPIFY COLLECTION LINK HERE</div>'
+   +'<input id="syUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://goplaymore.com/collections/swimwear" style="display:block;width:100%;box-sizing:border-box;background:#0f1116;color:#fff;border:1.5px solid #3d4658;border-radius:10px;padding:13px 12px;font-size:13px;line-height:1.2;font-family:inherit;margin-bottom:8px"><button id="syAddCol" class="btn ghost" style="display:block;width:100%;box-sizing:border-box;padding:12px;background:#7ea2ff;border:1.5px solid #7ea2ff;color:#0f1116;font-weight:800;font-size:14px;border-radius:10px;cursor:pointer;margin-bottom:2px">Sync collection</button>'
    +'<div style="font-size:10px;color:#6b7280;margin-bottom:6px">any Shopify store \u00b7 or a Google Drive folder link \u2192 then hit Import Drive folder</div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syAddDrive" class="btn ghost" style="flex:1">📁 Import Drive folder</button><button id="syAddFol" class="btn ghost" style="flex:1">+ Local folder</button><button id="syRe" class="btn ghost" style="flex-shrink:0">↻</button></div>'
    +'<div id="sySources" style="margin-bottom:6px"></div>'
@@ -4768,7 +4768,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
 
   document.getElementById('sySearch').oninput=paintGrid;
   document.getElementById('syAddCol').onclick=async()=>{
-   const u=document.getElementById('syUrl').value.trim();if(!u){stat('paste a collection link first');return}
+   let u=document.getElementById('syUrl').value.trim();if(!u){stat('paste a collection link first');return}if(!/^https?:\/\//i.test(u)&&!/^data:/i.test(u))u='https://'+u.replace(/^\/+/,'');
    stat('syncing collection…');
    try{const c=await fetchAny(u);const i=COLS.findIndex(x=>x.handle===c.handle&&x.origin===c.origin);i>=0?COLS[i]=c:COLS.push(c);saveCols();document.getElementById('syUrl').value='';paintSources();paintGrid();stat(c.name+': '+c.products.length+' products synced')}
    catch(e){stat('⚠ '+e.message)}
