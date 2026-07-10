@@ -634,7 +634,7 @@ const PATTERN_FORMATS={
 };
 
 /* ============ vibes + surfaces + layout ============ */
-const POOL={dh_taped:'cream',dh_collage:'photo',dh_splice:'photo',dh_envelope:'cream',dh_homeedit:'cream',dh_clippile:'photo',dh_spec:'photo',dh_reveal:'photo',dh_spread:'cream',dh_catalog:'cream',drop:'photo',word:'photo',chips:'photo',zoom:'photo',versus:'photo',comment:'photo',igstory:'photo',poll:'photo',
+const POOL={dh_ednew:'photo',dh_taped:'cream',dh_collage:'photo',dh_splice:'photo',dh_envelope:'cream',dh_homeedit:'cream',dh_clippile:'photo',dh_spec:'photo',dh_reveal:'photo',dh_spread:'cream',dh_catalog:'cream',drop:'photo',word:'photo',chips:'photo',zoom:'photo',versus:'photo',comment:'photo',igstory:'photo',poll:'photo',
  blocks:'fill',offer:'fill',review:'fill',reasons:'fill',split:'fill',lineup:'fill',grid4:'fill',headliner:'fill',spotlight:'fill',stack:'fill',ticker:'fill',
  catalog:'cream',flatlay:'cream',rail:'cream',collage:'cream',mascot:'cream',
  beforeafter:'photo',bestseller:'photo',bundle:'cream',sizerun:'fill',ugcstrip:'cream',urgency:'photo',
@@ -977,7 +977,7 @@ function els(f){const k=fKey(f);
  return state.els[k]}
 
 /* ============ structural stages ============ */
-const FORMATS={dh_taped:{label:'DecoHome · Taped Print'},dh_collage:{label:'DecoHome · Editorial Stack'},dh_splice:{label:'DecoHome · Center Card'},dh_envelope:{label:'DecoHome · Envelope'},dh_homeedit:{label:'DecoHome · The Home Edit'},dh_clippile:{label:'DecoHome · Clipped Pile'},dh_spec:{label:'DecoHome · Spec Card'},dh_reveal:{label:'DecoHome · Taped Reveal'},dh_spread:{label:'DecoHome · Printed Spread'},dh_catalog:{label:'DecoHome · Catalog Grid'},pinned:{label:'Pinned Cards'},lookshop:{label:'Shop Card Overlay'},specsheet:{label:'Spec Sheet'},fabricbook:{label:'Fabric Notebook'},patch:{label:'Stitched Patch'},capsule:{label:'Capsule Card'},pinwall:{label:'Pinned Lookbook'},polaroidgrid:{label:'Polaroid Grid'},callouts:{label:'Detail Callouts'},pantone:{label:'Pantone Card'},weekoutfits:{label:'Outfit Duo'},sleeve:{label:'Binder Sleeve'},capsulegrid:{label:'Fabric Tag Grid'},wishitem:{label:'Wish Item'},moodboard:{label:'Annotated Moodboard'},drop:{label:'Drop'},mascot:{label:'Big Image + Claim'},headliner:{label:'Headliner'},filmstrip:{label:'Filmstrip'},memphis:{label:'Sticker Pop'},tags:{label:'Hangtags'},magcover:{label:'Magazine Cover'},storyframe:{label:'Stories Frame'},
+const FORMATS={dh_ednew:{label:'Editorial \u00b7 New DecoHome'},dh_taped:{label:'DecoHome · Taped Print'},dh_collage:{label:'DecoHome · Editorial Stack'},dh_splice:{label:'DecoHome · Center Card'},dh_envelope:{label:'DecoHome · Envelope'},dh_homeedit:{label:'DecoHome · The Home Edit'},dh_clippile:{label:'DecoHome · Clipped Pile'},dh_spec:{label:'DecoHome · Spec Card'},dh_reveal:{label:'DecoHome · Taped Reveal'},dh_spread:{label:'DecoHome · Printed Spread'},dh_catalog:{label:'DecoHome · Catalog Grid'},pinned:{label:'Pinned Cards'},lookshop:{label:'Shop Card Overlay'},specsheet:{label:'Spec Sheet'},fabricbook:{label:'Fabric Notebook'},patch:{label:'Stitched Patch'},capsule:{label:'Capsule Card'},pinwall:{label:'Pinned Lookbook'},polaroidgrid:{label:'Polaroid Grid'},callouts:{label:'Detail Callouts'},pantone:{label:'Pantone Card'},weekoutfits:{label:'Outfit Duo'},sleeve:{label:'Binder Sleeve'},capsulegrid:{label:'Fabric Tag Grid'},wishitem:{label:'Wish Item'},moodboard:{label:'Annotated Moodboard'},drop:{label:'Drop'},mascot:{label:'Big Image + Claim'},headliner:{label:'Headliner'},filmstrip:{label:'Filmstrip'},memphis:{label:'Sticker Pop'},tags:{label:'Hangtags'},magcover:{label:'Magazine Cover'},storyframe:{label:'Stories Frame'},
  comment:{label:'Social Proof'},lineup:{label:'Line-Up'},split:{label:'Split · PDP'},
  blocks:{label:'Color Block'},grid4:{label:'Grid of 4'},word:{label:'Hero Callout'},
  catalog:{label:'Catalog'},rail:{label:'Colorway Rail'},flatlay:{label:'Flatlay'},
@@ -1039,6 +1039,120 @@ function dhCrops(x,y,w,h,c){c=c||'rgba(40,34,26,.5)';const m=`<span style="posit
 function dhBinder(cx,y,w,h){return `<div style="position:absolute;left:${cx-Math.round(w/2)}px;top:${y}px;width:${w}px;height:${h}px;background:#16140f;z-index:31"></div><div style="position:absolute;left:${cx-Math.round(w*0.16)}px;top:${y+Math.round(h*0.1)}px;width:${Math.round(w*0.32)}px;height:${Math.round(h*0.8)}px;background:#26241c;z-index:31"></div>`;}
 function dhPaperclip(x,y,w,rot){return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${Math.round(w*2.1)}px;border:3px solid #9a9a9a;border-radius:${w}px;transform:rotate(${rot}deg);z-index:31"></div>`;}
 function dhMicro(x,y,fs,col,lines){return `<div style="position:absolute;left:${x}px;top:${y}px;font-family:'Courier Prime',monospace;font-size:${fs}px;line-height:1.5;letter-spacing:.06em;color:${col||'rgba(50,44,36,.55)'};z-index:21">${lines.join('<br>')}</div>`;}
+
+/* 0) EDITORIAL NEW DECOHOME — 7-scene stop-motion editorial engine.
+   Every MP4 frame (state.rot) cuts to the next scene type and re-shuffles the
+   composition with a seeded PRNG, replicating the animated-moodboard choreography:
+   collage shuffle / split-word panels / A-B strobe / wall grid / taped print / catalog spread. */
+if(f==='dh_ednew'){
+ const rot=state.rot||0;
+ let _s=((rot+1)*2654435761+40503)>>>0;
+ const rnd=()=>{_s^=_s<<13;_s^=_s>>>17;_s^=_s<<5;_s>>>=0;return _s/4294967296};
+ const PALS=[['#40312d','#e9e2d4','#7a1614'],['#565a38','#eae6da','#b4552e'],['#2e2a25','#efe9dc','#59120e'],['#4a3a40','#e7e0d2','#24352c']];
+ const pal=PALS[rot%PALS.length],DK=pal[0],CR=pal[1],AC=pal[2];
+ const P=(n)=>Math.round(W*n),PH=(n)=>Math.round(H*n);
+ const perf=(x,y,h)=>`<div style="position:absolute;left:${x}px;top:${y}px;width:${P(0.035)}px;height:${h}px;background-color:#f5f1e6;background-image:radial-gradient(circle at 50% 50%, rgba(30,24,18,.85) 0 ${P(0.0065)}px, rgba(0,0,0,0) ${P(0.009)}px);background-size:100% ${P(0.03)}px;box-shadow:0 2px 12px rgba(0,0,0,.28);z-index:24"></div>`;
+ const crease=`<div style="position:absolute;left:0;top:49%;width:100%;height:${PH(0.012)}px;background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(255,255,255,.15) 55%,rgba(0,0,0,.05));z-index:9"></div>`;
+ const SEQ=['collage','words','ab','collage','grid','print','spread'];
+ const scene=SEQ[rot%SEQ.length];
+
+ if(scene==='words'){
+  const th=PH(0.5);
+  const wfs=P(0.072),wst=`width:${W}px;text-align:center;font-family:'Newsreader',serif;font-weight:400;font-size:${wfs}px;letter-spacing:.3em;color:#f4f1ea;text-shadow:0 1px 14px rgba(0,0,0,.35);z-index:10`;
+  return open+`background:#141210">
+   ${C(f,'t',1,`left:0;top:0;width:${W}px;height:${th}px`,true,0)}
+   ${C(f,'b',2,`left:0;top:${th}px;width:${W}px;height:${H-th}px`,true,0)}
+   ${CAP(f,'wa','HOME',`left:0;top:${PH(0.225)}px;${wst}`)}
+   ${CAP(f,'wb','AS',`left:0;top:${th-Math.round(wfs*0.62)}px;${wst}`)}
+   ${CAP(f,'wc','ART',`left:0;top:${PH(0.735)}px;${wst}`)}
+  </div>`}
+
+ if(scene==='ab'){
+  const pw=P(0.62),ph2=PH(0.46),px=Math.round((W-pw)/2),py=PH(0.27);
+  return open+`background:#eceae3">
+   <div style="position:absolute;left:0;top:${PH(0.62)}px;width:${W}px;height:${PH(0.38)}px;background:#e2dfd6;z-index:1"></div>
+   <div style="position:absolute;left:${P(0.14)}px;top:${PH(0.56)}px;width:${P(0.72)}px;height:${PH(0.10)}px;background:radial-gradient(ellipse at 50% 0,rgba(0,0,0,.16),rgba(0,0,0,0) 70%);z-index:2"></div>
+   ${C(f,'p',1,`left:${px}px;top:${py}px;width:${pw}px;height:${ph2}px`,true,0)}
+   ${CAP(f,'brand','decohome',`left:0;top:${PH(0.045)}px;width:${W}px;text-align:center;font-family:'DM Sans',sans-serif;font-weight:600;font-size:${P(0.026)}px;letter-spacing:.06em;color:#232019;z-index:10`)}
+   ${CAP(f,'abq','Warm or Cool?',`left:0;top:${PH(0.10)}px;width:${W}px;text-align:center;font-family:'Archivo',sans-serif;font-weight:800;font-size:${P(0.055)}px;color:#191611;z-index:10`)}
+   ${CAP(f,'abfoot','TAP TO VOTE · NEW COLLECTION',`left:0;top:${H-PH(0.065)}px;width:${W}px;text-align:center;font-family:'Courier Prime',monospace;font-size:${P(0.018)}px;letter-spacing:.22em;color:#66604f;z-index:10`)}
+  </div>`}
+
+ if(scene==='grid'){
+  const rows=H>1500?5:4,cols=3,gx=P(0.025),gy=Math.round((H-PH(0.04)*2)/rows),cw=Math.round((W-gx*2)/cols);
+  const blankEvery=Math.floor(rnd()*3)+3;let cells='';
+  for(let i=0;i<rows*cols;i++){
+   const cx2=gx+(i%cols)*cw,cy2=PH(0.04)+Math.floor(i/cols)*gy;
+   const jx=Math.round(rnd()*P(0.012)-P(0.006)),jy=Math.round(rnd()*P(0.012)-P(0.006)),rr=(rnd()*4-2).toFixed(1);
+   const iw=cw-P(0.018),ih=gy-P(0.018);
+   if(i%blankEvery===2){
+    cells+=dhShadow(cx2+jx,cy2+jy,iw,ih,+rr)+`<div style="position:absolute;left:${cx2+jx}px;top:${cy2+jy}px;width:${iw}px;height:${ih}px;background:#faf8f2;transform:rotate(${rr}deg);z-index:6;display:flex;align-items:center;justify-content:center;flex-direction:column"><span style="font-family:'Newsreader',serif;font-size:${P(0.024)}px;letter-spacing:.08em;color:#2c2820">The Deco Edit</span><span style="font-family:'Courier Prime',monospace;font-size:${P(0.013)}px;letter-spacing:.2em;color:#8a8271;margin-top:${PH(0.008)}px">VOL. ${String(rot%9+1).padStart(2,'0')}</span></div>`;
+   }else{
+    cells+=dhShadow(cx2+jx,cy2+jy,iw,ih,+rr)+`<div style="position:absolute;left:${cx2+jx}px;top:${cy2+jy}px;width:${iw}px;height:${ih}px;background:#fbfaf7;padding:${P(0.008)}px;transform:rotate(${rr}deg);z-index:6"><div style="position:relative;width:100%;height:100%;overflow:hidden">${C(f,'g'+(i%8+1),(i%8)+1,'position:absolute;inset:0',true,0)}</div></div>`;
+   }}
+  return open+`background:#e6e0d2">
+   ${cells}
+   ${CAP(f,'eyebrow',dhEye(f),`left:${P(0.04)}px;top:${H-PH(0.033)}px;font-family:'Courier Prime',monospace;font-size:${P(0.016)}px;letter-spacing:.24em;color:#6d6656;z-index:27`)}
+  </div>`}
+
+ if(scene==='print'){
+  const pw=P(0.80),ph2=PH(0.72),px=Math.round((W-pw)/2),py=PH(0.08);
+  const vw=P(0.52),vh=PH(0.16),vx=px+pw-Math.round(vw*0.72),vy=py+ph2-Math.round(vh*0.55),vr=(rnd()*6-3).toFixed(1);
+  const bw2=P(0.30),bh2=PH(0.085),bx2=px-P(0.035),by2=py+ph2-PH(0.03),br2=(rnd()*8-4).toFixed(1);
+  return open+`background:${DK}">
+   <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.07),rgba(0,0,0,0) 60%),radial-gradient(ellipse at 75% 85%,rgba(0,0,0,.25),rgba(0,0,0,0) 55%);z-index:1"></div>
+   ${dhShadow(px,py,pw,ph2,-1)}
+   <div style="position:absolute;left:${px}px;top:${py}px;width:${pw}px;height:${ph2}px;background:#fbfaf7;padding:${P(0.02)}px;transform:rotate(-1deg);z-index:6"><div style="position:relative;width:100%;height:100%;overflow:hidden">${C(f,'m1',1,'position:absolute;inset:0',true,0)}${crease}</div></div>
+   ${dhTape(px+Math.round(pw*0.38),py-PH(0.012),P(0.15),-5+rnd()*10)}
+   ${dhShadow(vx,vy,vw,vh,+vr)}
+   <div style="position:absolute;left:${vx}px;top:${vy}px;width:${vw}px;height:${vh}px;transform:rotate(${vr}deg);background:rgba(250,248,242,.68);z-index:23"></div>
+   ${CAP(f,'vel','DecoHome',`left:${vx}px;top:${vy+Math.round(vh*0.22)}px;width:${vw}px;text-align:center;font-family:'Caveat',cursive;font-weight:600;font-size:${P(0.052)}px;color:#2c261f;transform:rotate(${vr}deg);z-index:24`)}
+   ${dhShadow(bx2,by2,bw2,bh2,+br2)}
+   <div style="position:absolute;left:${bx2}px;top:${by2}px;width:${bw2}px;height:${bh2}px;background:#f7f4ec;transform:rotate(${br2}deg);z-index:25;display:flex;align-items:center;justify-content:center"><span style="font-family:'Courier Prime',monospace;font-size:${P(0.015)}px;letter-spacing:.22em;color:#3a352c">DECOHOME · EST. 2016</span></div>
+  </div>`}
+
+ if(scene==='spread'){
+  const r1=(rnd()*2-1).toFixed(1),r2=(rnd()*5-2.5).toFixed(1),r3=(rnd()*5-2.5).toFixed(1);
+  const t1x=P(0.19),t1y=PH(0.05),t1w=P(0.62),t1h=PH(0.295);
+  const s2x=P(0.10)+Math.round(rnd()*P(0.03)),s2y=PH(0.42),s2w=P(0.37),s2h=PH(0.25);
+  const s3x=P(0.53)+Math.round(rnd()*P(0.03)),s3y=PH(0.44),s3w=P(0.36),s3h=PH(0.22);
+  const nw=P(0.30),nh=PH(0.115),nx=W-nw-P(0.07),ny=H-nh-PH(0.06),nr=(rnd()*6-3).toFixed(1);
+  return open+`background:#efece4">
+   ${dhCard(C(f,'s1',1,'position:absolute;inset:0',true,0),t1x,t1y,t1w,t1h,P(0.014),+r1,6)}
+   <div style="position:absolute;left:${P(0.16)}px;top:${PH(0.362)}px;width:${P(0.68)}px;height:${PH(0.013)}px;background:repeating-linear-gradient(90deg,#1a1712 0 ${P(0.016)}px, rgba(0,0,0,0) ${P(0.016)}px ${P(0.032)}px);border-radius:${P(0.006)}px;z-index:22"></div>
+   ${dhCard(C(f,'s2',2,'position:absolute;inset:0',true,0),s2x,s2y,s2w,s2h,P(0.012),+r2,7)}
+   ${dhCard(C(f,'s3',3,'position:absolute;inset:0',true,0),s3x,s3y,s3w,s3h,P(0.012),+r3,8)}
+   ${dhMicro(P(0.10),PH(0.71),P(0.015),'rgba(60,54,44,.75)',['AUTUMN, ARRANGED','A/W COLLECTION','OAK · LINEN · CLAY'])}
+   ${dhMicro(P(0.40),PH(0.71),P(0.015),'rgba(60,54,44,.55)',['SHOT IN STUDIO','EVERY PIECE IN STOCK','SHIPS THIS WEEK'])}
+   ${dhShadow(nx,ny,nw,nh,+nr)}
+   <div style="position:absolute;left:${nx}px;top:${ny}px;width:${nw}px;height:${nh}px;background:#fbfaf7;transform:rotate(${nr}deg);z-index:25"></div>
+   ${CAP(f,'newin','NEW IN',`left:${nx}px;top:${ny+Math.round(nh*0.24)}px;width:${nw}px;text-align:center;font-family:'Newsreader',serif;font-size:${P(0.028)}px;letter-spacing:.18em;color:#211d16;transform:rotate(${nr}deg);z-index:26`)}
+   ${CAP(f,'eyebrow',dhEye(f),`left:${P(0.10)}px;top:${PH(0.022)}px;font-family:'Courier Prime',monospace;font-size:${P(0.016)}px;letter-spacing:.24em;color:#6d6656;z-index:27`)}
+  </div>`}
+
+ /* default: collage (pins 4/5) — layered scrapbook shuffle */
+ {
+  const bw=P(0.52+rnd()*0.16),bh=PH(0.40+rnd()*0.12);
+  const bx=P(0.06+rnd()*0.18),by=PH(0.10+rnd()*0.14);
+  const sw=P(0.34+rnd()*0.10),sh=PH(0.24+rnd()*0.08);
+  const sx=P(0.48+rnd()*0.14),sy=PH(0.52+rnd()*0.10);
+  const cw=P(0.26+rnd()*0.10),ch=PH(0.16+rnd()*0.06);
+  const cx=P(0.08+rnd()*0.5),cy=PH(0.64+rnd()*0.12);
+  const r1=(rnd()*5-2.5).toFixed(1),r2=(rnd()*7-3.5).toFixed(1),r3=(rnd()*8-4).toFixed(1);
+  return open+`background:${DK}">
+   ${C(f,'bg',1,'position:absolute;inset:0',true,0)}
+   <div style="position:absolute;inset:0;background:${DK};opacity:.5;z-index:2"></div>
+   ${perf(P(rnd()>0.5?0.055:0.90),PH(0.10),PH(0.55))}
+   <div style="position:absolute;left:${cx}px;top:${cy}px;width:${cw}px;height:${ch}px;background:${AC};transform:rotate(${r3}deg);z-index:5;box-shadow:0 6px 18px rgba(0,0,0,.3)"></div>
+   ${dhCard(C(f,'m1',2,'position:absolute;inset:0',true,0),bx,by,bw,bh,P(0.016),+r1,6)}
+   ${dhCard(C(f,'m2',3,'position:absolute;inset:0',true,0),sx,sy,sw,sh,P(0.014),+r2,8)}
+   ${dhTape(bx+Math.round(bw*0.32),by-PH(0.012),P(0.15),-6+rnd()*12)}
+   ${rnd()>0.45?dhTape(sx-P(0.03),sy-PH(0.008),P(0.12),8-rnd()*16):''}
+   ${rnd()>0.55?dhPaperclip(bx+bw-P(0.05),by-PH(0.02),P(0.028),12):''}
+   ${CAP(f,'scap','the new edit, vol. 02',`left:${P(0.08)}px;top:${H-PH(0.105)}px;font-family:'Caveat',cursive;font-weight:600;font-size:${P(0.05)}px;color:#efe9dc;z-index:27;text-shadow:0 1px 10px rgba(0,0,0,.4)`)}
+   ${CAP(f,'eyebrow',dhEye(f),`left:${P(0.08)}px;top:${PH(0.035)}px;font-family:'Courier Prime',monospace;font-size:${P(0.02)}px;letter-spacing:.24em;color:rgba(240,234,220,.85);z-index:27`)}
+  </div>`}
+}
 
 /* 1) TAPED COLLAGE — full bleed + taped portrait card + tilted card on gray + sprocket (pin_1) */
 if(f==='dh_taped'){
