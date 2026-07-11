@@ -5757,5 +5757,199 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
 })();
 </script>
 
+
+<script>
+/* ===== v10 patch: Pinterest formats (Spec Card, Product Sheet, Pantone Grid video, Flip Binder video)
+   + real product copy pulled from the DecoHome Shopify export + smooth brand-colour picker ===== */
+(function(){
+ if(typeof FORMATS==='undefined'||typeof stageHTMLraw!=='function')return;
+
+ /* ---------- real product copy (from products_export_1.csv) ---------- */
+ var PX_DB={"solara-trio-1": {"t": "Solara Trio", "p": "750.00", "dims": {}, "mat": "Pottery", "col": "Terracotta", "d": "Piece 1 dimensions: Diameter 9cm - Height 24cm Piece 2 dimensions: Diameter 15cm - Height 20cm"}, "solara-trio": {"t": "Solara Trio", "p": "975.00", "dims": {}, "mat": "Pottery", "col": null, "d": "Piece 1 dimensions: Diameter 14cm - Height 29cm Piece 2 dimensions: Diameter 13cm - Height 26cm Piece 3 dimensions: Width 12cm - Height 25cm"}, "blanche-vase": {"t": "Blanche Vase", "p": "550.00", "dims": {"width": "18", "height": "30"}, "mat": "Pottery", "col": "light beige / off-white", "d": ""}, "serene-duo-vases": {"t": "Serene Duo Vases", "p": "550.00", "dims": {"width": "15", "height": "37"}, "mat": "Pottery", "col": "Black and Off-white", "d": ""}, "luna-sculptural-vase-set": {"t": "Luna Sculptural Vase Set", "p": "750.00", "dims": {}, "mat": null, "col": "Off-white", "d": "Piece 1 dimensions: Width 21cm - Height 20cm Piece 2 dimensions: Width 22cm - Height 20cm Piece 3 dimensions: Width 15cm - Height 20cm Material Pottery"}, "dune-vessel": {"t": "Dune Vessel", "p": "1200.00", "dims": {"width": "35", "height": "58"}, "mat": "Pottery", "col": "Burnt Terracotta", "d": ""}, "ancient-grain-vase": {"t": "Ancient Grain Vase", "p": "975.00", "dims": {"width": "25", "height": "27"}, "mat": "Pottery", "col": "Black", "d": ""}, "the-oakhaven-amphora": {"t": "The Oakhaven Amphora", "p": "750.00", "dims": {"width": "20", "height": "32"}, "mat": "Pottery", "col": "Terracotta", "d": ""}, "black-eos-lamp": {"t": "Black Eos Lamp", "p": "1500.00", "dims": {"width": "25", "height": "40"}, "mat": "Pottery", "col": "Black", "d": ""}, "eos-lamp": {"t": "White Eos Lamp", "p": "1500.00", "dims": {"width": "25", "height": "40"}, "mat": "Pottery", "col": "white", "d": ""}, "the-gilded-fructus-set": {"t": "The Gilded Fructus Set", "p": "1490.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 16 cm - height 30 cm Vase size (2): diameter 23 cm - height 25 cm"}, "the-gilded-poire-vase": {"t": "The Gilded Poire Vase", "p": "850.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 16 cm - height 30 cm"}, "the-gilded-pomme-vase": {"t": "The Gilded Pomme Vase", "p": "849.00", "dims": {}, "mat": null, "col": null, "d": "Vase size: diameter 23 cm - height 25 cm"}, "black-and-gold-leaf-vase": {"t": "Black and Gold Leaf Vase", "p": "950.00", "dims": {}, "mat": null, "col": null, "d": "Vase size: diameter 18cm - height 28cm"}, "white-and-gold-leaf-vase": {"t": "White and Gold Leaf Vase", "p": "950.00", "dims": {}, "mat": null, "col": null, "d": "Vase size: diameter 18cm - height 28cm"}, "the-golden-candle-holders": {"t": "The Golden Candle Holders", "p": "1450.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 10 cm - height 33 cm Vase size (2): diameter 10 cm - height 28 cm"}, "white-gold-fluted-candlesticks": {"t": "White & Gold Fluted Candlesticks", "p": "1450.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 10 cm - height 33 cm Vase size (2): diameter 10 cm - height 28 cm"}, "the-gilded-butterflies-vase": {"t": "The Gilded Butterflies Vase", "p": "1250.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 12 cm - height 20 cm"}, "the-cairn-vessel": {"t": "The Cairn Vessel", "p": "945.00", "dims": {}, "mat": null, "col": null, "d": "Vase size: diameter 15 cm - height 20 cm"}, "the-sol-dotted-collection": {"t": "The Sol Dotted Collection", "p": "1980.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 15 cm - height 42 cm Vase size (2): diameter 15 cm - height 38 cm Vase size (3): diameter 19 cm - height 25 cm"}, "the-onyx-punctuate-set": {"t": "The Onyx Punctuate Set", "p": "1980.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 15 cm - height 42 cm Vase size (2): diameter 15 cm - height 38 cm Vase size (3): diameter 19 cm - height 25 cm"}, "the-capri-collection": {"t": "The Capri Collection", "p": "2180.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 17 cm - height 35 cm Vase size (2): diameter 14 cm - height 25 cm"}, "hexa-glaze-round-ginger-jar": {"t": "Hexa Glaze Round Ginger Jar", "p": "1490.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 17 cm - height 35 cm Vase size (2): diameter 14 cm - height 25 cm"}, "full-gold-pineapple-decor-set": {"t": "Full Gold Pineapple Decor Set", "p": "1490.00", "dims": {}, "mat": "Polyester", "col": "White and Gold", "d": "First height (cm): 25 Second height (cm): 20 Third height (cm): 15 First width(cm): 11 Second width(cm): 9 Third width(cm): 7 Number of pieces: 3"}, "the-dorado-pineapples": {"t": "The Dorado Pineapples", "p": "1490.00", "dims": {}, "mat": null, "col": null, "d": ""}, "the-byzantium-collection": {"t": "The Byzantium Collection", "p": "1499.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 17 cm - height 25 cm Vase size (2): diameter 14 cm - height 35 cm"}, "gold-palm-leaf-vase": {"t": "Gold Palm Leaf Vase", "p": "999.00", "dims": {}, "mat": null, "col": null, "d": "Vase size : diameter 18 cm - height 28 cm"}, "colored-flower-crown-vessel": {"t": "Colored Flower Crown Vessel", "p": "1490.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 15 cm - height 25 cm Vase size (2): diameter 15 cm - height 13 cm"}, "black-hexagon-vases": {"t": "Black Hexagon Vases", "p": "1490.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 14 cm - height 35 cm Vase size (2): diameter 17 cm - height 25 cm"}, "black-crown-vessel": {"t": "Black Crown Vessel", "p": "1490.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 15 cm - height 25 cm Vase size (2): diameter 15 cm - height 13 cm"}, "black-and-gold-flower-crown-vessel": {"t": "Black and Gold Flower Crown Vessel", "p": "1490.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 15 cm - height 25 cm Vase size (2): diameter 15 cm - height 13 cm"}, "white-flower-crown-vessel": {"t": "White Flower Crown Vessel", "p": "1499.00", "dims": {}, "mat": null, "col": null, "d": "Vase size (1): diameter 15 cm - height 25 cm Vase size (2): diameter 15 cm - height 13 cm"}, "terracotta-cylindrical-vase": {"t": "Terracotta Cylindrical Vase", "p": "589.00", "dims": {"width": "9", "height": "24"}, "mat": "Pottery", "col": "Terracotta", "d": "Painting Type Textured / Matte Finish"}, "the-arch-vase-set": {"t": "The Arch Vase Set", "p": "890.00", "dims": {"height": "22,20", "width": "20,15"}, "mat": "Pottery", "col": "Terracotta and Off-White", "d": "Painting Type: Textured / Matte Finish"}, "the-etched-gold-vase": {"t": "The Etched Gold Vase", "p": "1200.00", "dims": {"width": "20", "height": "30"}, "mat": "Pottery", "col": "Gold and off-white", "d": ""}, "luxe-vase-dh23": {"t": "Luxe Vase-DH23", "p": "999.00", "dims": {"width": "12", "height": "28"}, "mat": "Pottery", "col": "off-white", "d": ""}, "amy-vase-z": {"t": "Amy Vase-Z", "p": "1200.00", "dims": {"width": "18", "height": "25"}, "mat": "Pottery", "col": "Off-white", "d": ""}, "lio-set-of-2-vases-zw": {"t": "Lio Set of 2 Vases-ZW", "p": "1800.00", "dims": {"width": "19", "height": "21"}, "mat": "Pottery", "col": "Off-white", "d": "First Vase : Second Vase :"}, "juliette-vase-h": {"t": "Juliette Vase-H", "p": "999.00", "dims": {"width": "8", "height": "25"}, "mat": "Pottery", "col": "Off-white", "d": ""}, "the-arlo-arch-vase": {"t": "The Arlo Arch Vase", "p": "599.00", "dims": {"width": "19", "height": "20"}, "mat": "Pottery", "col": "Off-white", "d": ""}, "valeria-vase-g": {"t": "Valeria Vase-G", "p": "999.00", "dims": {"width": "8", "height": "45"}, "mat": "Pottery", "col": "Black", "d": ""}, "isaacc-vase-c": {"t": "Isaacc Vase-C", "p": "1300.00", "dims": {"width": "8", "height": "30"}, "mat": "Pottery", "col": "Off-white", "d": ""}, "serene-vase-dh26": {"t": "Serene Vase-DH26", "p": "1099.00", "dims": {"width": "13", "height": "29"}, "mat": "Pottery", "col": "Gold*Off-white", "d": ""}, "lainey-set-of-2-vases-n": {"t": "Lainey Set of 2 Vases-N", "p": "1800.00", "dims": {"width": "18", "height": "45"}, "mat": "Pottery", "col": "Off-white", "d": "First Vase : Second Vase :"}, "costaal-vase-dh24costaal-vase-dh24": {"t": "Costaal Vase-DH24", "p": "999.00", "dims": {"width": "12", "height": "28"}, "mat": "Pottery", "col": "off-white*gold", "d": ""}, "alanab-vase-x": {"t": "Alanab Vase-X", "p": "850.00", "dims": {"width": "11", "height": "20"}, "mat": "Pottery", "col": "Off-white", "d": ""}, "ethann-vase-b": {"t": "Ethann Vase-B", "p": "1320.00", "dims": {"width": "8", "height": "53"}, "mat": "Pottery", "col": "Off-white", "d": ""}, "declann-vase-e": {"t": "Declann Vase-E", "p": "1200.00", "dims": {"width": "10", "height": "30"}, "mat": "Pottery", "col": "Beige", "d": ""}, "charm-vase-dh25": {"t": "Charm Vase-DH25", "p": "950.00", "dims": {"width": "11", "height": "29"}, "mat": "Pottery", "col": "off-white", "d": ""}, "mason-vase-zm": {"t": "Mason Vase-ZM", "p": "700.00", "dims": {"width": "11", "height": "20"}, "mat": "Pottery", "col": "Brick", "d": ""}, "eric-vase-yc": {"t": "Eric Vase-YC", "p": "1800.00", "dims": {"width": "25", "height": "53"}, "mat": "Pottery", "col": "Off-white", "d": ""}, "jade-vase-1": {"t": "Jade Vase-1", "p": "1800.00", "dims": {"width": "35", "height": "50"}, "mat": "Pottery", "col": "Offwhite*Bronze", "d": ""}, "sutton-vase-za": {"t": "Sutton Vase-ZA", "p": "1200.00", "dims": {"width": "15", "height": "30"}, "mat": "Pottery", "col": "Off-white", "d": ""}, "beau-vase-ya1": {"t": "Beau Vase-YA1", "p": "1800.00", "dims": {"width": "23", "height": "70"}, "mat": "Pottery", "col": "Off-white", "d": ""}, "the-kai-vase": {"t": "The Kai Vase", "p": "1250.00", "dims": {"width": "25", "height": "52"}, "mat": "Pottery", "col": "Off-white", "d": ""}, "milo-leni-sculpture": {"t": "Milo & Leni Sculpture", "p": "866.00", "dims": {"height": "27"}, "mat": "Textured Pottery", "col": "Natural beige", "d": "A poetic, abstract sculpture that captures a quiet moment of connection — two minimal, faceless figures leaning gently toward one another. Crafted from textured ceramic with a natural matte finish, this piece invites warmth and calm into any room. Its organic form and subtle presence make it an ideal accent on a console, shelf, or side table. Finish: Matte with Textured, organic grain"}, "eloi-table-lamp": {"t": "Eloi Table Lamp", "p": "1550.00", "dims": {"height": "30", "width": "15"}, "mat": "Ceramic base / Fabric shade", "col": "Matte black base / Off-white shade", "d": "A refined table lamp featuring a handcrafted matte black ceramic base with a sculptural, textural finish. Paired with a clean off-white fabric shade, this piece blends minimalism with timeless form — making it a subtle statement in any setting. Ideal for bedside tables, reading corners, or styled alone on a console, it brings calm warmth and quiet elegance to your space."}, "jute-table-lamp": {"t": "Jute Table Lamp", "p": "1550.00", "dims": {"height": "30", "width": "15"}, "mat": "Pottery base / Natural jute shade", "col": "Matte black base / Natural beige shade", "d": "A handcrafted table lamp with a sculptural black ceramic base and a naturally textured finish. The lampshade is made from woven natural jute, adding a warm, organic touch to the piece. Perfect as an accent on a side table, console, or bedside — this lamp brings a sense of calm and understated elegance to any space."}, "nolane-vase-yd": {"t": "Nolane Vase-YD", "p": "1320.00", "dims": {"width": "15", "height": "50"}, "mat": "Pottery", "col": "Off-white", "d": ""}};
+ window.PX_SLOTMETA=window.PX_SLOTMETA||{};
+ function pxMeta(slot){return window.PX_SLOTMETA[slot]||null}
+ function pxPrice(m){if(!m||!m.p)return '';var n=(''+m.p).replace(/\.00$/,'');return n+' EGP'}
+ function pxDims(m){if(!m||!m.dims)return '';var d=m.dims,o=[];
+  if(d.width)o.push('W '+d.width+' CM');if(d.depth)o.push('D '+d.depth+' CM');
+  if(d.diameter)o.push('Ø '+d.diameter+' CM');if(d.height)o.push('H '+d.height+' CM');
+  return o.join('  ×  ')}
+ function pxDesc(m){if(!m)return '';if(m.d&&m.d.length>24)return m.d;
+  var o=[];if(m.mat)o.push(m.mat);if(m.col)o.push(m.col);
+  return o.length?('Handcrafted · '+o.join(' · ')):''}
+
+ /* wire product meta onto slots when the DecoHome library loads them */
+ function pxHookLib(){
+  var selBtn=document.getElementById('dhLoadSel'),allBtn=document.getElementById('dhLoadAll');
+  if(!selBtn||!allBtn||typeof DH_PRODUCTS==='undefined'){setTimeout(pxHookLib,700);return}
+  function fetchDataURL(url){return fetch(url,{mode:'cors'}).then(function(r){return r.blob()}).then(function(b){return new Promise(function(res){var fr=new FileReader();fr.onload=function(){res(fr.result)};fr.readAsDataURL(b)})})}
+  async function loadOne(p){var t=0;for(var j=1;j<=NSLOT;j++)if(!state.slots[j].src){t=j;break}
+   if(!t){growSlots(NSLOT+1);t=NSLOT}
+   try{var data=await fetchDataURL(p.img);state.slots[t].src=data;
+    try{state.slots[t].disp=await makeThumb(data)}catch(e){state.slots[t].disp=data}
+    try{var c=await sampleColor(data);if(c)state.slotColors[t]=c}catch(e){}
+   }catch(e){state.slots[t].src=p.img;state.slots[t].disp=p.img}
+   var m=PX_DB[p.handle];window.PX_SLOTMETA[t]=m?Object.assign({handle:p.handle},m):{t:p.title,p:p.price,dims:{},d:''};
+  }
+  var grid=document.getElementById('dhGrid'),st=document.getElementById('dhStatus');
+  function selIdx(){var out=[];if(!grid)return out;
+   grid.querySelectorAll('.dhp').forEach(function(el){if((el.style.border||'').indexOf('transparent')<0)out.push(+el.dataset.i)});
+   return out}
+  selBtn.onclick=async function(){var ids=selIdx();
+   if(!ids.length){if(st)st.textContent='tap products to select first';return}
+   if(st)st.textContent='loading '+ids.length+'…';
+   for(var i=0;i<ids.length;i++)await loadOne(DH_PRODUCTS[ids[i]]);
+   buildSlots();renderAll();if(typeof renderMirror==='function')renderMirror();
+   if(st)st.textContent=ids.length+' loaded (with real copy)'};
+  allBtn.onclick=async function(){if(st)st.textContent='loading '+DH_PRODUCTS.length+'…';
+   for(var i=0;i<DH_PRODUCTS.length;i++){if(st)st.textContent='loading '+(i+1)+'/'+DH_PRODUCTS.length+'…';await loadOne(DH_PRODUCTS[i])}
+   buildSlots();renderAll();if(typeof renderMirror==='function')renderMirror();
+   if(st)st.textContent='all loaded (with real copy)'};
+ }
+ if(document.readyState==='complete')setTimeout(pxHookLib,900);
+ else window.addEventListener('load',function(){setTimeout(pxHookLib,900)});
+
+ /* ---------- register the four formats ---------- */
+ FORMATS.pxspec={label:'Editorial · Spec Card'};
+ FORMATS.pxsheet={label:'Editorial · Product Sheet'};
+ FORMATS.pxpantone={label:'Pantone Grid · video'};
+ FORMATS.pxflip={label:'Flip Binder · video'};
+ POOL.pxspec='photo';POOL.pxsheet='cream';POOL.pxpantone='cream';POOL.pxflip='photo';
+ if(typeof LAYOUTP!=='undefined'){
+  LAYOUTP.pxspec={min:50,max:74,def:62,lbl:'card size'};
+  LAYOUTP.pxsheet={min:44,max:62,def:54,lbl:'photo width'};
+  LAYOUTP.pxpantone={min:62,max:94,def:80,lbl:'grid width'};
+ }
+ if(typeof DEFAULTS!=='undefined'){DEFAULTS.pxspec=function(){return[]};DEFAULTS.pxsheet=function(){return[]};DEFAULTS.pxpantone=function(){return[]};DEFAULTS.pxflip=function(){return[]}}
+
+ function slotSrc(i){var sl=state.slots[i];return sl&&sl.src?srcOf(sl):null}
+ function pxRot(list,off){ if(!list.length)return null;
+  var r=(typeof state.rot==='number'?state.rot:0);
+  return list[((r+(off||0))%list.length+list.length)%list.length]}
+ function esc(t){return (t||'').replace(/</g,'&lt;')}
+ function tcx(hex){hex=(hex||'#a08d76').replace('#','');
+  var r=parseInt(hex.substr(0,2),16)||0,g=parseInt(hex.substr(2,2),16)||0,b=parseInt(hex.substr(4,2),16)||0;
+  return (11+((r+g)%9))+'-'+String(1000+((r*7+g*13+b*3)%4000))+' TCX'}
+
+ var _px_stage=stageHTMLraw;
+ stageHTMLraw=function(f){
+  if(f!=='pxspec'&&f!=='pxsheet'&&f!=='pxpantone'&&f!=='pxflip')return _px_stage.apply(this,arguments);
+  var a=state.aspect,W=DIMS[a][0],H=DIMS[a][1],c=state.color,fl=filled();
+  var open='<div class="stage" data-w="'+W+'" data-h="'+H+'" style="width:'+W+'px;height:'+H+'px;';
+
+  /* ---- 1) SPEC CARD (Sandy Ceramic pin): photo bg + paper card + real copy ---- */
+  if(f==='pxspec'){
+   var m=pxMeta(typeof slotFor==='function'?slotFor(1):1)||pxMeta(fl[0]);
+   var r=(typeof lay==='function'?lay(f):62)/100;
+   var cw=Math.round(W*r),ch=Math.round(cw*1.46),cx=Math.round((W-cw)/2),cy=Math.round((H-ch)/2);
+   var pad=Math.round(cw*0.075),fs=Math.round(cw*0.045);
+   var nm=m?m.t.toUpperCase():'PRODUCT NAME';
+   var dims=(m&&pxDims(m))||'33 CM × 17 CM';
+   var d=(m&&pxDesc(m))||'The glaze holds fragments of the land itself — capturing the essence of a raw landscape.';
+   return open+'background:#b3a18a">'
+    +'<div style="position:absolute;inset:0">'+C(f,'bg',2,'position:absolute;inset:0',true,0)+'</div>'
+    +'<div style="position:absolute;inset:0;background:rgba(46,36,24,.14)"></div>'
+    +'<div style="position:absolute;left:'+(cx+8)+'px;top:'+(cy+10)+'px;width:'+cw+'px;height:'+ch+'px;background:rgba(20,14,8,.30)"></div>'
+    +'<div style="position:absolute;left:'+cx+'px;top:'+cy+'px;width:'+cw+'px;height:'+ch+'px;background:#e6e1d5;z-index:5">'
+    +CAP(f,'ref','S.1','left:'+pad+'px;top:'+pad+'px;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+fs+'px;color:#181611')
+    +CAP(f,'nm',esc(nm),'right:'+pad+'px;top:'+pad+'px;text-align:right;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+fs+'px;letter-spacing:.04em;color:#181611')
+    +'<div style="position:absolute;left:'+pad+'px;right:'+pad+'px;top:'+Math.round(ch*0.16)+'px;height:'+Math.round(ch*0.5)+'px">'+C(f,'photo',1,'position:absolute;inset:0',true,0)+'</div>'
+    +CAP(f,'dims',esc(dims),'left:0;top:'+Math.round(ch*0.72)+'px;width:'+cw+'px;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:600;font-size:'+Math.round(cw*0.038)+'px;letter-spacing:.06em;color:#242019')
+    +'<div style="position:absolute;left:'+pad+'px;right:'+pad+'px;top:'+Math.round(ch*0.795)+'px;height:1.5px;background:#3a352c"></div>'
+    +CAP(f,'desc',esc(d).toUpperCase(),'left:'+pad+'px;top:'+Math.round(ch*0.825)+'px;width:'+(cw-pad*2)+'px;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:500;font-size:'+Math.round(cw*0.027)+'px;line-height:1.6;letter-spacing:.05em;color:#3a352c')
+    +'</div></div>'}
+
+  /* ---- 2) PRODUCT SHEET (Savona pin): lifestyle left, cutout + spec panel right, real description ---- */
+  if(f==='pxsheet'){
+   var m2=pxMeta(typeof slotFor==='function'?slotFor(1):1)||pxMeta(fl[0]);
+   var r2=(typeof lay==='function'?lay(f):54)/100;
+   var lw=Math.round(W*r2),rw=W-lw,topH=Math.round(H*0.42);
+   var p2=Math.round(rw*0.09),f2=Math.round(rw*0.052);
+   var nm2=m2?m2.t:'Savona Table Lamp';
+   var pr2=(m2&&pxPrice(m2))||'270 EGP';
+   var d2=(m2&&pxDesc(m2))||'Built from two clear volumes, aligned on a single vertical axis. Its diffused light supports everyday use without drawing focus.';
+   var dm2=m2&&m2.dims?m2.dims:{};
+   function cell(lbl,val){return '<div style="flex:1"><div style="font-size:'+Math.round(f2*0.78)+'px;color:#8a8375;margin-bottom:4px">'+lbl+'</div><div style="font-size:'+Math.round(f2*0.95)+'px;color:#23201a;font-weight:600">'+(val?val+' cm':'—')+'</div></div>'}
+   return open+'background:#f6f3ec">'
+    +'<div style="position:absolute;left:0;top:0;width:'+lw+'px;height:'+H+'px">'+C(f,'life',1,'position:absolute;inset:0',true,0)+'</div>'
+    +'<div style="position:absolute;left:'+lw+'px;top:0;width:'+rw+'px;height:'+topH+'px;background:#ffffff">'
+    +'<div style="position:absolute;inset:'+Math.round(rw*0.06)+'px">'+C(f,'photo',2,'position:absolute;inset:0',true,0)+'</div></div>'
+    +'<div style="position:absolute;left:'+lw+'px;top:'+topH+'px;width:'+rw+'px;height:'+(H-topH)+'px;background:#f7f0e3">'
+    +CAP(f,'crumb','• Decor • DecoHome','left:'+p2+'px;top:'+p2+'px;font-family:\'DM Sans\',sans-serif;font-weight:500;font-size:'+Math.round(f2*0.8)+'px;color:#6f6a5e')
+    +CAP(f,'nm',esc(nm2),'left:'+p2+'px;top:'+Math.round(p2+f2*1.7)+'px;width:'+(rw-p2*2)+'px;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(f2*1.35)+'px;color:#1d1a14')
+    +CAP(f,'price',esc(pr2),'left:'+p2+'px;top:'+Math.round(p2+f2*3.6)+'px;font-family:\'DM Sans\',sans-serif;font-weight:500;font-size:'+Math.round(f2*0.9)+'px;color:#55503f')
+    +CAP(f,'ab','About this piece','left:'+p2+'px;top:'+Math.round(p2+f2*5.6)+'px;font-family:\'DM Sans\',sans-serif;font-weight:600;font-size:'+Math.round(f2*0.8)+'px;color:#8a8375')
+    +CAP(f,'desc',esc(d2),'left:'+p2+'px;top:'+Math.round(p2+f2*7.1)+'px;width:'+(rw-p2*2)+'px;font-family:\'DM Sans\',sans-serif;font-weight:400;font-size:'+Math.round(f2*0.92)+'px;line-height:1.62;color:#33302a')
+    +'<div style="position:absolute;left:'+p2+'px;right:'+p2+'px;bottom:'+Math.round(p2*2.1)+'px">'
+    +'<div style="font-family:\'DM Sans\',sans-serif;font-weight:600;font-size:'+Math.round(f2*0.8)+'px;color:#8a8375;margin-bottom:'+Math.round(f2*0.7)+'px">Details</div>'
+    +'<div style="display:flex;gap:'+Math.round(p2*0.5)+'px;font-family:\'DM Sans\',sans-serif">'
+    +cell('Width',dm2.width||dm2.diameter)+cell('Depth',dm2.depth)+cell('Height',dm2.height)
+    +'</div></div>'
+    +'</div></div>'}
+
+  /* ---- 3) PANTONE GRID (rumma pin, video): swatch cards, MP4 = cards reveal one by one ---- */
+  if(f==='pxpantone'){
+   var real=[];for(var i=1;i<=NSLOT;i++)if(state.slots[i].src)real.push(i);
+   if(!real.length)real=fl;
+   var N=Math.min(real.length,9);
+   var reveal=(typeof MP4_REEL!=='undefined'&&MP4_REEL)?Math.min((state.rot||0)+1,N):N;
+   var r3=(typeof lay==='function'?lay(f):80)/100;
+   var cols=N<=1?1:(N<=4?2:3),rows=Math.ceil(N/cols);
+   var gw=Math.round(W*r3),gap=Math.round(gw*0.04);
+   var cw3=Math.round((gw-gap*(cols-1))/cols),chh=Math.round(cw3*1.34),band=Math.round(cw3*0.42);
+   var gh=rows*chh+(rows-1)*gap;
+   var gx=Math.round((W-gw)/2),gy=Math.round((H-gh)/2+H*0.03);
+   var cards='';
+   for(var q=0;q<N;q++){
+    var slot=real[q],src=slotSrc(slot),m3=pxMeta(slot);
+    var colr=state.slotColors[slot]||c;
+    var x=gx+(q%cols)*(cw3+gap),y=gy+Math.floor(q/cols)*(chh+gap);
+    var nm3=m3?m3.t:('Shade '+String(q+1).padStart(2,'0'));
+    cards+='<div style="position:absolute;left:'+x+'px;top:'+y+'px;width:'+cw3+'px;height:'+chh+'px;background:#fff;box-shadow:0 '+Math.round(cw3*0.02)+'px '+Math.round(cw3*0.06)+'px rgba(30,24,14,.16);visibility:'+(q<reveal?'visible':'hidden')+'">'
+     +'<div style="position:absolute;left:0;top:0;right:0;height:'+(chh-band)+'px;background:'+colr+(src?(" url('"+src+"') center/cover"):'')+'"></div>'
+     +'<div style="position:absolute;left:0;bottom:0;right:0;height:'+band+'px;background:#fff;padding:'+Math.round(cw3*0.055)+'px '+Math.round(cw3*0.06)+'px 0;font-family:\'DM Sans\',sans-serif;color:#17150f">'
+     +'<div style="font-weight:800;font-size:'+Math.round(cw3*0.088)+'px;letter-spacing:.01em">PANTONE<span style="font-size:'+Math.round(cw3*0.05)+'px;vertical-align:top">®</span></div>'
+     +CAP(f,'pc'+q,tcx(colr),'position:relative;margin-top:'+Math.round(cw3*0.022)+'px;font-weight:500;font-size:'+Math.round(cw3*0.062)+'px;color:#41403a')
+     +CAP(f,'pn'+q,esc(nm3),'position:relative;margin-top:'+Math.round(cw3*0.012)+'px;font-weight:600;font-size:'+Math.round(cw3*0.066)+'px;color:#17150f')
+     +'</div></div>'}
+   return open+'background:'+surf(f,'bg','#efece4')+'">'
+    +CAP(f,'brand','decohome','left:0;top:'+Math.round(gy*0.34)+'px;width:'+W+'px;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.055)+'px;letter-spacing:.02em;color:#17150f')
+    +cards+'</div>'}
+
+  /* ---- 4) FLIP BINDER (video): two stacked photos joined by binder rings, MP4 = pages flip ---- */
+  if(f==='pxflip'){
+   var real4=[];for(var i4=1;i4<=NSLOT;i4++)if(state.slots[i4].src)real4.push(i4);
+   if(!real4.length)real4=fl;
+   var top=pxRot(real4,0),bot=pxRot(real4,1);
+   var sT=slotSrc(top),sB=slotSrc(bot);
+   var mid=Math.round(H/2),rw4=Math.round(W*0.035),rh4=Math.round(rw4*1.9);
+   var rings='';
+   for(var k4=0;k4<3;k4++){var rx=Math.round(W*(0.2+k4*0.3))-Math.round(rw4/2);
+    rings+='<div style="position:absolute;left:'+rx+'px;top:'+(mid-Math.round(rh4/2))+'px;width:'+rw4+'px;height:'+rh4+'px;border:'+Math.max(3,Math.round(rw4*0.22))+'px solid #d8d8d8;border-radius:'+rw4+'px;background:transparent;box-shadow:0 2px 6px rgba(0,0,0,.55),inset 0 1px 2px rgba(255,255,255,.6);z-index:9"></div>'}
+   return open+'background:#0c0c0c">'
+    +'<div style="position:absolute;left:0;top:0;width:'+W+'px;height:'+mid+'px;background:#191919'+(sT?(" url('"+sT+"') center/cover"):'')+'"></div>'
+    +'<div style="position:absolute;left:0;top:'+mid+'px;width:'+W+'px;height:'+(H-mid)+'px;background:#232323'+(sB?(" url('"+sB+"') center/cover"):'')+'"></div>'
+    +'<div style="position:absolute;left:0;top:'+(mid-3)+'px;width:'+W+'px;height:2px;background:rgba(255,255,255,.85);z-index:8"></div>'
+    +'<div style="position:absolute;left:0;top:'+(mid+1)+'px;width:'+W+'px;height:2px;background:rgba(0,0,0,.5);z-index:8"></div>'
+    +rings
+    +CAP(f,'brand','DECOHOME©','left:'+Math.round(W*0.045)+'px;top:'+Math.round(W*0.04)+'px;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.026)+'px;letter-spacing:.14em;color:#fff;z-index:12')
+    +'</div>'}
+  return _px_stage.apply(this,arguments)};
+
+ /* ---------- smooth brand-colour picker ---------- */
+ function pxFixPicker(){
+  var ci=document.getElementById('color');if(!ci){setTimeout(pxFixPicker,700);return}
+  var t=null;
+  ci.oninput=function(e){state.color=e.target.value;
+   clearTimeout(t);t=setTimeout(function(){try{renderStage()}catch(_){}} ,140)};
+  ci.onchange=function(e){state.color=e.target.value;clearTimeout(t);
+   try{renderAll()}catch(_){}};
+ }
+ if(document.readyState==='complete')pxFixPicker();
+ else window.addEventListener('load',function(){setTimeout(pxFixPicker,400)});
+
+ try{buildFmtList()}catch(e){}
+})();
+</script>
+
 </body>
 </html>
