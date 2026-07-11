@@ -5851,11 +5851,11 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
     +'<div style="position:absolute;left:'+(cx+8)+'px;top:'+(cy+10)+'px;width:'+cw+'px;height:'+ch+'px;background:rgba(20,14,8,.30)"></div>'
     +'<div style="position:absolute;left:'+cx+'px;top:'+cy+'px;width:'+cw+'px;height:'+ch+'px;background:#e6e1d5;z-index:5">'
     +CAP(f,'ref','S.1','left:'+pad+'px;top:'+pad+'px;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+fs+'px;color:#181611')
-    +CAP(f,'nm',esc(nm),'right:'+pad+'px;top:'+pad+'px;text-align:right;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+fs+'px;letter-spacing:.04em;color:#181611')
+    +CAP(f,'nm',esc(nm),'right:'+pad+'px;top:'+pad+'px;justify-content:flex-end;text-align:right;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+fs+'px;letter-spacing:.09em;color:#181611')
     +'<div style="position:absolute;left:'+pad+'px;right:'+pad+'px;top:'+Math.round(ch*0.16)+'px;height:'+Math.round(ch*0.5)+'px">'+C(f,'photo',1,'position:absolute;inset:0',true,0)+'</div>'
-    +CAP(f,'dims',esc(dims),'left:0;top:'+Math.round(ch*0.72)+'px;width:'+cw+'px;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:600;font-size:'+Math.round(cw*0.038)+'px;letter-spacing:.06em;color:#242019')
+    +CAP(f,'dims',esc(dims),'left:0;top:'+Math.round(ch*0.72)+'px;width:'+cw+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:500;font-size:'+Math.round(cw*0.036)+'px;letter-spacing:.14em;color:#242019')
     +'<div style="position:absolute;left:'+pad+'px;right:'+pad+'px;top:'+Math.round(ch*0.795)+'px;height:1.5px;background:#3a352c"></div>'
-    +CAP(f,'desc',esc(d).toUpperCase(),'left:'+pad+'px;top:'+Math.round(ch*0.825)+'px;width:'+(cw-pad*2)+'px;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:500;font-size:'+Math.round(cw*0.027)+'px;line-height:1.6;letter-spacing:.05em;color:#3a352c')
+    +CAP(f,'desc',esc(d).toUpperCase(),'left:'+pad+'px;top:'+Math.round(ch*0.825)+'px;width:'+(cw-pad*2)+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:500;font-size:'+Math.round(cw*0.027)+'px;line-height:1.6;letter-spacing:.05em;color:#3a352c')
     +'</div></div>'}
 
   /* ---- 2) PRODUCT SHEET (Savona pin): lifestyle left, cutout + spec panel right, real description ---- */
@@ -5912,7 +5912,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
      +CAP(f,'pn'+q,esc(nm3),'position:relative;margin-top:'+Math.round(cw3*0.012)+'px;font-weight:600;font-size:'+Math.round(cw3*0.066)+'px;color:#17150f')
      +'</div></div>'}
    return open+'background:'+surf(f,'bg','#efece4')+'">'
-    +CAP(f,'brand','decohome','left:0;top:'+Math.round(gy*0.34)+'px;width:'+W+'px;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.055)+'px;letter-spacing:.02em;color:#17150f')
+    +CAP(f,'brand','decohome','left:0;top:'+Math.round(gy*0.34)+'px;width:'+W+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.055)+'px;letter-spacing:.02em;color:#17150f')
     +cards+'</div>'}
 
   /* ---- 4) FLIP BINDER (video): two stacked photos joined by binder rings, MP4 = pages flip ---- */
@@ -5948,6 +5948,71 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
  else window.addEventListener('load',function(){setTimeout(pxFixPicker,400)});
 
  try{buildFmtList()}catch(e){}
+})();
+</script>
+
+
+<script>
+/* ===== v11 patch: free MP4 speed (down to 0.1s) + visible collection loader ===== */
+(function(){
+ /* ---- 1) MP4 speed: allow 0.1s, no forced beat-snapping on the slider ---- */
+ function freeSpeed(){
+  var sp=document.getElementById('mp4speed');if(!sp){setTimeout(freeSpeed,800);return}
+  sp.min='0.1';sp.step='0.05';
+  sp.oninput=function(e){
+   var raw=+e.target.value;var v=Math.max(0.1,Math.round(raw/0.05)*0.05);v=Math.round(v*100)/100;
+   if(typeof MP4!=='undefined'&&MP4.durs)MP4.durs=MP4.durs.map(function(){return v});
+   var lb=document.getElementById('mp4speedv');if(lb)lb.textContent=v.toFixed(2)+'s';
+   var box=document.getElementById('mp4slides');
+   if(box){box.querySelectorAll('input[type=range]').forEach(function(r){r.min='0.1';r.step='0.05';r.value=v});
+    box.querySelectorAll('.ictl > span').forEach(function(sx){sx.textContent=v.toFixed(2)+'s'})}
+  };
+  if(typeof buildMp4Slides==='function'){
+   var _b=buildMp4Slides;
+   buildMp4Slides=function(){var r=_b.apply(this,arguments);
+    var box=document.getElementById('mp4slides');
+    if(box)box.querySelectorAll('input[type=range]').forEach(function(rg){rg.min='0.1';rg.step='0.05'});
+    return r};
+  }
+ }
+ if(document.readyState==='complete')freeSpeed();
+ else window.addEventListener('load',function(){setTimeout(freeSpeed,500)});
+
+ /* ---- 2) Collection loader you can actually see ---- */
+ function bigLoader(){
+  var syncBtn=document.getElementById('syAddCol'),grid=document.getElementById('syGrid'),
+      loadAll=document.getElementById('syLoadAll'),loadSel=document.getElementById('syLoadSel'),
+      toL=document.getElementById('syToLauncher'),prog=document.getElementById('syProgWrap');
+  if(!syncBtn||!grid||!loadAll){setTimeout(bigLoader,800);return}
+  /* make the real buttons look primary too */
+  loadAll.style.cssText+=';background:#4ea56f;border-color:#4ea56f;color:#0f1116;font-weight:800;padding:11px 8px;font-size:13px;border-radius:10px';
+  loadSel.style.cssText+=';padding:11px 8px;font-weight:700;border-radius:10px';
+  /* big CTA right under the Sync button */
+  var cta=document.createElement('button');cta.id='syBigLoad';
+  cta.style.cssText='display:none;width:100%;box-sizing:border-box;margin:8px 0 2px;padding:14px 12px;background:#4ea56f;border:none;border-radius:12px;color:#0b1210;font-weight:900;font-size:14.5px;cursor:pointer;box-shadow:0 4px 18px rgba(78,165,111,.35)';
+  var cta2=document.createElement('button');cta2.id='syBigSend';
+  cta2.style.cssText='display:none;width:100%;box-sizing:border-box;margin:6px 0 2px;padding:11px 12px;background:transparent;border:1.5px solid #4ea56f;border-radius:12px;color:#7dd8a0;font-weight:700;font-size:12.5px;cursor:pointer';
+  (prog&&prog.parentNode?prog:syncBtn).insertAdjacentElement('afterend',cta2);
+  (prog&&prog.parentNode?prog:syncBtn).insertAdjacentElement('afterend',cta);
+  cta.onclick=function(){loadAll.click()};
+  cta2.onclick=function(){if(toL)toL.click()};
+  function refresh(){
+   var n=grid.children.length;
+   if(n>0){cta.style.display='block';cta2.style.display=toL?'block':'none';
+    cta.textContent='⬇ Load all '+n+' product'+(n>1?'s':'')+' into the builder';
+    cta2.textContent='🚀 Or send all '+n+' straight to the Launcher';}
+   else{cta.style.display='none';cta2.style.display='none'}
+  }
+  new MutationObserver(refresh).observe(grid,{childList:true});
+  refresh();
+  /* after hitting Sync, bring the loader into view once products land */
+  syncBtn.addEventListener('click',function(){
+   var tries=0,t=setInterval(function(){tries++;
+    if(grid.children.length>0){clearInterval(t);refresh();cta.scrollIntoView({behavior:'smooth',block:'center'});}
+    if(tries>40)clearInterval(t)},500)});
+ }
+ if(document.readyState==='complete')bigLoader();
+ else window.addEventListener('load',function(){setTimeout(bigLoader,600)});
 })();
 </script>
 
