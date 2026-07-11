@@ -5677,5 +5677,85 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
 })();
 </script>
 
+<script>
+/* ===== v9 patch: background-proof MP4 export =====
+   Bug: recording is realtime (canvas.captureStream + MediaRecorder) paced by rAF/setTimeout.
+   If the tab is hidden mid-export, Chrome suspends rAF and throttles timers — the render loop
+   freezes while the recorder clock keeps running, producing e.g. a 25-minute file with one
+   frozen frame. Fix: while an export runs, pace via a Web Worker clock (immune to tab
+   throttling) whenever the tab is hidden, flush any stranded rAF/timer waits on hide, and
+   force captureStream frames with track.requestFrame() since hidden tabs don't composite. */
+(function(){
+ if(typeof recordFramesProg!=='function'&&typeof recordFrames!=='function')return;
+ var wk=null,wid=0,waiters={};
+ function worker(){
+  if(wk)return wk;
+  var src='onmessage=function(e){setTimeout(function(){postMessage(e.data.id)},e.data.ms)}';
+  wk=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
+  wk.onmessage=function(e){var r=waiters[e.data];delete waiters[e.data];if(r)r()};
+  return wk;
+ }
+ function wSleep(ms){return new Promise(function(r){var id=++wid;waiters[id]=r;worker().postMessage({id:id,ms:Math.max(0,ms||0)})})}
+
+ var engaged=0,capTracks=[],rafPend=[],stPend=[];
+ var _st=window.setTimeout,_ct=window.clearTimeout,_raf=window.requestAnimationFrame;
+ var _cap=HTMLCanvasElement.prototype.captureStream;
+ var _draw=CanvasRenderingContext2D.prototype.drawImage;
+
+ HTMLCanvasElement.prototype.captureStream=function(){
+  var s=_cap.apply(this,arguments);
+  if(engaged){try{s.getVideoTracks().forEach(function(t){capTracks.push(t)})}catch(_){}}
+  return s;
+ };
+ CanvasRenderingContext2D.prototype.drawImage=function(){
+  var r=_draw.apply(this,arguments);
+  if(engaged&&document.hidden&&capTracks.length){
+   for(var i=0;i<capTracks.length;i++){try{capTracks[i].requestFrame&&capTracks[i].requestFrame()}catch(_){}}
+  }
+  return r;
+ };
+
+ function patchedST(fn,ms){
+  if(!engaged||typeof fn!=='function'||(ms||0)>5000)return _st.apply(window,arguments);
+  var extra=Array.prototype.slice.call(arguments,2),done=false,rec;
+  function run(){if(done)return;done=true;var ix=stPend.indexOf(rec);if(ix>-1)stPend.splice(ix,1);try{fn.apply(null,extra)}catch(_){}}
+  rec={run:run,ms:ms||0,nid:0};
+  rec.nid=_st.call(window,run,ms||0);
+  if(document.hidden){wSleep(ms||0).then(function(){_ct.call(window,rec.nid);run()})}
+  else stPend.push(rec);
+  return rec.nid;
+ }
+ function patchedRAF(cb){
+  if(!engaged)return _raf.call(window,cb);
+  if(document.hidden){wSleep(16).then(function(){try{cb(performance.now())}catch(_){}});return -1}
+  var rec={cb:cb,done:false};
+  rafPend.push(rec);
+  return _raf.call(window,function(t){if(rec.done)return;rec.done=true;var ix=rafPend.indexOf(rec);if(ix>-1)rafPend.splice(ix,1);cb(t)});
+ }
+ function onVis(){
+  if(!engaged||!document.hidden)return;
+  var rafs=rafPend.slice();rafPend.length=0;
+  rafs.forEach(function(rec){wSleep(16).then(function(){if(rec.done)return;rec.done=true;try{rec.cb(performance.now())}catch(_){}})});
+  var sts=stPend.slice();stPend.length=0;
+  sts.forEach(function(rec){wSleep(rec.ms).then(function(){_ct.call(window,rec.nid);rec.run()})});
+ }
+ document.addEventListener('visibilitychange',onVis);
+
+ function engage(){
+  engaged++;
+  if(engaged===1){capTracks.length=0;rafPend.length=0;stPend.length=0;window.setTimeout=patchedST;window.requestAnimationFrame=patchedRAF}
+ }
+ function release(){
+  engaged=Math.max(0,engaged-1);
+  if(!engaged){window.setTimeout=_st;window.requestAnimationFrame=_raf;capTracks.length=0;rafPend.length=0;stPend.length=0}
+ }
+ function wrap(orig){
+  return async function(){engage();try{return await orig.apply(this,arguments)}finally{release()}}
+ }
+ if(typeof recordFramesProg==='function')recordFramesProg=wrap(recordFramesProg);
+ if(typeof recordFrames==='function')recordFrames=wrap(recordFrames);
+})();
+</script>
+
 </body>
 </html>

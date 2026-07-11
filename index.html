@@ -656,6 +656,40 @@ async function uploadImageBytes(acct,b64){
 function fileToB64(fileOrBlob){
   return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=()=>rej(new Error('Read failed'));r.readAsDataURL(fileOrBlob)});
 }
+/* Meta rejects oversized images ("Resized Image Too Large") — studio exports are 3x (e.g. 3240x5760).
+   Downscale to ad-spec pixels (max 1080 wide / 1920 tall) with high-quality stepped resampling before upload.
+   3x source downscaled = sharper than a native 1x export, so zero quality loss on Meta's end. */
+async function shrinkForMeta(blob){
+  try{
+    const type=(blob&&blob.type)||'';
+    if(type&&!/^image\//.test(type))return blob;
+    if(type==='image/gif')return blob; // keep animated gifs untouched
+    let img;
+    try{img=await createImageBitmap(blob)}catch(e){return blob}
+    const MAXW=1080,MAXH=1920,MAXBYTES=7.5*1024*1024;
+    const sc=Math.min(1,MAXW/img.width,MAXH/img.height);
+    if(sc>=1&&blob.size<=MAXBYTES){try{img.close&&img.close()}catch(_){ } return blob}
+    const tw=Math.max(1,Math.round(img.width*Math.min(sc,1))),th=Math.max(1,Math.round(img.height*Math.min(sc,1)));
+    // stepped halving keeps text/edges crisp on big downscales
+    let cur=img,w=img.width,h=img.height;
+    while(w/2>=tw&&h/2>=th){
+      const c=document.createElement('canvas');c.width=Math.round(w/2);c.height=Math.round(h/2);
+      const x=c.getContext('2d');x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';
+      x.drawImage(cur,0,0,c.width,c.height);cur=c;w=c.width;h=c.height;
+    }
+    const c=document.createElement('canvas');c.width=tw;c.height=th;
+    const x=c.getContext('2d');x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';
+    x.drawImage(cur,0,0,w,h,0,0,tw,th);
+    try{img.close&&img.close()}catch(_){ }
+    let out=await new Promise(r=>c.toBlob(r,'image/png'));
+    if(out&&out.size>MAXBYTES){
+      const c2=document.createElement('canvas');c2.width=tw;c2.height=th;
+      const x2=c2.getContext('2d');x2.fillStyle='#fff';x2.fillRect(0,0,tw,th);x2.drawImage(c,0,0);
+      out=await new Promise(r=>c2.toBlob(r,'image/jpeg',0.95));
+    }
+    return out||blob;
+  }catch(e){return blob}
+}
 async function proxyFetchBlob(url){
   let last;
   for(const p of PROXIES){
@@ -1490,13 +1524,13 @@ async function prepareMedia(useOverlay){
       if(useOverlay)loStart('up-'+m.uiId);
       setMediaState(m,'uploading…');
       let b64;
-      if(m.src==='local'){ b64=await fileToB64(m.file); }
+      if(m.src==='local'){ b64=await fileToB64(await shrinkForMeta(m.file)); }
       else {
         log('Fetching image '+m.name+'…','busy'); setMediaState(m,'fetching…');
         let blob;
         try{blob=await proxyFetchBlob(m.url)}
         catch(e){ if(m.driveId){blob=await proxyFetchBlob('https://drive.google.com/thumbnail?id='+m.driveId+'&sz=w2000')} else throw e }
-        b64=await fileToB64(blob);
+        b64=await fileToB64(await shrinkForMeta(blob));
       }
       m.hash=await uploadImageBytes(S.acct,b64);
       upcSet(m,{hash:m.hash});
