@@ -2485,177 +2485,82 @@ async function csRun(record){
 
 
 <script>
-/* ===== v2 launcher patch: persistent media library =====
-   Everything imported/exported into the launcher (studio exports, Drive items, local files,
-   Telegram pulls) is saved in IndexedDB and restored after a refresh. Meta upload hashes are
-   kept too, so re-launching restored media skips re-uploading. */
+/* ===== v2 launcher patch (rev2): persistent media library — lock-proof ===== */
 (function(){
- var DBN='launcher_lib',ST='media',CLEARED=false;
- function db(){
-  if(window.__llDB&&window.__llDB.__open)return Promise.resolve(window.__llDB);
+ var CLEARED=false;
+ function safeOpen(name,store){
+  var ck='__db_'+name;
+  if(window[ck]&&window[ck].__open)return Promise.resolve(window[ck]);
   return new Promise(function(res,rej){
-   var settled=false;function ok(d){if(settled)return;settled=true;d.__open=true;
-    d.onversionchange=function(){d.__open=false;try{d.close()}catch(e){}};window.__llDB=d;res(d)}
-   function bad(e){if(settled)return;settled=true;rej(e||new Error('idb error'))}
-   var r=indexedDB.open(DBN);
-   r.onsuccess=function(){
-    var d=r.result;
-    var need=['media','archive'].filter(function(st){return !d.objectStoreNames.contains(st)});
-    if(!need.length){ok(d);return}
+   var settled=false;
+   function ok(d){if(settled){try{d.close()}catch(e){}return}settled=true;d.__open=true;
+    d.onversionchange=function(){d.__open=false;try{d.close()}catch(e){}};window[ck]=d;res(d)}
+   function bad(e){if(settled)return;settled=true;rej(e||new Error('idb'))}
+   setTimeout(function(){bad(new Error('locked by another open Launcher tab'))},3500);
+   var r=indexedDB.open(name);
+   r.onsuccess=function(){var d=r.result;
+    if(d.objectStoreNames.contains(store)){ok(d);return}
     var v=d.version+1;d.close();
-    var r2=indexedDB.open(DBN,v);
-    r2.onupgradeneeded=function(){var d2=r2.result;['media','archive'].forEach(function(st){if(!d2.objectStoreNames.contains(st))d2.createObjectStore(st)})};
-    r2.onsuccess=function(){ok(r2.result)};
-    r2.onerror=function(){bad(r2.error)};
-    r2.onblocked=function(){setTimeout(function(){bad(new Error('blocked by another open launcher tab'))},4000)};
+    var r2=indexedDB.open(name,v);
+    r2.onupgradeneeded=function(){var d2=r2.result;if(!d2.objectStoreNames.contains(store))d2.createObjectStore(store)};
+    r2.onsuccess=function(){ok(r2.result)};r2.onerror=function(){bad(r2.error)};
    };
    r.onerror=function(){bad(r.error)};
   });
  }
+ window.__pxSafeOpen=safeOpen;
+ function ldb(){return safeOpen('launcher_lib','media')}
+ function adb(){return safeOpen('launcher_arch','archive')}
  function keyOf(m){return m.driveId?('d_'+m.driveId):(m.url?('u_'+m.url):('l_'+(m.name||'')+'|'+(m.size||0)))}
-
- var snapTimer=null;
+ window.__pxKeyOf=keyOf;
+ function metaOf(m,withBlob){
+  var rec={kind:m.kind,src:m.src,name:m.name,adName:m.adName||'',link:m.link||'',target:m.target||'',
+   size:m.size||0,driveId:m.driveId||null,url:m.url||null,hash:m.hash||null,id:m.id||null,thumb:m.thumb||null,t:Date.now()};
+  if(withBlob)rec.blob=(m.src==='local'&&m.file)?m.file:null;
+  return rec;
+ }
+ var snapTimer=null,LOCKED=false;
  function scheduleSnap(){clearTimeout(snapTimer);snapTimer=setTimeout(snapshot,1200)}
  async function snapshot(){
   if(CLEARED)return;
+  var items=(typeof S!=='undefined'&&S.media?S.media:[]).filter(function(m){return m.kind!=='existing'});
   try{
-   var d=await db();
-   var existing=await new Promise(function(res){var out=[];var c=d.transaction(ST).objectStore(ST).openKeyCursor();
+   var d=await ldb();LOCKED=false;
+   var keys=await new Promise(function(res){var out=[];var c=d.transaction('media').objectStore('media').openKeyCursor();
     c.onsuccess=function(){var cu=c.result;if(cu){out.push(cu.key);cu.continue()}else res(out)}});
-   var items=((typeof S!=='undefined')&&S.media?S.media:[]).filter(function(m){return m.kind!=='existing'});
    var want={};items.forEach(function(m){want[keyOf(m)]=m});
-   var tx=d.transaction(ST,'readwrite'),st=tx.objectStore(ST);
-   existing.forEach(function(k){if(!want[k])st.delete(k)});
+   var tx=d.transaction('media','readwrite'),st=tx.objectStore('media');
+   keys.forEach(function(k){if(!want[k])st.delete(k)});
    items.forEach(function(m){var k=keyOf(m);
-    var meta={kind:m.kind,src:m.src,name:m.name,adName:m.adName||'',link:m.link||'',target:m.target||'',
-     size:m.size||0,driveId:m.driveId||null,url:m.url||null,hash:m.hash||null,id:m.id||null,thumb:m.thumb||null,t:Date.now()};
-    if(existing.indexOf(k)>-1){
-     var g=st.get(k);
-     g.onsuccess=function(){var old=g.result||{};meta.blob=old.blob||null;try{st.put(meta,k)}catch(e){}};
-    }else{
-     meta.blob=(m.src==='local'&&m.file)?m.file:null;
-     try{st.put(meta,k)}catch(e){}
-    }});
-   /* append-only archive: everything ever added is kept for the Reuse tab */
-   try{
-    var akeys=await new Promise(function(res){var out=[];var c=d.transaction('archive').objectStore('archive').openKeyCursor();
-     c.onsuccess=function(){var cu=c.result;if(cu){out.push(cu.key);cu.continue()}else res(out)}});
-    var atx=d.transaction('archive','readwrite'),ast=atx.objectStore('archive');
-    items.forEach(function(m){var k=keyOf(m);
-     if(akeys.indexOf(k)>-1)return;
-     var rec={kind:m.kind,src:m.src,name:m.name,adName:m.adName||'',link:m.link||'',target:m.target||'',
-      size:m.size||0,driveId:m.driveId||null,url:m.url||null,hash:m.hash||null,id:m.id||null,thumb:m.thumb||null,t:Date.now(),
-      blob:(m.src==='local'&&m.file)?m.file:null};
-     try{ast.put(rec,k)}catch(e){}});
-   }catch(e){}
-   updateBadge();
+    if(keys.indexOf(k)>-1){var g=st.get(k);g.onsuccess=function(){var old=g.result||{};var meta=metaOf(m);meta.blob=old.blob||((m.src==='local'&&m.file)?m.file:null);try{st.put(meta,k)}catch(e){}}}
+    else{try{st.put(metaOf(m,true),k)}catch(e){}}});
+  }catch(e){LOCKED=true}
+  try{
+   var ad=await adb();
+   var akeys=await new Promise(function(res){var out=[];var c=ad.transaction('archive').objectStore('archive').openKeyCursor();
+    c.onsuccess=function(){var cu=c.result;if(cu){out.push(cu.key);cu.continue()}else res(out)}});
+   var atx=ad.transaction('archive','readwrite'),ast=atx.objectStore('archive');
+   items.forEach(function(m){var k=keyOf(m);if(akeys.indexOf(k)>-1)return;try{ast.put(metaOf(m,true),k)}catch(e){}});
   }catch(e){}
+  updateBadge();
  }
-
+ window.__pxAddRecFields=null;
  async function restore(){
   try{
-   var d=await db();
-   var recs=await new Promise(function(res){var out=[];var c=d.transaction(ST).objectStore(ST).openCursor();
+   var d=await ldb();
+   var recs=await new Promise(function(res){var out=[];var c=d.transaction('media').objectStore('media').openCursor();
     c.onsuccess=function(){var cu=c.result;if(cu){out.push({k:cu.key,v:cu.value});cu.continue()}else res(out)}});
    if(!recs.length){updateBadge();return}
    var have={};S.media.forEach(function(m){have[keyOf(m)]=1});
    var n=0;
    recs.sort(function(a,b){return (a.v.t||0)-(b.v.t||0)});
-   recs.forEach(function(r){
-    if(have[r.k])return;
-    var v=r.v,m=null;
-    if(v.src==='local'){
-     if(!v.blob)return;
-     var f=new File([v.blob],v.name,{type:v.blob.type||(v.kind==='video'?'video/mp4':'image/png')});
-     m={kind:v.kind,src:'local',file:f,name:v.name,size:v.size||f.size,link:v.link||'',adName:v.adName||v.name,target:v.target||''};
-     if(v.kind==='image')m.preview=URL.createObjectURL(f);
-    }else{
-     m={kind:v.kind,src:v.src||'drive',name:v.name,link:v.link||'',adName:v.adName||v.name,target:v.target||''};
-     if(v.driveId){m.driveId=v.driveId;m.url=v.url||(typeof driveDirect==='function'?driveDirect(v.driveId):v.url)}
-     else if(v.url){m.url=v.url;m.preview=v.url}
-     else return;
-    }
-    if(v.hash)m.hash=v.hash;
-    if(v.id)m.id=v.id;
-    if(v.thumb)m.thumb=v.thumb;
-    S.media.push(m);n++;
-   });
+   recs.forEach(function(r){if(have[r.k])return;if(window.__pxAddRec(r.v))n++});
    if(n){try{sortMedia()}catch(e){}try{renderMedia()}catch(e){}try{paint()}catch(e){}
     try{log('🗂 '+n+' creative(s) restored from your saved library','ok')}catch(e){}}
    updateBadge();
-  }catch(e){}
+  }catch(e){updateBadge()}
  }
-
- function updateBadge(){
-  var g=document.getElementById('mediaGrid');if(!g)return;
-  var el=document.getElementById('libBadge');
-  if(!el){
-   el=document.createElement('div');el.id='libBadge';
-   el.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;margin:7px 0 0;font-size:10.5px;color:#8b93a3';
-   el.innerHTML='<span id="libTxt"></span><button id="libClear" style="background:none;border:1px solid #3a4152;color:#aab;border-radius:7px;padding:3px 8px;font-size:10px;cursor:pointer">Clear saved library</button>';
-   g.insertAdjacentElement('afterend',el);
-   el.querySelector('#libClear').onclick=async function(){
-    if(!confirm('Forget all saved creatives? (does not remove them from the current list)'))return;
-    CLEARED=true;
-    try{var d=await db();await new Promise(function(res){var t=d.transaction(ST,'readwrite');t.objectStore(ST).clear();t.oncomplete=res})}catch(e){}
-    var tx=document.getElementById('libTxt');if(tx)tx.textContent='🗂 library cleared — nothing will be restored next refresh';
-   };
-  }
-  var items=((typeof S!=='undefined')&&S.media?S.media:[]).filter(function(m){return m.kind!=='existing'});
-  var tx2=document.getElementById('libTxt');
-  if(tx2&&!CLEARED)tx2.textContent='🗂 '+items.length+' creative(s) auto-saved — they survive refresh';
- }
-
- function hook(){
-  if(typeof renderMedia!=='function'||typeof S==='undefined'){setTimeout(hook,700);return}
-  var _rm=renderMedia;
-  renderMedia=function(){var r=_rm.apply(this,arguments);scheduleSnap();updateBadge();return r};
-  setInterval(function(){snapshot()},20000);
-  setTimeout(restore,1400);
- }
- if(document.readyState==='complete')hook();
- else window.addEventListener('load',hook);
-})();
-</script>
-
-
-<script>
-/* ===== v3 launcher patch: dedicated "Reuse exported content" tab ===== */
-(function(){
- var DBN='launcher_lib';
- function db(){
-  if(window.__llDB&&window.__llDB.__open)return Promise.resolve(window.__llDB);
-  return new Promise(function(res,rej){
-   var settled=false;function ok(d){if(settled)return;settled=true;d.__open=true;
-    d.onversionchange=function(){d.__open=false;try{d.close()}catch(e){}};window.__llDB=d;res(d)}
-   function bad(e){if(settled)return;settled=true;rej(e||new Error('idb error'))}
-   var r=indexedDB.open(DBN);
-   r.onsuccess=function(){
-    var d=r.result;
-    var need=['media','archive'].filter(function(st){return !d.objectStoreNames.contains(st)});
-    if(!need.length){ok(d);return}
-    var v=d.version+1;d.close();
-    var r2=indexedDB.open(DBN,v);
-    r2.onupgradeneeded=function(){var d2=r2.result;['media','archive'].forEach(function(st){if(!d2.objectStoreNames.contains(st))d2.createObjectStore(st)})};
-    r2.onsuccess=function(){ok(r2.result)};
-    r2.onerror=function(){bad(r2.error)};
-    r2.onblocked=function(){setTimeout(function(){bad(new Error('blocked by another open launcher tab'))},4000)};
-   };
-   r.onerror=function(){bad(r.error)};
-  });
- }
- function keyOf(m){return m.driveId?('d_'+m.driveId):(m.url?('u_'+m.url):('l_'+(m.name||'')+'|'+(m.size||0)))}
- async function allArchive(){
-  var d=await db();
-  return await new Promise(function(res){var out=[];var c=d.transaction('archive').objectStore('archive').openCursor();
-   c.onsuccess=function(){var cu=c.result;if(cu){out.push({k:cu.key,v:cu.value});cu.continue()}else res(out)}})}
- async function delArchive(keys){
-  var d=await db();
-  await new Promise(function(res){var t=d.transaction('archive','readwrite'),st=t.objectStore('archive');
-   keys.forEach(function(k){st.delete(k)});t.oncomplete=res})}
-
- function inList(k){for(var i=0;i<S.media.length;i++)if(keyOf(S.media[i])===k)return true;return false}
- function addRec(v){
+ window.__pxAddRec=function(v){
   var m=null;
   if(v.src==='local'){
    if(!v.blob)return false;
@@ -2670,9 +2575,53 @@ async function csRun(record){
   }
   if(v.hash)m.hash=v.hash;if(v.id)m.id=v.id;if(v.thumb)m.thumb=v.thumb;
   S.media.push(m);return true;
+ };
+ function updateBadge(){
+  var g=document.getElementById('mediaGrid');if(!g)return;
+  var el=document.getElementById('libBadge');
+  if(!el){
+   el=document.createElement('div');el.id='libBadge';
+   el.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;margin:7px 0 0;font-size:10.5px;color:#8b93a3';
+   el.innerHTML='<span id="libTxt"></span><button id="libClear" style="background:none;border:1px solid #cfd6e2;color:#667;border-radius:7px;padding:3px 8px;font-size:10px;cursor:pointer">Clear saved library</button>';
+   g.insertAdjacentElement('afterend',el);
+   el.querySelector('#libClear').onclick=async function(){
+    if(!confirm('Forget all saved creatives? (does not remove them from the current list)'))return;
+    CLEARED=true;
+    try{var d=await ldb();await new Promise(function(res){var t=d.transaction('media','readwrite');t.objectStore('media').clear();t.oncomplete=res})}catch(e){}
+    var tx=document.getElementById('libTxt');if(tx)tx.textContent='🗂 library cleared — nothing will be restored next refresh';
+   };
+  }
+  var items=(typeof S!=='undefined'&&S.media?S.media:[]).filter(function(m){return m.kind!=='existing'});
+  var tx2=document.getElementById('libTxt');
+  if(tx2&&!CLEARED)tx2.textContent=LOCKED?'⚠ can’t auto-save — close your other Launcher tabs':'🗂 '+items.length+' creative(s) auto-saved — they survive refresh';
  }
- function refreshApp(){try{sortMedia()}catch(e){}try{renderMedia()}catch(e){}try{paint()}catch(e){}}
+ function hook(){
+  if(typeof renderMedia!=='function'||typeof S==='undefined'){setTimeout(hook,700);return}
+  var _rm=renderMedia;
+  renderMedia=function(){var r=_rm.apply(this,arguments);scheduleSnap();updateBadge();return r};
+  setInterval(function(){snapshot()},20000);
+  setTimeout(restore,1400);
+ }
+ if(document.readyState==='complete')hook();
+ else window.addEventListener('load',hook);
+})();
+</script>
 
+<script>
+/* ===== v3 launcher patch (rev2): dedicated "Reuse exported content" tab ===== */
+(function(){
+ function adb(){return window.__pxSafeOpen('launcher_arch','archive')}
+ function keyOf(m){return window.__pxKeyOf(m)}
+ async function allArchive(){
+  var d=await adb();
+  return await new Promise(function(res){var out=[];var c=d.transaction('archive').objectStore('archive').openCursor();
+   c.onsuccess=function(){var cu=c.result;if(cu){out.push({k:cu.key,v:cu.value});cu.continue()}else res(out)}})}
+ async function delArchive(keys){
+  var d=await adb();
+  await new Promise(function(res){var t=d.transaction('archive','readwrite'),st=t.objectStore('archive');
+   keys.forEach(function(k){st.delete(k)});t.oncomplete=res})}
+ function inList(k){for(var i=0;i<S.media.length;i++)if(keyOf(S.media[i])===k)return true;return false}
+ function refreshApp(){try{sortMedia()}catch(e){}try{renderMedia()}catch(e){}try{paint()}catch(e){}}
  var OV=null,SEL={};
  function thumbHTML(v){
   if(v.kind==='video'){
@@ -2718,13 +2667,11 @@ async function csRun(record){
   document.getElementById('rlClose').onclick=close;
   var recs=[];
   try{recs=await allArchive()}
-  catch(e){document.getElementById('rlCount').textContent='';
-   document.getElementById('rlGrid').innerHTML='<div id="rlEmpty">⚠ The archive is locked by another open Launcher tab.<br>Close the other launcher tabs, then reopen this panel.</div>';
-   return}
+  catch(e){document.getElementById('rlGrid').innerHTML='<div id="rlEmpty">⚠ The archive is locked by another open Launcher tab.<br>Close your other Launcher tabs, then reopen this panel.</div>';return}
   recs.sort(function(a,b){return (b.v.t||0)-(a.v.t||0)});
   var grid=document.getElementById('rlGrid');
   document.getElementById('rlCount').textContent=recs.length+' saved creative'+(recs.length===1?'':'s');
-  if(!recs.length){grid.innerHTML='<div id="rlEmpty">Nothing archived yet.<br>Everything you add or export into the launcher from now on is saved here automatically — exports from the studio, Drive imports, local files, all of it.</div>';}
+  if(!recs.length){grid.innerHTML='<div id="rlEmpty">Nothing archived yet.<br>Everything you add or export into the launcher from now on lands here automatically — studio exports, Drive imports, local files, all of it.</div>';}
   recs.forEach(function(r){
    var c=document.createElement('div');c.className='rlCard';
    var already=inList(r.k);
@@ -2744,7 +2691,7 @@ async function csRun(record){
   });
   function addMany(list){
    var n=0,skip=0;
-   list.forEach(function(r){if(inList(r.k)){skip++;return}if(addRec(r.v))n++});
+   list.forEach(function(r){if(inList(r.k)){skip++;return}if(window.__pxAddRec(r.v))n++});
    if(n)refreshApp();
    try{log('🗂 '+n+' creative(s) added from the archive'+(skip?(' · '+skip+' already in the list'):''),'ok')}catch(e){}
    close();
@@ -2756,7 +2703,6 @@ async function csRun(record){
   document.getElementById('rlWipe').onclick=async function(){if(!confirm('Delete the whole archive? This cannot be undone.'))return;
    await delArchive(recs.map(function(r){return r.k}));openReuse()};
  }
-
  function nav(){
   var cs=document.querySelector('a.navlink[href="studio.html"]');
   if(!cs){setTimeout(nav,800);return}
