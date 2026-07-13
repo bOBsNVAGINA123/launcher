@@ -2483,5 +2483,110 @@ async function csRun(record){
 }
 </script>
 
+
+<script>
+/* ===== v2 launcher patch: persistent media library =====
+   Everything imported/exported into the launcher (studio exports, Drive items, local files,
+   Telegram pulls) is saved in IndexedDB and restored after a refresh. Meta upload hashes are
+   kept too, so re-launching restored media skips re-uploading. */
+(function(){
+ var DBN='launcher_lib',ST='media',CLEARED=false;
+ function db(){return new Promise(function(res,rej){var r=indexedDB.open(DBN,1);
+  r.onupgradeneeded=function(){r.result.createObjectStore(ST)};
+  r.onsuccess=function(){res(r.result)};r.onerror=function(){rej(r.error)}})}
+ function keyOf(m){return m.driveId?('d_'+m.driveId):(m.url?('u_'+m.url):('l_'+(m.name||'')+'|'+(m.size||0)))}
+
+ var snapTimer=null;
+ function scheduleSnap(){clearTimeout(snapTimer);snapTimer=setTimeout(snapshot,1200)}
+ async function snapshot(){
+  if(CLEARED)return;
+  try{
+   var d=await db();
+   var existing=await new Promise(function(res){var out=[];var c=d.transaction(ST).objectStore(ST).openKeyCursor();
+    c.onsuccess=function(){var cu=c.result;if(cu){out.push(cu.key);cu.continue()}else res(out)}});
+   var items=(window.S&&S.media?S.media:[]).filter(function(m){return m.kind!=='existing'});
+   var want={};items.forEach(function(m){want[keyOf(m)]=m});
+   var tx=d.transaction(ST,'readwrite'),st=tx.objectStore(ST);
+   existing.forEach(function(k){if(!want[k])st.delete(k)});
+   items.forEach(function(m){var k=keyOf(m);
+    var meta={kind:m.kind,src:m.src,name:m.name,adName:m.adName||'',link:m.link||'',target:m.target||'',
+     size:m.size||0,driveId:m.driveId||null,url:m.url||null,hash:m.hash||null,id:m.id||null,thumb:m.thumb||null,t:Date.now()};
+    if(existing.indexOf(k)>-1){
+     var g=st.get(k);
+     g.onsuccess=function(){var old=g.result||{};meta.blob=old.blob||null;try{st.put(meta,k)}catch(e){}};
+    }else{
+     meta.blob=(m.src==='local'&&m.file)?m.file:null;
+     try{st.put(meta,k)}catch(e){}
+    }});
+   updateBadge();
+  }catch(e){}
+ }
+
+ async function restore(){
+  try{
+   var d=await db();
+   var recs=await new Promise(function(res){var out=[];var c=d.transaction(ST).objectStore(ST).openCursor();
+    c.onsuccess=function(){var cu=c.result;if(cu){out.push({k:cu.key,v:cu.value});cu.continue()}else res(out)}});
+   if(!recs.length){updateBadge();return}
+   var have={};S.media.forEach(function(m){have[keyOf(m)]=1});
+   var n=0;
+   recs.sort(function(a,b){return (a.v.t||0)-(b.v.t||0)});
+   recs.forEach(function(r){
+    if(have[r.k])return;
+    var v=r.v,m=null;
+    if(v.src==='local'){
+     if(!v.blob)return;
+     var f=new File([v.blob],v.name,{type:v.blob.type||(v.kind==='video'?'video/mp4':'image/png')});
+     m={kind:v.kind,src:'local',file:f,name:v.name,size:v.size||f.size,link:v.link||'',adName:v.adName||v.name,target:v.target||''};
+     if(v.kind==='image')m.preview=URL.createObjectURL(f);
+    }else{
+     m={kind:v.kind,src:v.src||'drive',name:v.name,link:v.link||'',adName:v.adName||v.name,target:v.target||''};
+     if(v.driveId){m.driveId=v.driveId;m.url=v.url||(typeof driveDirect==='function'?driveDirect(v.driveId):v.url)}
+     else if(v.url){m.url=v.url;m.preview=v.url}
+     else return;
+    }
+    if(v.hash)m.hash=v.hash;
+    if(v.id)m.id=v.id;
+    if(v.thumb)m.thumb=v.thumb;
+    S.media.push(m);n++;
+   });
+   if(n){try{sortMedia()}catch(e){}try{renderMedia()}catch(e){}try{paint()}catch(e){}
+    try{log('🗂 '+n+' creative(s) restored from your saved library','ok')}catch(e){}}
+   updateBadge();
+  }catch(e){}
+ }
+
+ function updateBadge(){
+  var g=document.getElementById('mediaGrid');if(!g)return;
+  var el=document.getElementById('libBadge');
+  if(!el){
+   el=document.createElement('div');el.id='libBadge';
+   el.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;margin:7px 0 0;font-size:10.5px;color:#8b93a3';
+   el.innerHTML='<span id="libTxt"></span><button id="libClear" style="background:none;border:1px solid #3a4152;color:#aab;border-radius:7px;padding:3px 8px;font-size:10px;cursor:pointer">Clear saved library</button>';
+   g.insertAdjacentElement('afterend',el);
+   el.querySelector('#libClear').onclick=async function(){
+    if(!confirm('Forget all saved creatives? (does not remove them from the current list)'))return;
+    CLEARED=true;
+    try{var d=await db();await new Promise(function(res){var t=d.transaction(ST,'readwrite');t.objectStore(ST).clear();t.oncomplete=res})}catch(e){}
+    var tx=document.getElementById('libTxt');if(tx)tx.textContent='🗂 library cleared — nothing will be restored next refresh';
+   };
+  }
+  var items=(window.S&&S.media?S.media:[]).filter(function(m){return m.kind!=='existing'});
+  var tx2=document.getElementById('libTxt');
+  if(tx2&&!CLEARED)tx2.textContent='🗂 '+items.length+' creative(s) auto-saved — they survive refresh';
+ }
+
+ function hook(){
+  if(typeof renderMedia!=='function'||!window.S){setTimeout(hook,700);return}
+  var _rm=renderMedia;
+  renderMedia=function(){var r=_rm.apply(this,arguments);scheduleSnap();updateBadge();return r};
+  setInterval(function(){snapshot()},20000);
+  setTimeout(restore,1400);
+ }
+ if(document.readyState==='complete')hook();
+ else window.addEventListener('load',hook);
+})();
+</script>
+
 </body>
 </html>
