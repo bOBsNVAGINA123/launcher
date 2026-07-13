@@ -4757,8 +4757,23 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
 
   /* ---------- fetch a shopify collection (any store) ---------- */
   async function fetchCollection(url){
+   /* v13: single PRODUCT links sync too */
+   const pm=url.match(/^(https?:\/\/[^\/]+)\/.*?products\/([\w\-\.%]+)/i);
+   if(pm){
+    const origin=pm[1],handle=pm[2].replace(/[?#].*$/,'');
+    const api=origin+'/products/'+handle+'.js';
+    let j=null,last;
+    for(const p of PROX){try{const r=await fetch(p(api));if(r.ok){j=await r.json();break}last=new Error('HTTP '+r.status)}catch(e){last=e}}
+    if(!j)throw last||new Error('Could not read that product');
+    const price=(j.variants&&j.variants[0]&&j.variants[0].price!=null)?String(Math.round(j.variants[0].price)/100):'';
+    const raw=(j.images||[]).map(im=>/^\/\//.test(im)?'https:'+im:im).filter(Boolean);
+    const imgs=raw.map(hiRes);
+    if(!imgs.length)throw new Error('Product loaded but has no images');
+    const prods=imgs.map((u2,k)=>({title:j.title+(imgs.length>1?' \u00b7 '+(k+1):''),price,img:u2,fb:raw[k],img2:imgs[k+1]||''}));
+    return {url,origin,handle:'product_'+handle,name:'\ud83d\udecd '+j.title,products:prods,last:Date.now()};
+   }
    const m=url.match(/^(https?:\/\/[^\/]+)\/.*?collections\/([\w\-\.%]+)/i)||url.match(/^(https?:\/\/[^\/]+)\/?$/);
-   if(!m)throw new Error('That is not a collection link');
+   if(!m)throw new Error('That is not a collection or product link');
    const origin=m[1],handle=m[2]||'all';
    let prods=[];
    for(let page=1;page<=4;page++){
@@ -4858,8 +4873,8 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   const box=document.createElement('div');box.id='syncLib';box.style.cssText='margin:0 0 14px;padding:10px;border:1px solid #2b3040;border-radius:10px;background:#101218';
   box.innerHTML='<div class="lbl" style="display:flex;justify-content:space-between;align-items:center">Synced library <span id="syAgo" style="font-size:9px;color:#6b7280;text-transform:none;letter-spacing:0"></span></div>'
    +'<style>#syUrl::placeholder{color:#8b93a3;opacity:1}#syUrl:focus{border-color:#7ea2ff;box-shadow:0 0 0 3px rgba(126,162,255,.22);outline:none}#syAddCol{transition:filter .12s,transform .05s}#syAddCol:hover{filter:brightness(1.08)}#syAddCol:active{transform:translateY(1px)}#syProgWrap{height:3px;background:#1b2030;border-radius:3px;overflow:hidden;margin:-2px 0 8px;display:none}#syProgWrap.on{display:block}#syProgWrap>i{display:block;position:relative;height:100%;width:38%;background:#7ea2ff;border-radius:3px;animation:syprog 1s linear infinite}@keyframes syprog{0%{left:-40%}100%{left:100%}}#syAddCol[disabled]{opacity:.7;cursor:default}.syChk{width:14px;height:14px;flex-shrink:0;cursor:pointer;accent-color:#7ea2ff;margin:0}</style>'
-   +'<div style="font-size:11px;letter-spacing:.05em;color:#7ea2ff;font-weight:700;margin:4px 0 8px">\ud83d\udd17 PASTE A SHOPIFY COLLECTION LINK HERE</div>'
-   +'<input id="syUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://goplaymore.com/collections/swimwear" style="display:block;width:100%;box-sizing:border-box;background:#0f1116;color:#fff;border:1.5px solid #3d4658;border-radius:10px;padding:13px 12px;font-size:13px;line-height:1.2;font-family:inherit;margin-bottom:8px"><button id="syAddCol" class="btn ghost" style="display:block;width:100%;box-sizing:border-box;padding:12px;background:#7ea2ff;border:1.5px solid #7ea2ff;color:#0f1116;font-weight:800;font-size:14px;border-radius:10px;cursor:pointer;margin-bottom:2px">Sync collection</button><div id="syProgWrap"><i></i></div>'
+   +'<div style="font-size:11px;letter-spacing:.05em;color:#7ea2ff;font-weight:700;margin:4px 0 8px">\ud83d\udd17 PASTE A SHOPIFY COLLECTION *OR PRODUCT* LINK</div>'
+   +'<input id="syUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://store.com/collections/… or /products/…" style="display:block;width:100%;box-sizing:border-box;background:#0f1116;color:#fff;border:1.5px solid #3d4658;border-radius:10px;padding:13px 12px;font-size:13px;line-height:1.2;font-family:inherit;margin-bottom:8px"><button id="syAddCol" class="btn ghost" style="display:block;width:100%;box-sizing:border-box;padding:12px;background:#7ea2ff;border:1.5px solid #7ea2ff;color:#0f1116;font-weight:800;font-size:14px;border-radius:10px;cursor:pointer;margin-bottom:2px">Sync collection</button><div id="syProgWrap"><i></i></div>'
    +'<div style="font-size:10px;color:#6b7280;margin-bottom:6px">any Shopify store \u00b7 or a Google Drive folder link \u2192 then hit Import Drive folder</div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syAddDrive" class="btn ghost" style="flex:1">📁 Import Drive folder</button><button id="syAddFol" class="btn ghost" style="flex:1">+ Local folder</button><button id="syRe" class="btn ghost" style="flex-shrink:0">↻</button></div>'
    +'<div id="sySources" style="margin-bottom:4px"></div>'+'<button id="syAnother" class="btn ghost" style="width:100%;box-sizing:border-box;padding:8px;font-size:11.5px;color:#7ea2ff;border-color:#2b3550;background:#0f1116;border-radius:8px;margin-bottom:8px;cursor:pointer">+ Add another collection</button>'
@@ -4961,7 +4976,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
 
   document.getElementById('sySearch').oninput=paintGrid;
   document.getElementById('syAddCol').onclick=async()=>{
-   let u=document.getElementById('syUrl').value.trim();if(!u){stat('paste a collection link first');return}if(!/^https?:\/\//i.test(u)&&!/^data:/i.test(u))u='https://'+u.replace(/^\/+/,'');
+   let u=document.getElementById('syUrl').value.trim();if(!u){stat('paste a collection or product link first');return}if(!/^https?:\/\//i.test(u)&&!/^data:/i.test(u))u='https://'+u.replace(/^\/+/,'');
    const _b=document.getElementById('syAddCol'),_pw=document.getElementById('syProgWrap'),_lbl=_b.textContent;
    _b.disabled=true;_b.textContent='Syncing…';if(_pw)_pw.classList.add('on');stat('syncing '+u.replace(/^https?:\/\//,'').slice(0,42)+'…');
    try{const c=await fetchAny(u);const i=COLS.findIndex(x=>x.handle===c.handle&&x.origin===c.origin);i>=0?COLS[i]=c:COLS.push(c);saveCols();document.getElementById('syUrl').value='';paintSources();paintGrid();stat('✓ '+c.name+': '+c.products.length+' products synced · tick it above to show only it')}
@@ -6063,6 +6078,44 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
  }
  if(document.readyState==='complete')setTimeout(init,700);
  else window.addEventListener('load',function(){setTimeout(init,700)});
+})();
+</script>
+
+
+<script>
+/* ===== v13 patch: obvious "synced -> load now" flow ===== */
+(function(){
+ function init(){
+  var st=document.getElementById('syStatus'),cta=document.getElementById('syBigLoad'),
+      sync=document.getElementById('syAddCol');
+  if(!st||!cta||!sync){setTimeout(init,800);return}
+  if(!document.getElementById('pxPulseCss')){
+   var css=document.createElement('style');css.id='pxPulseCss';
+   css.textContent='@keyframes pxpulse{0%,100%{transform:scale(1);box-shadow:0 4px 18px rgba(78,165,111,.35)}50%{transform:scale(1.025);box-shadow:0 6px 26px rgba(78,165,111,.6)}}#syBigLoad.pulse{animation:pxpulse 1s ease-in-out 4}#syDone{display:none;width:100%;box-sizing:border-box;margin:8px 0 0;padding:10px 12px;background:rgba(78,165,111,.16);border:1.5px solid #4ea56f;border-radius:10px;color:#8fe2ae;font-weight:800;font-size:12.5px;line-height:1.4}';
+   document.head.appendChild(css);
+  }
+  var done=document.getElementById('syDone');
+  if(!done){done=document.createElement('div');done.id='syDone';sync.insertAdjacentElement('afterend',done)}
+  var last='';
+  new MutationObserver(function(){
+   var t=st.textContent||'';
+   if(t===last)return;last=t;
+   if(t.indexOf('✓')===0){ /* "✓ name: N products synced" */
+    done.style.display='block';
+    done.textContent='✅ '+t.replace(/^✓\s*/,'').replace(/\s*· tick it above.*$/,'')+' — step 2: load it ⬇';
+    cta.classList.remove('pulse');void cta.offsetWidth;cta.classList.add('pulse');
+    try{cta.scrollIntoView({behavior:'smooth',block:'center'})}catch(_){}
+   }
+   if(/^\d+ Drive folders imported/.test(t)){
+    done.style.display='block';
+    done.textContent='✅ '+t+' — step 2: load them ⬇';
+    cta.classList.remove('pulse');void cta.offsetWidth;cta.classList.add('pulse');
+   }
+   if(/loaded into slots|loaded \(with real copy\)/.test(t)){done.style.display='none'}
+  }).observe(st,{childList:true,characterData:true,subtree:true});
+ }
+ if(document.readyState==='complete')setTimeout(init,900);
+ else window.addEventListener('load',function(){setTimeout(init,900)});
 })();
 </script>
 
