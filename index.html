@@ -1511,10 +1511,34 @@ async function prepareMedia(useOverlay){
         const up=await uploadVideoFile(S.acct,m.file,p=>{line.textContent='Uploading '+m.name+' '+p+'%';setMediaState(m,'uploading '+p+'%');if(useOverlay)loPct('up-'+m.uiId,p)});
         m.id=up.id; line.textContent=m.name+' → '+up.id; line.className='cl ok';
       } else {
-        log('Meta pulling '+m.name+' from Drive…','busy');
-        setMediaState(m,'Meta pulling from Drive…');
-        const up=await gpost(`act_${S.acct}/advideos`,{file_url:m.url,name:m.name.replace(/\.[^.]+$/,'')});
-        m.id=up.id; log(m.name+' → '+up.id,'ok');
+        /* Drive/public videos: Meta's file_url pull chokes on Drive's confirm pages ->
+           "processing failed". Download the actual bytes here, then upload multipart. */
+        let vblob=null;
+        setMediaState(m,'downloading video…');
+        if(typeof gTok!=='undefined'&&gTok&&m.driveId){
+          try{const r=await fetch('https://www.googleapis.com/drive/v3/files/'+m.driveId+'?alt=media&supportsAllDrives=true',{headers:{Authorization:'Bearer '+gTok}});
+           if(r.ok){const bb=await r.blob();if(bb.size>50000&&!/text\/html/.test(bb.type||''))vblob=bb}}catch(e){}
+        }
+        if(!vblob&&m.url){
+          try{const r=await fetch(m.url);if(r.ok){const bb=await r.blob();if(bb.size>50000&&!/text\/html/.test(bb.type||''))vblob=bb}}catch(e){}
+        }
+        if(!vblob&&m.url){
+          for(const p of PROXIES){
+            try{const r=await fetch(p(m.url));if(r.ok){const bb=await r.blob();if(bb.size>50000&&!/text\/html/.test(bb.type||'')){vblob=bb;break}}}catch(e){}
+          }
+        }
+        if(vblob){
+          const vf=new File([vblob],m.name,{type:(vblob.type&&vblob.type.indexOf('video')===0)?vblob.type:'video/mp4'});
+          m.file=vf;m.src='local';m.size=vf.size;
+          const line=log('Uploading '+m.name+' 0%','busy');
+          const up=await uploadVideoFile(S.acct,vf,p=>{line.textContent='Uploading '+m.name+' '+p+'%';setMediaState(m,'uploading '+p+'%');if(useOverlay)loPct('up-'+m.uiId,p)});
+          m.id=up.id; line.textContent=m.name+' → '+up.id; line.className='cl ok';
+        } else {
+          log('Could not download '+m.name+' — asking Meta to pull it from Drive…','busy');
+          setMediaState(m,'Meta pulling from Drive…');
+          const up=await gpost(`act_${S.acct}/advideos`,{file_url:m.url,name:m.name.replace(/\.[^.]+$/,'')});
+          m.id=up.id; log(m.name+' → '+up.id,'ok');
+        }
       }
       setMediaState(m,'uploaded ✓','ok');
       if(useOverlay)loOk('up-'+m.uiId,'uploaded');
@@ -1797,6 +1821,7 @@ async function launch(){
     loOk('t-ads',adIds.length+' ads created');
     log('DONE. '+adIds.length+' ad(s) created as '+status+'.','ok');
     const amLink='https://adsmanager.facebook.com/adsmanager/manage/ads?act='+S.acct;
+    if(!adIds.length)throw new Error('0 ads were created — nothing actually launched. Usually this means every creative failed to prepare (red "processing failed" badges in step 1) or no ad sets were picked in step 3. Fix that and hit Launch again.');
     loFinish(true,'LAUNCHED 🎉',adIds.length+' ad'+(adIds.length>1?'s':'')+' created as '+(status==='PAUSED'?'PAUSED — flip them on in Ads Manager when ready':'ACTIVE — they start once Meta approves them')+'.',amLink);
     saveLaunch(campId,campName,targets,adIds,tags);
   }catch(e){
@@ -2662,7 +2687,7 @@ async function csRun(record){
   }
   if(OV){OV.remove();OV=null}
   OV=document.createElement('div');OV.id='rlOv';
-  OV.innerHTML='<div id="rlBox"><div id="rlHead"><h3>🗂 Reuse exported content</h3><span id="rlCount" style="font-size:12px;color:#8a93a6"></span><button class="rlBtn gho" id="rlClose">✕ Close</button></div><div id="rlGrid"></div><div id="rlFoot"><button class="rlBtn pri" id="rlAddSel">＋ Add selected</button><button class="rlBtn grn" id="rlAddAll">＋ Add all</button><span style="flex:1"></span><button class="rlBtn red" id="rlDelSel">🗑 Delete selected</button><button class="rlBtn red" id="rlWipe">Clear archive</button></div></div>';
+  OV.innerHTML='<div id="rlBox"><div id="rlHead"><h3>🗂 Reuse exported content</h3><span id="rlCount" style="font-size:12px;color:#8a93a6"></span><button class="rlBtn gho" id="rlClose">✕ Close</button></div><div id="rlGrid"></div><div id="rlFoot"><button class="rlBtn gho" id="rlUpload">⬆ Upload files</button><button class="rlBtn pri" id="rlAddSel">＋ Add selected</button><button class="rlBtn grn" id="rlAddAll">＋ Add all</button><span style="flex:1"></span><button class="rlBtn red" id="rlDelSel">🗑 Delete selected</button><button class="rlBtn red" id="rlWipe">Clear archive</button></div></div>';
   document.body.appendChild(OV);
   OV.onclick=function(e){if(e.target===OV)close()};
   function close(){if(OV){OV.remove();OV=null}}
@@ -2698,6 +2723,22 @@ async function csRun(record){
    try{log('🗂 '+n+' creative(s) added from the archive'+(skip?(' · '+skip+' already in the list'):''),'ok')}catch(e){}
    close();
   }
+  document.getElementById('rlUpload').onclick=function(){
+   var inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.accept='video/*,image/*';
+   inp.onchange=function(){
+    var n=0;
+    Array.prototype.forEach.call(inp.files,function(f){
+     var kind=/^video\//.test(f.type)?'video':'image';
+     if(S.media.some(function(m){return m.name===f.name&&m.size===f.size}))return;
+     var rec={kind:kind,src:'local',file:f,name:f.name,size:f.size,link:'',adName:f.name.replace(/\.[^.]+$/,''),target:''};
+     if(kind==='image')rec.preview=URL.createObjectURL(f);
+     S.media.push(rec);n++;
+    });
+    if(n){refreshApp();try{log('⬆ '+n+' file(s) uploaded & saved to the archive','ok')}catch(e){}}
+    close();
+   };
+   inp.click();
+  };
   document.getElementById('rlAddSel').onclick=function(){var l=Object.keys(SEL).map(function(k){return SEL[k]});if(!l.length){alert('Tap creatives to select them first.');return}addMany(l)};
   document.getElementById('rlAddAll').onclick=function(){addMany(recs)};
   document.getElementById('rlDelSel').onclick=async function(){var ks=Object.keys(SEL);if(!ks.length){alert('Tap creatives to select them first.');return}
