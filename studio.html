@@ -6016,5 +6016,55 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
 })();
 </script>
 
+
+<script>
+/* ===== v12 patch: import MULTIPLE Google Drive folder links at once ===== */
+(function(){
+ function init(){
+  var drv=document.getElementById('syAddDrive'),url=document.getElementById('syUrl'),
+      sync=document.getElementById('syAddCol'),st=document.getElementById('syStatus');
+  if(!drv||!url||!sync){setTimeout(init,800);return}
+  if(typeof sync.onclick!=='function'||typeof drv.onclick!=='function'){setTimeout(init,800);return}
+  function say(m){if(st)st.textContent=m}
+  function links(txt){return (txt.match(/https?:\/\/drive\.google\.com\/[^\s,"']*\/folders\/[^\s,"'?]+[^\s,"']*/g)||[])}
+  function idle(){return !sync.disabled}
+  function waitSync(){return new Promise(function(res){
+   var t0=Date.now();
+   var iv=setInterval(function(){
+    if(idle()&&Date.now()-t0>1200){clearInterval(iv);res()}
+    if(Date.now()-t0>120000){clearInterval(iv);res()}
+   },400)})}
+  async function importMany(list){
+   for(var i=0;i<list.length;i++){
+    say('importing Drive folder '+(i+1)+' of '+list.length+'…');
+    url.value=list[i];
+    sync.click();
+    await waitSync();
+   }
+   say(list.length+' Drive folders imported — tick/untick them in the list below');
+  }
+  drv.onclick=async function(){
+   var t=url.value.trim(),ls=links(t);
+   if(!ls.length){
+    t=prompt('Paste one or MORE Google Drive folder links (separated by spaces, commas or new lines).\nEach folder must be shared as "Anyone with the link".')||'';
+    ls=links(t);
+   }
+   if(!ls.length){if(t)say('no Drive folder links found in that');return}
+   if(ls.length===1){url.value=ls[0];sync.click();return}
+   await importMany(ls);
+  };
+  /* the Sync button itself also understands a multi-link paste now */
+  var _syncClick=sync.onclick;
+  sync.onclick=async function(ev){
+   var ls=links(url.value);
+   if(ls.length>1){await importMany(ls);return}
+   if(typeof _syncClick==='function')return _syncClick.call(this,ev);
+  };
+ }
+ if(document.readyState==='complete')setTimeout(init,700);
+ else window.addEventListener('load',function(){setTimeout(init,700)});
+})();
+</script>
+
 </body>
 </html>
