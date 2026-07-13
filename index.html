@@ -1462,12 +1462,15 @@ function closeOverlay(){document.getElementById('lo').classList.remove('show')}
 
 /* ============================ UPLOAD CACHE (never upload twice) ============================ */
 let UPC={};try{UPC=JSON.parse(localStorage.getItem('upcache')||'{}')}catch(e){}
+/* upload cache built before the Drive byte-upload fix holds dead Meta video IDs -> wipe once */
+try{if(localStorage.getItem('upcache_v')!=='2'){UPC={};localStorage.setItem('upcache','{}');localStorage.setItem('upcache_v','2')}}catch(e){}
 function upcKey(m){return m.driveId?('d_'+m.driveId):('l_'+m.name+'_'+(m.size||0))}
 function upcGet(m){return (UPC[S.acct]||{})[upcKey(m)]||null}
+function upcDel(m){try{if(UPC[S.acct]){delete UPC[S.acct][upcKey(m)];localStorage.setItem('upcache',JSON.stringify(UPC))}}catch(e){}}
 function upcSet(m,val){UPC[S.acct]=UPC[S.acct]||{};UPC[S.acct][upcKey(m)]=Object.assign(UPC[S.acct][upcKey(m)]||{},val);try{localStorage.setItem('upcache',JSON.stringify(UPC))}catch(e){}}
 
 /* ============================ MEDIA PREPARATION ============================ */
-async function prepareMedia(useOverlay){
+async function prepareMedia(useOverlay,_retry){
   if(S.prepared) return;
   /* register overlay tasks */
   if(useOverlay){
@@ -1580,11 +1583,21 @@ async function prepareMedia(useOverlay){
           if(vs==='ready'){log(wait[i].name+' READY','ok');setMediaState(wait[i],'ready ✓','ok');wait.splice(i,1)}
           else if(vs==='error'){log(wait[i].name+' processing FAILED — it will be skipped','err');setMediaState(wait[i],'processing failed','err');wait[i].failed=true;wait.splice(i,1)}
           else setMediaState(wait[i],'Meta processing…');
-        }catch(e){}
+        }catch(e){wait[i]._e=(wait[i]._e||0)+1;if(wait[i]._e>=3){log(wait[i].name+' — Meta cannot read that video ID','err');setMediaState(wait[i],'processing failed','err');wait[i].failed=true;wait.splice(i,1)}}
       }
       if(useOverlay){const done=totalWait-wait.length;loStart('proc',done+' of '+totalWait+' ready');loPct('proc',Math.round(done/totalWait*100))}
     }
-    S.media=S.media.filter(m=>!m.failed);
+    const bad=S.media.filter(m=>m.failed);
+    if(bad.length){
+      bad.forEach(m=>{upcDel(m);m.failed=false;m.id=null;m.thumb=null;if(m.driveId&&!m.file)m.src='drive';setMediaState(m,'re-uploading…','busy')});
+      if(!_retry){
+        log(bad.length+' video(s) failed Meta processing — that upload was stale. Clearing it and re-uploading the real file…','busy');
+        if(useOverlay)loStart('proc','re-uploading '+bad.length+' video(s)');
+        S.prepared=false;
+        return prepareMedia(useOverlay,true);
+      }
+      throw new Error(bad.map(m=>m.name).join(', ')+' failed Meta video processing twice, even after a fresh re-upload. The file itself is the problem — check it plays, or re-export it.');
+    }
     for(const m of S.media.filter(x=>x.kind==='video'&&!x.thumb)){
       for(let t=0;t<6&&!m.thumb;t++){
         try{
@@ -1794,6 +1807,8 @@ async function launch(){
       return hit.length?hit:targets;
     };
     const specs=builtSpecs();
+    if(!specs.length) throw new Error('Nothing to create — no media survived step 1. Add your videos again and hit Launch.');
+    if(!targets.length) throw new Error('No ad set selected — pick one in step 3, then Launch again.');
     const totalAds=specs.reduce((a,sp)=>a+tgtsFor(sp).length,0);
     loTask('t-ads','Create '+specs.length+' creative'+(specs.length>1?'s':'')+' + '+totalAds+' ad'+(totalAds>1?'s':''),'');
     loStart('t-ads');
