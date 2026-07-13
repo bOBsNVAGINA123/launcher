@@ -2504,7 +2504,7 @@ async function csRun(record){
    var d=await db();
    var existing=await new Promise(function(res){var out=[];var c=d.transaction(ST).objectStore(ST).openKeyCursor();
     c.onsuccess=function(){var cu=c.result;if(cu){out.push(cu.key);cu.continue()}else res(out)}});
-   var items=(window.S&&S.media?S.media:[]).filter(function(m){return m.kind!=='existing'});
+   var items=((typeof S!=='undefined')&&S.media?S.media:[]).filter(function(m){return m.kind!=='existing'});
    var want={};items.forEach(function(m){want[keyOf(m)]=m});
    var tx=d.transaction(ST,'readwrite'),st=tx.objectStore(ST);
    existing.forEach(function(k){if(!want[k])st.delete(k)});
@@ -2571,13 +2571,13 @@ async function csRun(record){
     var tx=document.getElementById('libTxt');if(tx)tx.textContent='🗂 library cleared — nothing will be restored next refresh';
    };
   }
-  var items=(window.S&&S.media?S.media:[]).filter(function(m){return m.kind!=='existing'});
+  var items=((typeof S!=='undefined')&&S.media?S.media:[]).filter(function(m){return m.kind!=='existing'});
   var tx2=document.getElementById('libTxt');
   if(tx2&&!CLEARED)tx2.textContent='🗂 '+items.length+' creative(s) auto-saved — they survive refresh';
  }
 
  function hook(){
-  if(typeof renderMedia!=='function'||!window.S){setTimeout(hook,700);return}
+  if(typeof renderMedia!=='function'||typeof S==='undefined'){setTimeout(hook,700);return}
   var _rm=renderMedia;
   renderMedia=function(){var r=_rm.apply(this,arguments);scheduleSnap();updateBadge();return r};
   setInterval(function(){snapshot()},20000);
