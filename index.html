@@ -2573,7 +2573,9 @@ async function csRun(record){
    else if(v.url){m.url=v.url;m.preview=v.url}
    else return false;
   }
-  if(v.hash)m.hash=v.hash;if(v.id)m.id=v.id;if(v.thumb)m.thumb=v.thumb;
+  /* NOTE: hash/id/thumb are deliberately NOT restored — Meta upload ids are
+     account- and session-specific; restoring stale ones makes prepare skip the
+     re-upload and then fail processing. Fresh prepare re-uploads cleanly. */
   S.media.push(m);return true;
  };
  function updateBadge(){
@@ -2679,7 +2681,7 @@ async function csRun(record){
     +(already?'<span class="inlist">IN LIST</span>':'')
     +'<button class="del" title="remove from archive">🗑</button>'
     +'<div class="nm">'+(r.v.name||'untitled').replace(/</g,'&lt;')+'</div>'
-    +'<div class="dt">'+(r.v.kind==='video'?'🎬 video':'🖼 image')+' · '+(r.v.t?new Date(r.v.t).toLocaleDateString():'')+(r.v.hash?' · uploaded ✓':'')+'</div>';
+    +'<div class="dt">'+(r.v.kind==='video'?'🎬 video':'🖼 image')+' · '+(r.v.t?new Date(r.v.t).toLocaleDateString():'')+'</div>';
    c.onclick=function(e){
     if(e.target.classList.contains('del'))return;
     if(SEL[r.k]){delete SEL[r.k];c.classList.remove('on')}else{SEL[r.k]=r;c.classList.add('on')}};
