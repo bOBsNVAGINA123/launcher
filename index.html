@@ -1423,6 +1423,8 @@ function loOpen(title,sub){
   document.getElementById('lo').classList.add('show');
 }
 function loTask(id,label,sub){
+  const ex=document.getElementById('lt-'+id);
+  if(ex){const t1=ex.querySelector('.t1'),t2=ex.querySelector('.t2');if(t1)t1.textContent=label;if(t2)t2.textContent=sub||'';return ex}
   LO.total++;
   const d=document.createElement('div');d.className='lt';d.id='lt-'+id;
   d.innerHTML=`<div class="lic"></div><div class="ltx"><div class="t1">${esc(label)}</div><div class="t2">${esc(sub||'')}</div></div><div class="lp"></div>`;
@@ -1469,6 +1471,14 @@ function upcGet(m){return (UPC[S.acct]||{})[upcKey(m)]||null}
 function upcDel(m){try{if(UPC[S.acct]){delete UPC[S.acct][upcKey(m)];localStorage.setItem('upcache',JSON.stringify(UPC))}}catch(e){}}
 function upcSet(m,val){UPC[S.acct]=UPC[S.acct]||{};UPC[S.acct][upcKey(m)]=Object.assign(UPC[S.acct][upcKey(m)]||{},val);try{localStorage.setItem('upcache',JSON.stringify(UPC))}catch(e){}}
 
+/* Drive videos need a Google token — without it Meta gets Drive's HTML page, not the video. */
+function driveNeedsGoogle(){return !gTok && S.media.some(m=>m.driveId && !m.file && !m.id)}
+function requireGoogle(){
+  if(!driveNeedsGoogle()) return false;
+  gSignIn();
+  return true;
+}
+
 /* ============================ MEDIA PREPARATION ============================ */
 async function prepareMedia(useOverlay,_retry){
   if(S.prepared) return;
@@ -1476,7 +1486,7 @@ async function prepareMedia(useOverlay,_retry){
   if(useOverlay){
     S.media.forEach(m=>{
       if((m.kind==='video'&&!m.id)||(m.kind==='image'&&!m.hash))
-        loTask('up-'+m.uiId, (m.kind==='video'?'Upload video: ':'Upload photo: ')+m.name, m.src==='drive'?'Meta pulls it from Drive on its own servers':'');
+        loTask('up-'+m.uiId, (m.kind==='video'?'Upload video: ':'Upload photo: ')+m.name, m.driveId?'downloading from Drive, then uploading to Meta':'');
     });
     if(S.media.some(m=>m.kind==='video')) loTask('proc','Meta processes the videos','usually 10–60s per video');
   }
@@ -1539,10 +1549,8 @@ async function prepareMedia(useOverlay,_retry){
           const up=await uploadVideoFile(S.acct,vf,p=>{line.textContent='Uploading '+m.name+' '+p+'%';setMediaState(m,'uploading '+p+'%');if(useOverlay)loPct('up-'+m.uiId,p)});
           m.id=up.id; line.textContent=m.name+' → '+up.id; line.className='cl ok';
         } else {
-          log('Could not download '+m.name+' — asking Meta to pull it from Drive…','busy');
-          setMediaState(m,'Meta pulling from Drive…');
-          const up=await gpost(`act_${S.acct}/advideos`,{file_url:m.url,name:m.name.replace(/\.[^.]+$/,'')});
-          m.id=up.id; log(m.name+' → '+up.id,'ok');
+          setMediaState(m,'needs Google sign-in','err');
+          throw new Error('Could not download '+m.name+' from Drive. Hit "Sign in with Google" (next to Import from Drive), then Launch again. Asking Meta to fetch it from Drive itself does not work — Drive hands Meta a web page instead of the video, which is what "processing failed" was.');
         }
       }
       setMediaState(m,'uploaded ✓','ok');
@@ -1650,6 +1658,7 @@ function builtSpecs(){
 
 /* ============================ PREVIEW (ALL OF THEM) ============================ */
 async function prepareAndPreview(){
+  if(requireGoogle()){log('Your Drive videos need Google access — approve the popup, then hit Prepare again.','err');return}
   const btn=document.getElementById('prepBtn');
   btn.disabled=true; btn.textContent='Preparing…';
   const prog=document.getElementById('pvProg');
@@ -1697,6 +1706,7 @@ async function prepareAndPreview(){
 /* ============================ LAUNCH ============================ */
 function minor(x){return Math.round(parseFloat(x)*100)}
 async function launch(){
+  if(requireGoogle()){log('Your Drive videos need Google access — approve the popup, then hit Launch again.','err');return}
   S.launching=true;paint();
   const status=document.getElementById('launchStatus').value;
   loOpen('Launching…','Each step below reports live progress. Don’t close the tab.');
