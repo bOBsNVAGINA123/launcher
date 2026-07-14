@@ -74,6 +74,9 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
 .vcard .state.ok{background:rgba(49,162,76,.92)}
 .vcard .state.err{background:rgba(228,30,63,.92)}
 .vcard .linkin{margin:0 8px 9px;padding:6px 9px;font-size:11.5px;border-radius:8px}
+.vcard .copytog{margin:0 8px 8px;padding:5px 8px;font-size:11px;font-weight:700;color:#0866ff;background:rgba(8,102,255,.08);border:1px solid rgba(8,102,255,.25);border-radius:8px;cursor:pointer;text-align:center;user-select:none}
+.vcard .copytog:hover{background:rgba(8,102,255,.15)}
+.vcard .copybox textarea.linkin{resize:vertical;font-family:inherit}
 
 .btn{padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;background:#e4e6eb;color:var(--ink);transition:.15s}
 .btn:hover{background:#d8dadf}
@@ -794,9 +797,29 @@ function renderMedia(){
       <div class="meta"><div class="nm" title="${esc(m.name)}">${esc(m.name)}</div><div class="mt">${m.size?(m.size/1048576).toFixed(1)+' MB':'from Drive'}</div></div>
       <input class="linkin" placeholder="Ad name" value="${esc(m.adName||'')}" oninput="S.media[${i}].adName=this.value;paint()" style="margin-bottom:4px">
       ${m.kind==='existing'?'':`<input class="linkin" placeholder="${esc(S.link?'uses default: '+S.link:'Custom link (optional)')}" value="${esc(m.link||'')}" oninput="S.media[${i}].link=this.value.trim();paint()" style="margin-bottom:4px">`}
-      <select class="linkin" data-tgt="${i}" onchange="S.media[${i}].target=this.value;paint()">${targetOptions(m)}</select>`;
+      <select class="linkin" data-tgt="${i}" onchange="S.media[${i}].target=this.value;paint()">${targetOptions(m)}</select>
+      ${m.kind==='existing'?'':`
+      <div class="copytog" onclick="toggleCopy(${i},this)">${m.body||m.title||m.desc?'\u270e own copy \u2713':'\u270e own copy'}</div>
+      <div class="copybox" id="cp-${m.uiId}" style="display:${m.copyOpen?'block':'none'}">
+        <textarea class="linkin" rows="3" placeholder="Primary text — blank = the one in step 4" oninput="S.media[${i}].body=this.value;renderCopyTag(${i});paint()">${esc(m.body||'')}</textarea>
+        <input class="linkin" placeholder="Headline — blank = step 4" value="${esc(m.title||'')}" oninput="S.media[${i}].title=this.value;renderCopyTag(${i});paint()">
+        <input class="linkin" placeholder="Description — blank = step 4" value="${esc(m.desc||'')}" oninput="S.media[${i}].desc=this.value;renderCopyTag(${i});paint()">
+      </div>`}`;
     g.appendChild(d);
   });
+}
+
+function toggleCopy(i,el){
+  const m=S.media[i];if(!m)return;
+  m.copyOpen=!m.copyOpen;
+  const box=document.getElementById('cp-'+m.uiId);
+  if(box)box.style.display=m.copyOpen?'block':'none';
+}
+function renderCopyTag(i){
+  const m=S.media[i];if(!m)return;
+  const box=document.getElementById('cp-'+m.uiId);
+  const tog=box&&box.previousElementSibling;
+  if(tog)tog.textContent=(m.body||m.title||m.desc)?'\u270e own copy \u2713':'\u270e own copy';
 }
 
 /* ============================ GOOGLE DRIVE IMPORT ============================ */
@@ -949,18 +972,49 @@ async function openViewer(i){
 function closeViewer(){const v=document.getElementById('viewer');v.classList.remove('show');document.getElementById('viewerBody').innerHTML=''}
 
 /* ============================ GOOGLE SIGN-IN (Drive) ============================ */
-let gTok=null;
+let gTok=null, gExp=0;
+function gValid(){return !!gTok && Date.now()<gExp}
+function gMark(){const el=document.getElementById('gState');if(el)el.textContent=gValid()?'\u2713 Google connected — private folders unlocked':'';}
+function gSave(t){
+  if(!t||!t.access_token)return;
+  gTok=t.access_token; gExp=Date.now()+(((+t.expires_in||3600)-120)*1000);
+  try{localStorage.setItem('gtok',JSON.stringify({t:gTok,e:gExp}));localStorage.setItem('gever','1')}catch(e){}
+  gMark();
+}
+function gRestore(){
+  try{const j=JSON.parse(localStorage.getItem('gtok')||'null');
+    if(j&&j.t&&j.e>Date.now()+30000){gTok=j.t;gExp=j.e;gMark();return true}
+  }catch(e){}
+  return false;
+}
+function gLoadLib(cb){
+  if(window.google&&google.accounts){cb();return}
+  const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=cb;
+  s.onerror=()=>log('Could not load Google sign-in','err');document.head.appendChild(s);
+}
+/* silent re-auth on page load for anyone who has connected before — no click, no popup */
+function gResume(){
+  if(gRestore())return;
+  let ever=false;try{ever=localStorage.getItem('gever')==='1'}catch(e){}
+  if(!ever||!cfg.gClientId)return;
+  gLoadLib(()=>{
+    try{
+      const tc=google.accounts.oauth2.initTokenClient({client_id:cfg.gClientId,scope:'https://www.googleapis.com/auth/drive.readonly',prompt:'',
+        callback:t=>{if(t&&t.access_token){gSave(t);log('Google session restored — Drive ready','ok');if((cfg.driveFolders||[]).length)importDrive(true)}},
+        error_callback:()=>{}});
+      tc.requestAccessToken({prompt:''});
+    }catch(e){}
+  });
+}
 function gSignIn(){
   if(!cfg.gClientId)cfg.gClientId=DEFAULT_GID;
   if(!cfg.gClientId){alert('Google sign-in needs a one-time setup (a free Google Client ID).\n\nTell Claude: "set up google" — Claude walks it through with you in 3 minutes, then this button works forever for the whole team.\n\nEverything else works without it: public Drive folders import fine.');openSettings();return}
   const go=()=>{
     const tc=google.accounts.oauth2.initTokenClient({client_id:cfg.gClientId,scope:'https://www.googleapis.com/auth/drive.readonly',
-      callback:t=>{if(t.access_token){gTok=t.access_token;document.getElementById('gState').textContent='✓ Google connected — private folders unlocked';log('Google Drive connected','ok');if((cfg.driveFolders||[]).length)importDrive(true)}}});
+      callback:t=>{if(t.access_token){gSave(t);log('Google Drive connected — you stay signed in after refresh','ok');if((cfg.driveFolders||[]).length)importDrive(true)}}});
     tc.requestAccessToken();
   };
-  if(window.google&&google.accounts){go();return}
-  const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=go;
-  s.onerror=()=>log('Could not load Google sign-in','err');document.head.appendChild(s);
+  gLoadLib(go);
 }
 
 /* ============================ EXISTING ADS / POSTS ============================ */
@@ -1339,10 +1393,13 @@ function validate(){
   }
   const effLink=S.link||((S.media.find(m=>m.kind!=='existing'&&m.link)||{}).link||'');
   const allCustom=S.media.length>0&&S.media.every(m=>m.kind==='existing'||m.link);
-  const adOk=!!(S.page&&S.body&&(S.link||allCustom));
+  /* every ad may carry its own primary text — step 4 is only required when one of them doesn't */
+  const allOwnBody=S.media.length>0&&S.media.every(m=>m.kind==='existing'||(m.body&&m.body.trim()));
+  const bodyOk=!!S.body||allOwnBody;
+  const adOk=!!(S.page&&bodyOk&&(S.link||allCustom));
   lights.ad=adOk;
   if(!S.page) issues.push('Pick the Facebook page (step 4)');
-  if(!S.body) issues.push('Pick or write primary text (step 4)');
+  if(!bodyOk) issues.push('Pick or write primary text (step 4) — or give every ad its own copy');
   if(!S.link&&!allCustom) issues.push('Set the link URL (step 4)');
   if(effLink&&!/^https?:\/\//i.test(effLink)) issues.push('Link must start with https:// (step 4)');
   S.media.forEach(m=>{if(m.link&&!/^https?:\/\//i.test(m.link)) issues.push('Custom link on "'+m.name+'" must start with https://')});
@@ -1472,7 +1529,7 @@ function upcDel(m){try{if(UPC[S.acct]){delete UPC[S.acct][upcKey(m)];localStorag
 function upcSet(m,val){UPC[S.acct]=UPC[S.acct]||{};UPC[S.acct][upcKey(m)]=Object.assign(UPC[S.acct][upcKey(m)]||{},val);try{localStorage.setItem('upcache',JSON.stringify(UPC))}catch(e){}}
 
 /* Drive videos need a Google token — without it Meta gets Drive's HTML page, not the video. */
-function driveNeedsGoogle(){return !gTok && S.media.some(m=>m.driveId && !m.file && !m.id)}
+function driveNeedsGoogle(){return !gValid() && S.media.some(m=>m.driveId && !m.file && !m.id)}
 function requireGoogle(){
   if(!driveNeedsGoogle()) return false;
   gSignIn();
@@ -1627,16 +1684,22 @@ async function prepareMedia(useOverlay,_retry){
 /* ============================ CREATIVE SPECS ============================ */
 function linkFor(m){return (m&&m.link)||S.link||((S.media.find(x=>x.kind!=='existing'&&x.link)||{}).link||'')}
 function ctaObj(m){return {type:S.cta,value:{link:linkFor(m)}}}
+function copyFor(m){return {
+  body:((m&&m.body&&m.body.trim())||S.body||''),
+  title:((m&&m.title&&m.title.trim())||S.title||''),
+  desc:((m&&m.desc&&m.desc.trim())||S.desc||'')
+}}
 function specForMedia(m){
+  const c=copyFor(m);
   if(m.kind==='video'){
-    const vd={video_id:m.id,image_url:m.thumb,message:S.body,call_to_action:ctaObj(m)};
-    if(S.title) vd.title=S.title;
-    if(S.desc) vd.link_description=S.desc;
+    const vd={video_id:m.id,image_url:m.thumb,message:c.body,call_to_action:ctaObj(m)};
+    if(c.title) vd.title=c.title;
+    if(c.desc) vd.link_description=c.desc;
     return {page_id:S.page,video_data:vd};
   }
-  const ld={link:linkFor(m),image_hash:m.hash,message:S.body,call_to_action:ctaObj(m)};
-  if(S.title) ld.name=S.title;
-  if(S.desc) ld.description=S.desc;
+  const ld={link:linkFor(m),image_hash:m.hash,message:c.body,call_to_action:ctaObj(m)};
+  if(c.title) ld.name=c.title;
+  if(c.desc) ld.description=c.desc;
   return {page_id:S.page,link_data:ld};
 }
 function specCarousel(){
@@ -1974,6 +2037,7 @@ captureToken();
 loadCfg();
 if(cfg.lastLink&&!S.link){S.link=cfg.lastLink;const _le=document.getElementById('linkUrl');if(_le&&!_le.value)_le.value=S.link;}
 refreshGoalOptions();
+gResume();
 toggleNewAdset(); /* create-ad-set box open by default */
 paint();
 /* import creatives sent from the Content Studio */
