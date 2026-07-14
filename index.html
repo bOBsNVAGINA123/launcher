@@ -851,6 +851,7 @@ async function gvidsFile(m,onPct){
   return f;
 }
 async function importDrive(auto){
+  if(!auto&&!gValid()&&gTC){try{await gAuth()}catch(e){}}
   const box=document.getElementById('driveLinks');
   const raw=auto?(cfg.driveFolders||[]).join('\n'):box.value.trim();
   const st=document.getElementById('driveState'), meta=document.getElementById('driveMeta');
@@ -992,18 +993,30 @@ function gLoadLib(cb){
   const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=cb;
   s.onerror=()=>log('Could not load Google sign-in','err');document.head.appendChild(s);
 }
-/* silent re-auth on page load for anyone who has connected before — no click, no popup */
-function gResume(){
-  if(gRestore())return;
-  let ever=false;try{ever=localStorage.getItem('gever')==='1'}catch(e){}
-  if(!ever||!cfg.gClientId)return;
-  gLoadLib(()=>{
-    try{
-      const tc=google.accounts.oauth2.initTokenClient({client_id:cfg.gClientId,scope:'https://www.googleapis.com/auth/drive.readonly',prompt:'',
-        callback:t=>{if(t&&t.access_token){gSave(t);log('Google session restored — Drive ready','ok');if((cfg.driveFolders||[]).length)importDrive(true)}},
-        error_callback:()=>{}});
-      tc.requestAccessToken({prompt:''});
-    }catch(e){}
+/* Restore the cached token across reloads. Google forbids popup-free renewal, so when it does
+   expire we renew inside the next Launch/Prepare/Import click — the user never clicks sign-in. */
+function gResume(){ gRestore(); }
+/* keep the Google library warm so a token can be requested inside a click, with no async gap */
+let gTC=null;
+function gWarm(){
+  if(!cfg.gClientId)cfg.gClientId=DEFAULT_GID;
+  if(gTC||!cfg.gClientId)return;
+  gLoadLib(()=>{try{
+    gTC=google.accounts.oauth2.initTokenClient({client_id:cfg.gClientId,scope:'https://www.googleapis.com/auth/drive.readonly',
+      callback:t=>{if(t&&t.access_token){gSave(t);if(gCB){const f=gCB;gCB=null;f(true)}}},
+      error_callback:e=>{if(gCB){const f=gCB;gCB=null;f(false)}}});
+  }catch(e){}});
+}
+let gCB=null;
+/* MUST be called synchronously from a click — Google only allows the popup during a user gesture.
+   Consent is already granted, so the popup opens and closes itself with nothing to click. */
+function gAuth(){
+  if(gValid()) return Promise.resolve(true);
+  if(!gTC){gWarm(); return Promise.resolve(false)}
+  return new Promise(res=>{
+    gCB=res;
+    try{gTC.requestAccessToken()}catch(e){gCB=null;res(false)}
+    setTimeout(()=>{if(gCB){gCB=null;res(gValid())}},45000);
   });
 }
 function gSignIn(){
@@ -1721,7 +1734,11 @@ function builtSpecs(){
 
 /* ============================ PREVIEW (ALL OF THEM) ============================ */
 async function prepareAndPreview(){
-  if(requireGoogle()){log('Your Drive videos need Google access — approve the popup, then hit Prepare again.','err');return}
+  if(driveNeedsGoogle()){
+    const ok=await gAuth();
+    if(!ok){log('Google access needed for your Drive videos — hit "Sign in with Google" once, then Prepare.','err');return}
+    log('Google session renewed automatically','ok');
+  }
   const btn=document.getElementById('prepBtn');
   btn.disabled=true; btn.textContent='Preparing…';
   const prog=document.getElementById('pvProg');
@@ -1769,7 +1786,11 @@ async function prepareAndPreview(){
 /* ============================ LAUNCH ============================ */
 function minor(x){return Math.round(parseFloat(x)*100)}
 async function launch(){
-  if(requireGoogle()){log('Your Drive videos need Google access — approve the popup, then hit Launch again.','err');return}
+  if(driveNeedsGoogle()){
+    const ok=await gAuth();
+    if(!ok){log('Google access needed for your Drive videos — hit "Sign in with Google" once, then Launch.','err');return}
+    log('Google session renewed automatically','ok');
+  }
   S.launching=true;paint();
   const status=document.getElementById('launchStatus').value;
   loOpen('Launching…','Each step below reports live progress. Don’t close the tab.');
@@ -2038,6 +2059,7 @@ loadCfg();
 if(cfg.lastLink&&!S.link){S.link=cfg.lastLink;const _le=document.getElementById('linkUrl');if(_le&&!_le.value)_le.value=S.link;}
 refreshGoalOptions();
 gResume();
+gWarm();
 toggleNewAdset(); /* create-ad-set box open by default */
 paint();
 /* import creatives sent from the Content Studio */
