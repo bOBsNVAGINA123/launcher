@@ -2279,6 +2279,13 @@ function openCellEd(f,role,def,x,y){
   del.style.cssText='position:absolute;top:3px;right:3px;width:18px;height:18px;line-height:18px;text-align:center;font-size:11px;border-radius:50%;background:rgba(0,0,0,.72);color:#fff;cursor:pointer;z-index:2';
   del.onclick=(ev)=>{ev.stopPropagation();removePhotoSlot(i);openCellEd(f,role,def)};
   d.appendChild(del);
+  const tick=document.createElement('div');
+  const on=!state.slots[i].vidOff;
+  tick.textContent=on?'\u2713':'';
+  tick.title=on?'In the video — tap to exclude':'Excluded from video — tap to include';
+  tick.style.cssText='position:absolute;top:3px;left:3px;width:20px;height:20px;line-height:20px;text-align:center;font-size:13px;font-weight:800;border-radius:6px;cursor:pointer;z-index:2;border:2px solid '+(on?'#38d67a':'rgba(255,255,255,.6)')+';background:'+(on?'#173a2b':'rgba(0,0,0,.5)')+';color:#bfeed6';
+  tick.onclick=(ev)=>{ev.stopPropagation();state.slots[i].vidOff=!state.slots[i].vidOff;openCellEd(f,role,def)};
+  d.appendChild(tick);
   grid.appendChild(d)}
  // Add-new upload tile
  const add=document.createElement('div');
@@ -2296,11 +2303,21 @@ function openCellEd(f,role,def,x,y){
  grid.appendChild(add);
  sec1.appendChild(grid);
  {const cnt=(function(){let n=0;for(let i=1;i<=NSLOT;i++)if(state.slots[i].src)n++;return n})();
+  const selN=(function(){let n=0;for(let i=1;i<=NSLOT;i++)if(state.slots[i].src&&!state.slots[i].vidOff)n++;return n})();
   if(cnt){
-   // make a video (slideshow MP4) from every loaded photo
+   // quick select-all / clear row for the video
+   const selRow=document.createElement('div');selRow.style.cssText='display:flex;gap:6px;margin-top:10px';
+   const mkQ=(txt,fn)=>{const bq=document.createElement('button');bq.className='ibtn';bq.style.cssText+=';flex:1;font-size:11px;padding:6px';bq.textContent=txt;bq.onclick=fn;return bq;};
+   selRow.appendChild(mkQ('\u2713 All in video',()=>{for(let i=1;i<=NSLOT;i++)if(state.slots[i].src)state.slots[i].vidOff=false;openCellEd(f,role,def);}));
+   selRow.appendChild(mkQ('\u2715 None',()=>{for(let i=1;i<=NSLOT;i++)if(state.slots[i].src)state.slots[i].vidOff=true;openCellEd(f,role,def);}));
+   sec1.appendChild(selRow);
+   const hint=document.createElement('div');hint.className='insp-empty';hint.style.cssText='font-size:10.5px;text-align:left;margin:6px 0 0;color:var(--mut)';
+   hint.textContent='Tap the \u2713 on any photo to include/exclude it from the video.';
+   sec1.appendChild(hint);
+   // make a video (slideshow MP4) from the ticked photos
    const vid=document.createElement('button');vid.className='ibtn';vid.style.cssText+=';margin-top:8px;background:#173a2b;border-color:#2b6b4f;color:#bfeed6;font-weight:700';
-   vid.textContent='\u{1f3ac} Make video from these '+cnt+' photo'+(cnt>1?'s':'');
-   vid.onclick=()=>{try{makeFormatMP4(ACTIVE)}catch(e){alert('Could not start the video: '+e.message)}};
+   vid.textContent='\u{1f3ac} Make video from '+selN+' selected photo'+(selN===1?'':'s');
+   vid.onclick=()=>{if(!selN){alert('Tick at least one photo for the video.');return}try{makeFormatMP4(ACTIVE)}catch(e){alert('Could not start the video: '+e.message)}};
    sec1.appendChild(vid);
    // clear-all
    const clr=document.createElement('button');clr.className='ibtn';clr.style.cssText+=';margin-top:8px;color:#ff8a8a;border-color:#5a2b2b';
@@ -2853,7 +2870,7 @@ window.addEventListener('resize',()=>{clearTimeout(window._rz);window._rz=setTim
 
 /* ============ side ============ */
 function removePhotoSlot(i){
- for(let j=i;j<NSLOT;j++){const a=state.slots[j],b=state.slots[j+1];a.src=b.src;a.disp=b.disp;a.pat=b.pat;a.fx=(b.fx!=null?b.fx:50);a.fy=(b.fy!=null?b.fy:30);if(state.slotColors[j+1]!=null)state.slotColors[j]=state.slotColors[j+1];else delete state.slotColors[j]}
+ for(let j=i;j<NSLOT;j++){const a=state.slots[j],b=state.slots[j+1];a.src=b.src;a.disp=b.disp;a.pat=b.pat;a.vidOff=b.vidOff;a.fx=(b.fx!=null?b.fx:50);a.fy=(b.fy!=null?b.fy:30);if(state.slotColors[j+1]!=null)state.slotColors[j]=state.slotColors[j+1];else delete state.slotColors[j]}
  const L=state.slots[NSLOT];L.src=null;L.disp=null;L.pat=null;L.fx=50;L.fy=30;delete state.slotColors[NSLOT];
  buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror()}
 function buildSlots(){
@@ -3930,7 +3947,8 @@ function quantizeDurs(durs,unit){if(!unit)return durs.slice();return durs.map(x=
 function buildBeatPlan(durs,fps){const arr=(durs&&durs.length)?durs:[0.5];let bs=MP4.beatSec;if(!bs){const med=[...arr].sort((a,b)=>a-b)[Math.floor(arr.length/2)]||0.5;let bf2=Math.max(2,Math.round(med*fps));bs=bf2/fps;while(bs>0.72){bf2=Math.max(2,Math.round(bf2/2));bs=bf2/fps}while(bs<0.28){bf2=bf2*2;bs=bf2/fps}}const bf=Math.max(2,Math.round(bs*fps));const unit=Math.max(1,Math.round(bf/4));const counts=arr.map(d=>Math.max(unit,Math.round(d*fps/unit)*unit));return{beatFrames:bf,beatSec:bs,counts}}
 const MP4={f:null,real:null,frames:[],durs:[],playing:false,raf:null,ready:false,editing:false};
 async function makeFormatMP4(f){
- const real=[];for(let i=1;i<=NSLOT;i++)if(state.slots[i].src)real.push(i);
+ const real=[];for(let i=1;i<=NSLOT;i++)if(state.slots[i].src&&!state.slots[i].vidOff)real.push(i);
+ if(!real.length){for(let i=1;i<=NSLOT;i++)if(state.slots[i].src)real.push(i);}
  if(real.length<1){alert('Upload at least one photo first.');return}
  MP4.f=f;MP4.real=real;MP4.durs=real.map(()=>1);MP4.sfxPer=real.map(()=>'');MP4.beatSec=0;MP4.frames=[];MP4.ready=false;MP4.dirty=false;
  MP4.playing=false;if(MP4.raf)clearTimeout(MP4.raf);
@@ -4933,7 +4951,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
       let data=item.file?await _rd(item.file):await toData(item.img,item.fb);
       if(data){
        state.slots[t].src=data;                 /* FULL original quality, untouched */
-       try{state.slots[t].disp=await makeThumb(data)}catch(e){state.slots[t].disp=data}  /* preview thumb at original 1000px */
+       try{state.slots[t].disp=await makeThumb(data,500)}catch(e){state.slots[t].disp=data}  /* small grid thumb only */
        try{const c=await sampleColor(data);if(c)state.slotColors[t]=c}catch(e){}
       }
      }catch(e){}
