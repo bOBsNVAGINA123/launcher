@@ -792,7 +792,8 @@ function renderMedia(){
     else pv=icon;
     d.innerHTML=`<div class="tag">${m.kind==='existing'?'EXISTING':(m.src==='drive'||m.src==='gdrive'?'DRIVE':'LOCAL')+' '+m.kind.toUpperCase()}</div>
       <div class="x" onclick="S.media.splice(${i},1);renderMedia();paint()">×</div>
-      ${m.kind==='existing'?'':`<div class="x" style="right:34px;background:rgba(8,102,255,.85)" title="Edit" onclick="editMedia(${i})">✎</div>`}
+      <div class="x" style="right:34px;background:rgba(16,140,60,.9)" title="Duplicate this ad" onclick="dupMedia(${i})">⧉</div>
+      ${m.kind==='existing'?'':`<div class="x" style="right:60px;background:rgba(8,102,255,.85)" title="Edit" onclick="editMedia(${i})">✎</div>`}
       <div class="prev" style="cursor:zoom-in" onclick="openViewer(${i})">${pv}</div>
       <div id="mst-${m.uiId}" class="state ${m.stateCls||''}" style="display:${m.state?'block':'none'}">${m.state||''}</div>
       <div class="meta"><div class="nm" title="${esc(m.name)}">${esc(m.name)}</div><div class="mt">${m.size?(m.size/1048576).toFixed(1)+' MB':'from Drive'}</div></div>
@@ -835,6 +836,17 @@ async function loadPsets(catId,cb){
   }catch(e){S.psets[catId]=[]}
   cb&&cb(S.psets[catId]); return S.psets[catId];
 }
+function dupMedia(i){
+  const m=S.media[i]; if(!m) return;
+  const c=Object.assign({},m);       /* same file / video id / hash / thumb / driveId -> no re-upload */
+  c.uiId=++UIID; c.vurl=null;         /* fresh preview handle */
+  const base=(m.adName&&m.adName.trim())||m.name.replace(/\.[^.]+$/,'');
+  c.adName=base+(m.productSetId?' \u2013 no products':' \u2013 with products');
+  c.prodOpen=false;
+  S.media.splice(i+1,0,c);
+  renderMedia(); paint();
+  log('Duplicated \u2013 tick "show products" on one, leave the other plain','ok');
+}
 function toggleProducts(i){
   const m=S.media[i];if(!m)return;
   m.prodOpen=!m.prodOpen;
@@ -850,14 +862,15 @@ function pickCatalog(i,val){
 function pickPset(i,val,name){
   const m=S.media[i];if(!m)return;
   m.productSetId=val; m.productSetName=name||'';
-  paint();
+  if(!val)m.prodOpen=true; /* keep panel open after untick */
+  renderMedia(); paint();
 }
 function productBlock(i,m){
   if(m.kind==='existing') return '';
   if(!S.catLoaded) return '';
   if(!S.catalogs.length) return '';
-  const on=!!m.prodOpen;
-  const tag=m.productSetId?('\u{1f6cd} '+esc(m.productSetName||'collection')+' \u2713'):'\u{1f6cd} add product collection';
+  const on=!!m.prodOpen||!!m.productSetId;
+  const tag=m.productSetId?('\u2611 products under this ad: '+esc(m.productSetName||'set')):'\u2610 show products under this ad (optional)';
   let inner='';
   if(on){
     const catOpts=S.catalogs.map(c=>'<option value="'+c.id+'"'+(c.id===m.catalogId?' selected':'')+'>'+esc(c.name)+'</option>').join('');
@@ -875,7 +888,7 @@ function productBlock(i,m){
     inner='<div class="copybox" style="display:block">'
       +'<select class="linkin" onchange="pickCatalog('+i+',this.value)"><option value="">\u2014 pick a catalog \u2014</option>'+catOpts+'</select>'
       +setSel
-      +'<div class="hint" style="padding:2px 8px 4px">Turns this into a collection ad: your video on top, these products in a grid below.</div>'
+      +(m.productSetId?'<div class="hint" style="padding:2px 8px 4px">\u2713 On: your video/image runs with these products shown underneath it. Untick by clearing the collection.</div>':'<div class="hint" style="padding:2px 8px 4px">Optional. Leave it off for a normal video/image ad.</div>')
       +'</div>';
   }
   return '<div class="copytog" style="color:#8a4dff;background:rgba(138,77,255,.08);border-color:rgba(138,77,255,.28)" onclick="toggleProducts('+i+')">'+tag+'</div>'+inner;
