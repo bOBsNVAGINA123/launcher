@@ -2270,9 +2270,15 @@ function openCellEd(f,role,def,x,y){
  const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:7px';
  for(let i=1;i<=NSLOT;i++){if(!state.slots[i].src)continue;
   const d=document.createElement('div');
-  d.style.cssText='aspect-ratio:1;border-radius:9px;background:#0b0c0f center/cover;border:2px solid '+(i===v.slot?'var(--acc)':'var(--line2)')+';cursor:pointer';
+  d.style.cssText='position:relative;aspect-ratio:1;border-radius:9px;background:#0b0c0f center/cover;border:2px solid '+(i===v.slot?'var(--acc)':'var(--line2)')+';cursor:pointer';
   d.style.backgroundImage=`url('${state.slots[i].disp||state.slots[i].src}')`;
   d.onclick=()=>{state.assign[k][role].slot=i;redrawCard(f);openCellEd(f,role,def)};
+  const del=document.createElement('div');
+  del.textContent='\u2715';
+  del.title='Remove this photo';
+  del.style.cssText='position:absolute;top:3px;right:3px;width:18px;height:18px;line-height:18px;text-align:center;font-size:11px;border-radius:50%;background:rgba(0,0,0,.72);color:#fff;cursor:pointer;z-index:2';
+  del.onclick=(ev)=>{ev.stopPropagation();removePhotoSlot(i);openCellEd(f,role,def)};
+  d.appendChild(del);
   grid.appendChild(d)}
  // Add-new upload tile
  const add=document.createElement('div');
@@ -2289,6 +2295,14 @@ function openCellEd(f,role,def,x,y){
   inp.click()};
  grid.appendChild(add);
  sec1.appendChild(grid);
+ // clear-all: empty every photo slot at once
+ {const cnt=(function(){let n=0;for(let i=1;i<=NSLOT;i++)if(state.slots[i].src)n++;return n})();
+  if(cnt){const clr=document.createElement('button');clr.className='ibtn';clr.style.cssText+=';margin-top:8px;color:#ff8a8a;border-color:#5a2b2b';
+   clr.textContent='\u{1f5d1} Clear all '+cnt+' photos';
+   clr.onclick=()=>{if(!confirm('Remove all '+cnt+' loaded photos from every spot?'))return;
+    for(let i=1;i<=NSLOT;i++){state.slots[i].src=null;state.slots[i].disp=null;state.slots[i].pat=null;delete state.slotColors[i]}
+    buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();openCellEd(f,role,def)};
+   sec1.appendChild(clr);}}
  // replace the image used in THIS spot, in place (updates everywhere that slot is used)
  const repl=document.createElement('button');repl.className='ibtn';repl.style.marginTop='8px';
  repl.textContent='\u2934 Replace this photo (upload)';
@@ -4995,12 +5009,12 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   document.getElementById('syRe').onclick=async()=>{stat('re-syncing everything…');for(const c of COLS){try{Object.assign(c,await fetchAny(c.url))}catch(e){}}saveCols();for(const f of FOLDERS)await syncFolder(f);paintSources();paintGrid();stat('all sources synced')};
   document.getElementById('syLoadSel').onclick=async()=>{
    const picked=SHOWN.filter(it=>sel.has(it.key));if(!picked.length){stat('tap items to select first');return}
-   for(let i=0;i<picked.length;i++){stat('loading '+(i+1)+'/'+picked.length+'…');await addToSlot(picked[i])}
+   for(let i=0;i<picked.length;i++){stat('loading '+(i+1)+'/'+picked.length+'…');await addToSlot(picked[i]); buildSlots(); if(edTarget)openCellEd(edTarget.f,edTarget.role,edTarget.def)}
    sel.clear();buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();paintGrid();stat(picked.length+' loaded into slots');
   };
   document.getElementById('syLoadAll').onclick=async()=>{
    const all=SHOWN.slice(0,60);if(!all.length){stat('nothing to load');return}
-   for(let i=0;i<all.length;i++){stat('loading '+(i+1)+'/'+all.length+'…');await addToSlot(all[i])}
+   for(let i=0;i<all.length;i++){stat('loading '+(i+1)+'/'+all.length+'…');await addToSlot(all[i]); buildSlots(); if(edTarget)openCellEd(edTarget.f,edTarget.role,edTarget.def)}
    buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();stat(all.length+' loaded into slots');
   };
 
