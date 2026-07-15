@@ -4884,11 +4884,9 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
      try{
       let data=item.file?await _rd(item.file):await toData(item.img,item.fb);
       if(data){
-       /* downscale the working copy to 1600px max: big memory + speed win, still sharp at 1080-2160 export */
-       let src=data; try{src=await makeThumb(data,1600)}catch(e){}
-       state.slots[t].src=src;
-       try{state.slots[t].disp=await makeThumb(src,500)}catch(e){state.slots[t].disp=src}
-       try{const c=await sampleColor(src);if(c)state.slotColors[t]=c}catch(e){}
+       state.slots[t].src=data;                 /* FULL original quality, untouched */
+       try{state.slots[t].disp=await makeThumb(data,500)}catch(e){state.slots[t].disp=data}  /* small grid thumb only */
+       try{const c=await sampleColor(data);if(c)state.slotColors[t]=c}catch(e){}
       }
      }catch(e){}
      done++;
