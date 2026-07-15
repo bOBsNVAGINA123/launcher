@@ -874,6 +874,8 @@ function pickCatalog(i,val){
   m.catalogId=val; m.productSetId=''; m.productSetName='';
   if(val)loadPsets(val,()=>renderMedia()); else renderMedia();
 }
+function setPsetManual(i,v){const m=S.media[i];if(!m)return;v=(v||'').trim();m.productSetId=v;m.productSetName=v?('set '+v.slice(-6)):'';const tg=document.querySelector('#mediaGrid .vcard:nth-child('+(i+1)+') .copytog[style*="138,77,255"]');if(tg)tg.textContent=v?('\u2611 products under this ad: '+m.productSetName):'\u2610 show products under this ad (optional)';paint();}
+function setCatManual(i,v){const m=S.media[i];if(!m)return;m.catalogId=(v||'').trim();paint();}
 function pickPset(i,val,name){
   const m=S.media[i];if(!m)return;
   m.productSetId=val; m.productSetName=name||'';
@@ -884,11 +886,15 @@ function productBlock(i,m){
   if(m.kind==='existing') return '';
   const on=!!m.prodOpen||!!m.productSetId;
   if(!S.catalogs.length){
-    /* still show the toggle so it's visible under every card */
-    if(!on) return '<div class="copytog" style="color:#8a4dff;background:rgba(138,77,255,.08);border-color:rgba(138,77,255,.28)" onclick="toggleProducts('+i+')">\u2610 show products under this ad (optional)</div>';
-    const msg=S.catLoaded?'No catalogs found for this account.':'Loading catalogs\u2026';
-    return '<div class="copytog" style="color:#8a4dff;background:rgba(138,77,255,.08);border-color:rgba(138,77,255,.28)" onclick="toggleProducts('+i+')">\u2610 show products under this ad (optional)</div>'
-      +'<div class="copybox" style="display:block"><div class="hint" style="padding:4px 8px">'+msg+' <a href="#" onclick="loadCatalogs();return false" style="color:#0866ff">Reload catalogs</a></div></div>';
+    const tg='<div class="copytog" style="color:#8a4dff;background:rgba(138,77,255,.08);border-color:rgba(138,77,255,.28)" onclick="toggleProducts('+i+')">'+(m.productSetId?('\u2611 products under this ad: '+esc(m.productSetName||m.productSetId)):'\u2610 show products under this ad (optional)')+'</div>';
+    if(!on) return tg;
+    /* app can't LIST catalogs (needs catalog_management approval) -> let the user paste the IDs, which still attach on launch */
+    return tg+'<div class="copybox" style="display:block">'
+      +'<div class="hint" style="padding:2px 8px 6px">Auto-list is off for this account (Facebook app lacks catalog permission). Paste the IDs from <b>Commerce Manager \u2192 Catalog \u2192 Product sets</b>:</div>'
+      +'<input class="linkin" placeholder="Product set ID (required)" value="'+esc(m.productSetId||'')+'" oninput="setPsetManual('+i+',this.value)">'
+      +'<input class="linkin" placeholder="Catalog ID (helps delivery, optional)" value="'+esc(m.catalogId||'')+'" oninput="setCatManual('+i+',this.value)">'
+      +(m.productSetId?'<div class="hint" style="padding:4px 8px;color:#2b8a5a">\u2713 On \u2014 these products will show under this ad.</div>':'<div class="hint" style="padding:2px 8px">Leave blank for a normal ad. <a href="#" onclick="loadCatalogs();return false" style="color:#0866ff">Retry auto-list</a></div>')
+      +'</div>';
   }
   const tag=m.productSetId?('\u2611 products under this ad: '+esc(m.productSetName||'set')):'\u2610 show products under this ad (optional)';
   let inner='';
