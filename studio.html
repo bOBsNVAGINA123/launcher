@@ -4933,7 +4933,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
       let data=item.file?await _rd(item.file):await toData(item.img,item.fb);
       if(data){
        state.slots[t].src=data;                 /* FULL original quality, untouched */
-       try{state.slots[t].disp=await makeThumb(data,500)}catch(e){state.slots[t].disp=data}  /* small grid thumb only */
+       try{state.slots[t].disp=await makeThumb(data)}catch(e){state.slots[t].disp=data}  /* preview thumb at original 1000px */
        try{const c=await sampleColor(data);if(c)state.slotColors[t]=c}catch(e){}
       }
      }catch(e){}
