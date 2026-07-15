@@ -2295,9 +2295,15 @@ function openCellEd(f,role,def,x,y){
   inp.click()};
  grid.appendChild(add);
  sec1.appendChild(grid);
- // clear-all: empty every photo slot at once
  {const cnt=(function(){let n=0;for(let i=1;i<=NSLOT;i++)if(state.slots[i].src)n++;return n})();
-  if(cnt){const clr=document.createElement('button');clr.className='ibtn';clr.style.cssText+=';margin-top:8px;color:#ff8a8a;border-color:#5a2b2b';
+  if(cnt){
+   // make a video (slideshow MP4) from every loaded photo
+   const vid=document.createElement('button');vid.className='ibtn';vid.style.cssText+=';margin-top:8px;background:#173a2b;border-color:#2b6b4f;color:#bfeed6;font-weight:700';
+   vid.textContent='\u{1f3ac} Make video from these '+cnt+' photo'+(cnt>1?'s':'');
+   vid.onclick=()=>{try{makeFormatMP4(ACTIVE)}catch(e){alert('Could not start the video: '+e.message)}};
+   sec1.appendChild(vid);
+   // clear-all
+   const clr=document.createElement('button');clr.className='ibtn';clr.style.cssText+=';margin-top:8px;color:#ff8a8a;border-color:#5a2b2b';
    clr.textContent='\u{1f5d1} Clear all '+cnt+' photos';
    clr.onclick=()=>{if(!confirm('Remove all '+cnt+' loaded photos from every spot?'))return;
     for(let i=1;i<=NSLOT;i++){state.slots[i].src=null;state.slots[i].disp=null;state.slots[i].pat=null;delete state.slotColors[i]}
@@ -4863,6 +4869,37 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    try{const c=await sampleColor(data);if(c)state.slotColors[t]=c}catch(e){}
   }
 
+  /* ---------- FAST bulk loader: parallel, pre-assigned slots, throttled UI ---------- */
+  async function loadItemsFast(list){
+   list=list.filter(it=>it && it.kind!=='video');
+   if(!list.length){stat('nothing to load (videos are skipped here)');return}
+   let start=1;for(;start<=NSLOT;start++)if(!state.slots[start].src)break;
+   const need=start+list.length+1; if(NSLOT<need)growSlots(need);
+   const targets=list.map((_,k)=>start+k);
+   let done=0, idx=0; const N=list.length; const CONC=8;
+   const t0=performance.now();
+   async function worker(){
+    while(idx<N){
+     const my=idx++, item=list[my], t=targets[my];
+     try{
+      let data=item.file?await _rd(item.file):await toData(item.img,item.fb);
+      if(data){
+       /* downscale the working copy to 1600px max: big memory + speed win, still sharp at 1080-2160 export */
+       let src=data; try{src=await makeThumb(data,1600)}catch(e){}
+       state.slots[t].src=src;
+       try{state.slots[t].disp=await makeThumb(src,500)}catch(e){state.slots[t].disp=src}
+       try{const c=await sampleColor(src);if(c)state.slotColors[t]=c}catch(e){}
+      }
+     }catch(e){}
+     done++;
+     if(done%20===0){stat('loading '+done+' / '+N+'\u2026');buildSlots();if(edTarget)openCellEd(edTarget.f,edTarget.role,edTarget.def)}
+    }
+   }
+   await Promise.all(Array.from({length:Math.min(CONC,N)},()=>worker()));
+   buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();paintGrid();if(edTarget)openCellEd(edTarget.f,edTarget.role,edTarget.def);
+   stat(done+' loaded in '+((performance.now()-t0)/1000).toFixed(1)+'s');
+  }
+
   /* ---------- folders (File System Access API) ---------- */
   const IMG_RE=/\.(jpe?g|png|webp|gif|avif)$/i;
   async function walk(dir,out){for await(const[name,h]of dir.entries()){if(h.kind==='file'&&IMG_RE.test(name)){out.push(await h.getFile())}else if(h.kind==='directory'){await walk(h,out)}}}
@@ -4893,7 +4930,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syAddDrive" class="btn ghost" style="flex:1">📁 Import Drive folder</button><button id="syAddFol" class="btn ghost" style="flex:1">+ Local folder</button><button id="syRe" class="btn ghost" style="flex-shrink:0">↻</button></div>'
    +'<div id="sySources" style="margin-bottom:4px"></div>'+'<button id="syAnother" class="btn ghost" style="width:100%;box-sizing:border-box;padding:8px;font-size:11.5px;color:#7ea2ff;border-color:#2b3550;background:#0f1116;border-radius:8px;margin-bottom:8px;cursor:pointer">+ Add another collection</button>'
    +'<input id="sySearch" placeholder="search…" style="width:100%;background:#14161c;color:#e8e9ec;border:1px solid #262a33;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;margin-bottom:6px">'
-   +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syLoadSel" class="btn ghost" style="flex:1">Add selected</button><button id="syLoadAll" class="btn ghost" style="flex:1">Load all shown</button></div>'
+   +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syLoadSel" class="btn ghost" style="flex:1">Add selected</button><button id="syLoadAll" class="btn ghost" style="flex:1">Load ALL (every photo)</button></div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syToLauncher" class="btn ghost" style="flex:1;border-color:#4a7">🚀 → Launcher (selected, or all shown)</button></div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syDlAll" class="btn ghost" style="flex:1;border-color:#77a">⬇ Download full-res (selected, or all shown)</button></div>'
    +'<label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="syAllImg"> pull <b>every</b> image per product (not just the first)</label>'
@@ -5009,13 +5046,12 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   document.getElementById('syRe').onclick=async()=>{stat('re-syncing everything…');for(const c of COLS){try{Object.assign(c,await fetchAny(c.url))}catch(e){}}saveCols();for(const f of FOLDERS)await syncFolder(f);paintSources();paintGrid();stat('all sources synced')};
   document.getElementById('syLoadSel').onclick=async()=>{
    const picked=SHOWN.filter(it=>sel.has(it.key));if(!picked.length){stat('tap items to select first');return}
-   for(let i=0;i<picked.length;i++){stat('loading '+(i+1)+'/'+picked.length+'…');await addToSlot(picked[i]); buildSlots(); if(edTarget)openCellEd(edTarget.f,edTarget.role,edTarget.def)}
-   sel.clear();buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();paintGrid();stat(picked.length+' loaded into slots');
+   await loadItemsFast(picked); sel.clear();
   };
   document.getElementById('syLoadAll').onclick=async()=>{
-   const all=SHOWN.slice(0,60);if(!all.length){stat('nothing to load');return}
-   for(let i=0;i<all.length;i++){stat('loading '+(i+1)+'/'+all.length+'…');await addToSlot(all[i]); buildSlots(); if(edTarget)openCellEd(edTarget.f,edTarget.role,edTarget.def)}
-   buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();stat(all.length+' loaded into slots');
+   if(!SHOWN.length){stat('nothing to load');return}
+   stat('loading all '+SHOWN.length+' photos\u2026');
+   await loadItemsFast(SHOWN.slice());   /* ALL of them, no 60 cap */
   };
 
   /* ---------- boot: paint cache, then auto-resync in background ---------- */
