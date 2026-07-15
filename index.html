@@ -537,7 +537,8 @@ const S={
   body:'', bodyLabel:'', title:'', titleLabel:'', desc:'',
   link:'', cta:'SHOP_NOW',
   format:'single',
-  prepared:false, launching:false
+  prepared:false, launching:false,
+  catalogs:[], psets:{}, catLoaded:false
 };
 const DEFAULT_GID='150573380015-31bv0qk6qa5t3ho5npa8kpfkb68cpiu7.apps.googleusercontent.com';
 const cfg={meta:'',appId:'1765090894530277',sbUrl:'',sbKey:'',gClientId:DEFAULT_GID};
@@ -804,9 +805,80 @@ function renderMedia(){
         <textarea class="linkin" rows="3" placeholder="Primary text — blank = the one in step 4" oninput="S.media[${i}].body=this.value;renderCopyTag(${i});paint()">${esc(m.body||'')}</textarea>
         <input class="linkin" placeholder="Headline — blank = step 4" value="${esc(m.title||'')}" oninput="S.media[${i}].title=this.value;renderCopyTag(${i});paint()">
         <input class="linkin" placeholder="Description — blank = step 4" value="${esc(m.desc||'')}" oninput="S.media[${i}].desc=this.value;renderCopyTag(${i});paint()">
-      </div>`}`;
+      </div>`}
+      ${productBlock(i,m)}`;
     g.appendChild(d);
   });
+}
+
+async function loadCatalogs(){
+  S.catalogs=[]; S.psets={}; S.catLoaded=false;
+  try{
+    let biz='';
+    try{const a=await gget('act_'+S.acct+'?fields=business');biz=a&&a.business&&a.business.id||''}catch(e){}
+    let cats=[];
+    if(biz){
+      for(const edge of ['owned_product_catalogs','client_product_catalogs']){
+        try{const j=await gget(biz+'/'+edge+'?fields=name,product_count&limit=100');(j.data||[]).forEach(c=>{if(!cats.find(x=>x.id===c.id))cats.push(c)})}catch(e){}
+      }
+    }
+    S.catalogs=cats; S.catLoaded=true;
+    if(cats.length) log(cats.length+' product catalog(s) available for collection ads','ok');
+    renderMedia();
+  }catch(e){S.catLoaded=true}
+}
+async function loadPsets(catId,cb){
+  if(S.psets[catId]){cb&&cb(S.psets[catId]);return S.psets[catId]}
+  try{
+    const j=await gget(catId+'/product_sets?fields=name,product_count&limit=100');
+    S.psets[catId]=(j.data||[]).filter(x=>x.product_count!==0);
+  }catch(e){S.psets[catId]=[]}
+  cb&&cb(S.psets[catId]); return S.psets[catId];
+}
+function toggleProducts(i){
+  const m=S.media[i];if(!m)return;
+  m.prodOpen=!m.prodOpen;
+  if(m.prodOpen&&!m.catalogId&&S.catalogs[0]){m.catalogId=S.catalogs[0].id;}
+  if(m.prodOpen&&m.catalogId){loadPsets(m.catalogId,()=>renderMedia())}
+  renderMedia();
+}
+function pickCatalog(i,val){
+  const m=S.media[i];if(!m)return;
+  m.catalogId=val; m.productSetId=''; m.productSetName='';
+  if(val)loadPsets(val,()=>renderMedia()); else renderMedia();
+}
+function pickPset(i,val,name){
+  const m=S.media[i];if(!m)return;
+  m.productSetId=val; m.productSetName=name||'';
+  paint();
+}
+function productBlock(i,m){
+  if(m.kind==='existing') return '';
+  if(!S.catLoaded) return '';
+  if(!S.catalogs.length) return '';
+  const on=!!m.prodOpen;
+  const tag=m.productSetId?('\u{1f6cd} '+esc(m.productSetName||'collection')+' \u2713'):'\u{1f6cd} add product collection';
+  let inner='';
+  if(on){
+    const catOpts=S.catalogs.map(c=>'<option value="'+c.id+'"'+(c.id===m.catalogId?' selected':'')+'>'+esc(c.name)+'</option>').join('');
+    const sets=(m.catalogId&&S.psets[m.catalogId])||null;
+    let setSel;
+    if(!m.catalogId){setSel='<div class="hint" style="padding:2px 8px">pick a catalog</div>';}
+    else if(!sets){setSel='<div class="hint" style="padding:2px 8px">loading collections\u2026</div>';}
+    else if(!sets.length){setSel='<div class="hint" style="padding:2px 8px">no collections in this catalog</div>';}
+    else{
+      setSel='<select class="linkin" onchange="pickPset('+i+',this.value,this.options[this.selectedIndex].dataset.n)">'
+        +'<option value="">\u2014 pick a collection \u2014</option>'
+        +sets.map(ps=>'<option value="'+ps.id+'" data-n="'+esc(ps.name)+'"'+(ps.id===m.productSetId?' selected':'')+'>'+esc(ps.name)+' ('+ps.product_count+')</option>').join('')
+        +'</select>';
+    }
+    inner='<div class="copybox" style="display:block">'
+      +'<select class="linkin" onchange="pickCatalog('+i+',this.value)"><option value="">\u2014 pick a catalog \u2014</option>'+catOpts+'</select>'
+      +setSel
+      +'<div class="hint" style="padding:2px 8px 4px">Turns this into a collection ad: your video on top, these products in a grid below.</div>'
+      +'</div>';
+  }
+  return '<div class="copytog" style="color:#8a4dff;background:rgba(138,77,255,.08);border-color:rgba(138,77,255,.28)" onclick="toggleProducts('+i+')">'+tag+'</div>'+inner;
 }
 
 function toggleCopy(i,el){
@@ -1132,7 +1204,7 @@ async function pickAccount(){
   document.getElementById('adsetList').innerHTML='<div class="hint">Pick a campaign in step 2, or define a new audience below.</div>';
   paint();
   log('Loading '+S.acctName+'…','busy');
-  loadCampaigns(); loadPages(); loadPixels(); loadCopies(); loadAudiences();
+  loadCampaigns(); loadPages(); loadPixels(); loadCopies(); loadAudiences(); loadCatalogs();
 }
 async function loadCampaigns(){
   try{
@@ -1729,7 +1801,8 @@ function specCarousel(){
 function builtSpecs(){
   if(S.format==='carousel') return [{name:'carousel-'+S.media.length+'-cards',spec:specCarousel(),target:''}];
   return S.media.map(m=>({name:(m.adName&&m.adName.trim())||m.name.replace(/\.[^.]+$/,''),
-    spec:m.kind==='existing'?null:specForMedia(m), existing:m.kind==='existing'?m:null, target:m.target||''}));
+    spec:m.kind==='existing'?null:specForMedia(m), existing:m.kind==='existing'?m:null, target:m.target||'',
+    psetId:m.productSetId||'', catId:m.catalogId||''}));
 }
 
 /* ============================ PREVIEW (ALL OF THEM) ============================ */
@@ -1846,6 +1919,9 @@ async function launch(){
       if(goalNeedsPixel()&&px){
         const po={pixel_id:px};
         if(goal!=='LANDING_PAGE_VIEWS') po.custom_event_type=goal==='VALUE'?'PURCHASE':val('eventSel');
+        /* collection ads: bind the catalog so the product grid delivers */
+        const pm=S.media.find(m=>m.productSetId&&m.catalogId);
+        if(pm) po.product_catalog_id=pm.catalogId;
         pl.promoted_object=JSON.stringify(po);
       }
       if(!cbo) pl.daily_budget=minor(val('aboAmt'));
@@ -1918,7 +1994,7 @@ async function launch(){
         else if(m.igId) cr=await gpost(`act_${S.acct}/adcreatives`,{name:sp.name+' creative',source_instagram_media_id:m.igId,call_to_action_type:S.cta,...(tags?{url_tags:tags}:{})});
         else throw new Error('Existing item '+sp.name+' has no usable ID');
       } else {
-        cr=await gpost(`act_${S.acct}/adcreatives`,{name:sp.name+' creative',object_story_spec:JSON.stringify(sp.spec),...(tags?{url_tags:tags}:{})});
+        cr=await gpost(`act_${S.acct}/adcreatives`,{name:sp.name+' creative',object_story_spec:JSON.stringify(sp.spec),...(sp.psetId?{product_set_id:sp.psetId}:{}),...(tags?{url_tags:tags}:{})});
       }
       if(LO.abort) throw new Error('Cancelled — already-created ads stay paused in Ads Manager');
       for(const t of tgtsFor(sp)){
