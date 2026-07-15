@@ -2270,22 +2270,9 @@ function openCellEd(f,role,def,x,y){
  const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:7px';
  for(let i=1;i<=NSLOT;i++){if(!state.slots[i].src)continue;
   const d=document.createElement('div');
-  d.style.cssText='position:relative;aspect-ratio:1;border-radius:9px;background:#0b0c0f center/cover;border:2px solid '+(i===v.slot?'var(--acc)':'var(--line2)')+';cursor:pointer';
+  d.style.cssText='aspect-ratio:1;border-radius:9px;background:#0b0c0f center/cover;border:2px solid '+(i===v.slot?'var(--acc)':'var(--line2)')+';cursor:pointer';
   d.style.backgroundImage=`url('${state.slots[i].disp||state.slots[i].src}')`;
   d.onclick=()=>{state.assign[k][role].slot=i;redrawCard(f);openCellEd(f,role,def)};
-  const del=document.createElement('div');
-  del.textContent='\u2715';
-  del.title='Remove this photo';
-  del.style.cssText='position:absolute;top:3px;right:3px;width:18px;height:18px;line-height:18px;text-align:center;font-size:11px;border-radius:50%;background:rgba(0,0,0,.72);color:#fff;cursor:pointer;z-index:2';
-  del.onclick=(ev)=>{ev.stopPropagation();removePhotoSlot(i);openCellEd(f,role,def)};
-  d.appendChild(del);
-  const tick=document.createElement('div');
-  const on=!state.slots[i].vidOff;
-  tick.textContent=on?'\u2713':'';
-  tick.title=on?'In the video — tap to exclude':'Excluded from video — tap to include';
-  tick.style.cssText='position:absolute;top:3px;left:3px;width:20px;height:20px;line-height:20px;text-align:center;font-size:13px;font-weight:800;border-radius:6px;cursor:pointer;z-index:2;border:2px solid '+(on?'#38d67a':'rgba(255,255,255,.6)')+';background:'+(on?'#173a2b':'rgba(0,0,0,.5)')+';color:#bfeed6';
-  tick.onclick=(ev)=>{ev.stopPropagation();state.slots[i].vidOff=!state.slots[i].vidOff;openCellEd(f,role,def)};
-  d.appendChild(tick);
   grid.appendChild(d)}
  // Add-new upload tile
  const add=document.createElement('div');
@@ -2302,30 +2289,6 @@ function openCellEd(f,role,def,x,y){
   inp.click()};
  grid.appendChild(add);
  sec1.appendChild(grid);
- {const cnt=(function(){let n=0;for(let i=1;i<=NSLOT;i++)if(state.slots[i].src)n++;return n})();
-  const selN=(function(){let n=0;for(let i=1;i<=NSLOT;i++)if(state.slots[i].src&&!state.slots[i].vidOff)n++;return n})();
-  if(cnt){
-   // quick select-all / clear row for the video
-   const selRow=document.createElement('div');selRow.style.cssText='display:flex;gap:6px;margin-top:10px';
-   const mkQ=(txt,fn)=>{const bq=document.createElement('button');bq.className='ibtn';bq.style.cssText+=';flex:1;font-size:11px;padding:6px';bq.textContent=txt;bq.onclick=fn;return bq;};
-   selRow.appendChild(mkQ('\u2713 All in video',()=>{for(let i=1;i<=NSLOT;i++)if(state.slots[i].src)state.slots[i].vidOff=false;openCellEd(f,role,def);}));
-   selRow.appendChild(mkQ('\u2715 None',()=>{for(let i=1;i<=NSLOT;i++)if(state.slots[i].src)state.slots[i].vidOff=true;openCellEd(f,role,def);}));
-   sec1.appendChild(selRow);
-   const hint=document.createElement('div');hint.className='insp-empty';hint.style.cssText='font-size:10.5px;text-align:left;margin:6px 0 0;color:var(--mut)';
-   hint.textContent='Tap the \u2713 on any photo to include/exclude it from the video.';
-   sec1.appendChild(hint);
-   // make a video (slideshow MP4) from the ticked photos
-   const vid=document.createElement('button');vid.className='ibtn';vid.style.cssText+=';margin-top:8px;background:#173a2b;border-color:#2b6b4f;color:#bfeed6;font-weight:700';
-   vid.textContent='\u{1f3ac} Make video from '+selN+' selected photo'+(selN===1?'':'s');
-   vid.onclick=()=>{if(!selN){alert('Tick at least one photo for the video.');return}try{makeFormatMP4(ACTIVE)}catch(e){alert('Could not start the video: '+e.message)}};
-   sec1.appendChild(vid);
-   // clear-all
-   const clr=document.createElement('button');clr.className='ibtn';clr.style.cssText+=';margin-top:8px;color:#ff8a8a;border-color:#5a2b2b';
-   clr.textContent='\u{1f5d1} Clear all '+cnt+' photos';
-   clr.onclick=()=>{if(!confirm('Remove all '+cnt+' loaded photos from every spot?'))return;
-    for(let i=1;i<=NSLOT;i++){state.slots[i].src=null;state.slots[i].disp=null;state.slots[i].pat=null;delete state.slotColors[i]}
-    buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();openCellEd(f,role,def)};
-   sec1.appendChild(clr);}}
  // replace the image used in THIS spot, in place (updates everywhere that slot is used)
  const repl=document.createElement('button');repl.className='ibtn';repl.style.marginTop='8px';
  repl.textContent='\u2934 Replace this photo (upload)';
@@ -2870,7 +2833,7 @@ window.addEventListener('resize',()=>{clearTimeout(window._rz);window._rz=setTim
 
 /* ============ side ============ */
 function removePhotoSlot(i){
- for(let j=i;j<NSLOT;j++){const a=state.slots[j],b=state.slots[j+1];a.src=b.src;a.disp=b.disp;a.pat=b.pat;a.vidOff=b.vidOff;a.fx=(b.fx!=null?b.fx:50);a.fy=(b.fy!=null?b.fy:30);if(state.slotColors[j+1]!=null)state.slotColors[j]=state.slotColors[j+1];else delete state.slotColors[j]}
+ for(let j=i;j<NSLOT;j++){const a=state.slots[j],b=state.slots[j+1];a.src=b.src;a.disp=b.disp;a.pat=b.pat;a.fx=(b.fx!=null?b.fx:50);a.fy=(b.fy!=null?b.fy:30);if(state.slotColors[j+1]!=null)state.slotColors[j]=state.slotColors[j+1];else delete state.slotColors[j]}
  const L=state.slots[NSLOT];L.src=null;L.disp=null;L.pat=null;L.fx=50;L.fy=30;delete state.slotColors[NSLOT];
  buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror()}
 function buildSlots(){
@@ -3947,8 +3910,7 @@ function quantizeDurs(durs,unit){if(!unit)return durs.slice();return durs.map(x=
 function buildBeatPlan(durs,fps){const arr=(durs&&durs.length)?durs:[0.5];let bs=MP4.beatSec;if(!bs){const med=[...arr].sort((a,b)=>a-b)[Math.floor(arr.length/2)]||0.5;let bf2=Math.max(2,Math.round(med*fps));bs=bf2/fps;while(bs>0.72){bf2=Math.max(2,Math.round(bf2/2));bs=bf2/fps}while(bs<0.28){bf2=bf2*2;bs=bf2/fps}}const bf=Math.max(2,Math.round(bs*fps));const unit=Math.max(1,Math.round(bf/4));const counts=arr.map(d=>Math.max(unit,Math.round(d*fps/unit)*unit));return{beatFrames:bf,beatSec:bs,counts}}
 const MP4={f:null,real:null,frames:[],durs:[],playing:false,raf:null,ready:false,editing:false};
 async function makeFormatMP4(f){
- const real=[];for(let i=1;i<=NSLOT;i++)if(state.slots[i].src&&!state.slots[i].vidOff)real.push(i);
- if(!real.length){for(let i=1;i<=NSLOT;i++)if(state.slots[i].src)real.push(i);}
+ const real=[];for(let i=1;i<=NSLOT;i++)if(state.slots[i].src)real.push(i);
  if(real.length<1){alert('Upload at least one photo first.');return}
  MP4.f=f;MP4.real=real;MP4.durs=real.map(()=>1);MP4.sfxPer=real.map(()=>'');MP4.beatSec=0;MP4.frames=[];MP4.ready=false;MP4.dirty=false;
  MP4.playing=false;if(MP4.raf)clearTimeout(MP4.raf);
@@ -4088,33 +4050,6 @@ document.getElementById('mp4editBtn').onclick=()=>mp4SetEdit(!MP4.editing);
  w('mp4AddPhoto',()=>clickSel('#fmtCtrls [data-add="photo"]'));
  w('mp4Restyle',()=>clickSel('#fmtCtrls [data-act="shuffle"]'));
 })();
-function detectBPM(buf){
- try{
-  const ch=buf.getChannelData(0), sr=buf.sampleRate;
-  const frame=1024, hop=512, n=Math.floor((ch.length-frame)/hop);
-  if(n<8)return 120;
-  const env=new Float32Array(n); let prev=0;
-  for(let i=0;i<n;i++){let sxx=0;const off=i*hop;for(let j=0;j<frame;j+=2){const v=ch[off+j];sxx+=v*v}const e=Math.sqrt(sxx/(frame/2));env[i]=Math.max(0,e-prev);prev=e;}
-  const fps=sr/hop; let bestBpm=120,best=-1;
-  for(let bpm=70;bpm<=180;bpm++){const lag=Math.round(fps*60/bpm);if(lag<2||lag>=env.length)continue;let acc=0;for(let i=0;i+lag<env.length;i++)acc+=env[i]*env[i+lag];const norm=acc/(env.length-lag);if(norm>best){best=norm;bestBpm=bpm}}
-  return bestBpm;
- }catch(e){return 120}
-}
-function autoSyncToBeat(){
- if(!MP4.audioBuf)return false;
- const bpm=detectBPM(MP4.audioBuf);
- const bp=document.getElementById('mp4bpm');if(bp){bp.value=bpm;if(bp.onchange)bp.onchange();}
- let beat=60/bpm;while(beat>1.0)beat/=2;while(beat<0.35)beat*=2;beat=+beat.toFixed(2);
- if(MP4.durs&&MP4.durs.length){MP4.durs=MP4.durs.map(()=>beat);
-  const box=document.getElementById('mp4slides');
-  if(box){box.querySelectorAll('input[type=range]').forEach(r=>r.value=beat);box.querySelectorAll('.ictl > span').forEach(sp=>sp.textContent=beat.toFixed(1)+'s');}
-  const spd=document.getElementById('mp4speed');if(spd)spd.value=Math.max(0.4,Math.min(3,beat));
-  const spv=document.getElementById('mp4speedv');if(spv)spv.textContent=beat.toFixed(1)+'s';
- }
- const rm=document.getElementById('dhRefMsg');if(rm)rm.textContent=(rm.textContent||'').replace(/ · \d+ bpm.*/,'')+' · '+bpm+' bpm detected, cuts synced to beat';
- const tm=document.getElementById('mp4trackmsg');if(tm)tm.textContent=(tm.textContent||'').replace(/ · auto.*/,'')+' · auto-synced to beat';
- return bpm;
-}
 function applyBeatMatch(){const m=curMusic();const def=MUSIC_DEFS[m];const bpm=(def&&def.bpm)||120;const per=+((document.getElementById('mp4beats')||{}).value||1);let dur=(60/bpm)*per;dur=Math.max(0.3,Math.min(4,dur));MP4.beatSec=Math.max(4,Math.round((60/bpm)*20/4)*4)/20;if(MP4.durs)MP4.durs=MP4.durs.map(()=>dur);const box=document.getElementById('mp4slides');if(box){box.querySelectorAll('input[type=range]').forEach(r=>{r.value=dur});box.querySelectorAll('.ictl > span').forEach(s=>{s.textContent=dur.toFixed(1)+'s'});}const sp=document.getElementById('mp4speed');if(sp)sp.value=Math.max(0.4,Math.min(3,dur));const spv=document.getElementById('mp4speedv');if(spv)spv.textContent=dur.toFixed(1)+'s';const bm=document.getElementById('mp4beatmsg');if(bm)bm.textContent=(def?bpm+' bpm':'no bed')+' · '+(dur.toFixed(2))+'s each';}
 const CUTPATTERNS={even:[1],half:[2],fast:[0.5],build:[2,2,1,1,1,0.5,0.5,0.5],drop:[1,1,1,1,1,1,0.5,0.5,0.5,0.5,0.25,0.25,0.25,0.25],surge:[2,1,1,0.5,2,1,1,0.5],machinegun:[1,1,0.5,0.5,0.25,0.25,0.25,0.25]};
 function baseBeatFor(){const m=curMusic();const def=MUSIC_DEFS[m];let bs;if(def){bs=60/def.bpm;while(bs>0.6)bs/=2;while(bs<0.3)bs*=2}else if(MP4.beatSec){bs=MP4.beatSec}else{const arr=(MP4.durs&&MP4.durs.length)?MP4.durs:[0.5];const med=[...arr].sort((a,b)=>a-b)[Math.floor(arr.length/2)]||0.5;bs=med;while(bs>0.6)bs/=2;while(bs<0.3)bs*=2}return Math.max(4,Math.round(bs*20/4)*4)/20}
@@ -4770,16 +4705,9 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    // prominent button at the TOP of the MP4 dialog control column
    try{const sp=document.getElementById('mp4speed');const col=sp&&sp.closest('.ictl')&&sp.closest('.ictl').parentElement;
     if(col&&!document.getElementById('dhRefMusicBtn')){const box=document.createElement('div');box.style.cssText='margin:0 0 14px;padding:12px;border:1px solid #46396f;border-radius:12px;background:#211b34';
-     box.innerHTML='<button id="dhRefMusicBtn" style="width:100%;background:#6d4fd0;color:#fff;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer">\ud83c\udfb5 Use reference music</button>'+'<label style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;color:#d7cffb;cursor:pointer;user-select:none"><input type="checkbox" id="dhBeatSync"'+((localStorage.getItem('studio_beatsync')!=='0')?' checked':'')+' style="width:15px;height:15px;accent-color:#8a6dff;cursor:pointer"><b>\ud83c\udf9a Sync cuts to the beat</b> (auto-detect BPM)</label>'+'<div id="dhRefMsg" style="font-size:11px;color:#b9aee8;margin-top:7px;line-height:1.4">Load a reference clip or track \u2014 tick the box and cuts auto-snap to its detected beat.</div>';
+     box.innerHTML='<button id="dhRefMusicBtn" style="width:100%;background:#6d4fd0;color:#fff;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer">\ud83c\udfb5 Use reference music</button><div id="dhRefMsg" style="font-size:11px;color:#b9aee8;margin-top:7px;line-height:1.4">Load one of your reference clips (pin_1\u2026pin_5) \u2014 its own audio is used, and cuts snap to its beat.</div>';
      col.insertBefore(box,col.firstChild);
-     document.getElementById('dhRefMusicBtn').onclick=()=>{tk.click();};
-     const _cb=document.getElementById('dhBeatSync');
-     if(_cb)_cb.onchange=()=>{localStorage.setItem('studio_beatsync',_cb.checked?'1':'0');if(_cb.checked&&MP4.audioBuf&&typeof autoSyncToBeat==='function')autoSyncToBeat();};
-     tk.addEventListener('change',()=>{
-      const on=()=>{const c=document.getElementById('dhBeatSync');return c?c.checked:(localStorage.getItem('studio_beatsync')!=='0');};
-      if(!on())return;
-      let tries=0;const iv=setInterval(()=>{tries++;if(MP4.audioBuf&&typeof autoSyncToBeat==='function'){clearInterval(iv);autoSyncToBeat();}else if(tries>40){clearInterval(iv);}},150);
-     });}
+     document.getElementById('dhRefMusicBtn').onclick=()=>{tk.click();};}
    }catch(_){}
 
    // relabel the section
@@ -4921,51 +4849,6 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    try{const c=await sampleColor(data);if(c)state.slotColors[t]=c}catch(e){}
   }
 
-  /* ---------- FAST bulk loader: parallel, pre-assigned slots, throttled UI ---------- */
-  function loadBar(done,total){
-   let w=document.getElementById('photoLoadBar');
-   if(done<0){if(w)w.remove();return;}
-   if(!w){w=document.createElement('div');w.id='photoLoadBar';
-    w.style.cssText='position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:9999;background:#111319;border:1px solid #2a2e38;border-radius:12px;padding:12px 16px;box-shadow:0 10px 40px rgba(0,0,0,.55);width:min(420px,86vw);font-family:inherit';
-    w.innerHTML='<div id="plbTxt" style="font-size:12.5px;font-weight:700;color:#e8e9ec;margin-bottom:8px">Loading photos…</div><div style="height:8px;background:#1c1f26;border-radius:6px;overflow:hidden"><div id="plbFill" style="height:100%;width:0;background:linear-gradient(90deg,#7ea2ff,#59f);transition:width .12s"></div></div>';
-    document.body.appendChild(w);}
-   const pct=total?Math.round(done/total*100):0;
-   const tx=document.getElementById('plbTxt'),fl=document.getElementById('plbFill');
-   if(tx)tx.textContent=(done>=total?('✓ '+total+' photos loaded'):('Loading photos — '+done+' / '+total+' ('+pct+'%)'));
-   if(fl)fl.style.width=pct+'%';
-   if(done>=total){setTimeout(()=>{const x=document.getElementById('photoLoadBar');if(x)x.remove();},1400);}
-  }
-  async function loadItemsFast(list){
-   list=list.filter(it=>it && it.kind!=='video');
-   if(!list.length){stat('nothing to load (videos are skipped here)');return}
-   let start=1;for(;start<=NSLOT;start++)if(!state.slots[start].src)break;
-   const need=start+list.length+1; if(NSLOT<need)growSlots(need);
-   const targets=list.map((_,k)=>start+k);
-   let done=0, idx=0; const N=list.length; const CONC=14;
-   const t0=performance.now();
-   loadBar(0,N);
-   async function worker(){
-    while(idx<N){
-     const my=idx++, item=list[my], t=targets[my];
-     try{
-      let data=item.file?await _rd(item.file):await toData(item.img,item.fb);
-      if(data){
-       state.slots[t].src=data;                 /* FULL original quality, untouched */
-       try{state.slots[t].disp=await makeThumb(data,500)}catch(e){state.slots[t].disp=data}  /* small grid thumb only */
-       try{const c=await sampleColor(data);if(c)state.slotColors[t]=c}catch(e){}
-      }
-     }catch(e){}
-     done++;
-     loadBar(done,N);
-     if(done%25===0){stat('loading '+done+' / '+N+'\u2026');buildSlots();if(edTarget)openCellEd(edTarget.f,edTarget.role,edTarget.def)}
-    }
-   }
-   await Promise.all(Array.from({length:Math.min(CONC,N)},()=>worker()));
-   buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();paintGrid();if(edTarget)openCellEd(edTarget.f,edTarget.role,edTarget.def);
-   loadBar(N,N);
-   stat(done+' loaded in '+((performance.now()-t0)/1000).toFixed(1)+'s');
-  }
-
   /* ---------- folders (File System Access API) ---------- */
   const IMG_RE=/\.(jpe?g|png|webp|gif|avif)$/i;
   async function walk(dir,out){for await(const[name,h]of dir.entries()){if(h.kind==='file'&&IMG_RE.test(name)){out.push(await h.getFile())}else if(h.kind==='directory'){await walk(h,out)}}}
@@ -4996,7 +4879,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syAddDrive" class="btn ghost" style="flex:1">📁 Import Drive folder</button><button id="syAddFol" class="btn ghost" style="flex:1">+ Local folder</button><button id="syRe" class="btn ghost" style="flex-shrink:0">↻</button></div>'
    +'<div id="sySources" style="margin-bottom:4px"></div>'+'<button id="syAnother" class="btn ghost" style="width:100%;box-sizing:border-box;padding:8px;font-size:11.5px;color:#7ea2ff;border-color:#2b3550;background:#0f1116;border-radius:8px;margin-bottom:8px;cursor:pointer">+ Add another collection</button>'
    +'<input id="sySearch" placeholder="search…" style="width:100%;background:#14161c;color:#e8e9ec;border:1px solid #262a33;border-radius:8px;padding:7px 8px;font-size:12px;font-family:inherit;margin-bottom:6px">'
-   +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syLoadSel" class="btn ghost" style="flex:1">Add selected</button><button id="syLoadAll" class="btn ghost" style="flex:1">Load ALL (every photo)</button></div>'
+   +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syLoadSel" class="btn ghost" style="flex:1">Add selected</button><button id="syLoadAll" class="btn ghost" style="flex:1">Load all shown</button></div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syToLauncher" class="btn ghost" style="flex:1;border-color:#4a7">🚀 → Launcher (selected, or all shown)</button></div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syDlAll" class="btn ghost" style="flex:1;border-color:#77a">⬇ Download full-res (selected, or all shown)</button></div>'
    +'<label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="syAllImg"> pull <b>every</b> image per product (not just the first)</label>'
@@ -5112,12 +4995,13 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   document.getElementById('syRe').onclick=async()=>{stat('re-syncing everything…');for(const c of COLS){try{Object.assign(c,await fetchAny(c.url))}catch(e){}}saveCols();for(const f of FOLDERS)await syncFolder(f);paintSources();paintGrid();stat('all sources synced')};
   document.getElementById('syLoadSel').onclick=async()=>{
    const picked=SHOWN.filter(it=>sel.has(it.key));if(!picked.length){stat('tap items to select first');return}
-   await loadItemsFast(picked); sel.clear();
+   for(let i=0;i<picked.length;i++){stat('loading '+(i+1)+'/'+picked.length+'…');await addToSlot(picked[i])}
+   sel.clear();buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();paintGrid();stat(picked.length+' loaded into slots');
   };
   document.getElementById('syLoadAll').onclick=async()=>{
-   if(!SHOWN.length){stat('nothing to load');return}
-   stat('loading all '+SHOWN.length+' photos\u2026');
-   await loadItemsFast(SHOWN.slice());   /* ALL of them, no 60 cap */
+   const all=SHOWN.slice(0,60);if(!all.length){stat('nothing to load');return}
+   for(let i=0;i<all.length;i++){stat('loading '+(i+1)+'/'+all.length+'…');await addToSlot(all[i])}
+   buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();stat(all.length+' loaded into slots');
   };
 
   /* ---------- boot: paint cache, then auto-resync in background ---------- */
