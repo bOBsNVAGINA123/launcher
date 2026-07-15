@@ -882,18 +882,67 @@ function pickPset(i,val,name){
   if(!val)m.prodOpen=true; /* keep panel open after untick */
   renderMedia(); paint();
 }
+/* Shopify collection id (== Meta product set retailer_id) -> Meta product set. Deterministic mapping.
+   Built by Claude because the launcher's FB app can't list catalogs. Expand as new collections are added. */
+const PSET_MAP={
+ "476838691054":{ps:"27793658436926704",cat:"577166567508289",name:"Baby girls swimwear",n:17},
+ "476761260270":{ps:"27727743253517562",cat:"577166567508289",name:"Swimwear S26",n:64},
+ "476523167982":{ps:"27498396073126076",cat:"577166567508289",name:"Mix & Match Baby Outfits",n:82},
+ "476034662638":{ps:"27089892650683061",cat:"577166567508289",name:"Baby girl fit",n:2},
+ "475939143918":{ps:"28451887711066941",cat:"577166567508289",name:"s26 denim",n:3},
+ "475732541678":{ps:"27221982017472789",cat:"577166567508289",name:"all swim wear",n:42},
+ "475453685998":{ps:"36302443136068790",cat:"577166567508289",name:"Flowers fit girls",n:2},
+ "475453620462":{ps:"27618983487714644",cat:"577166567508289",name:"Boy fit",n:4},
+ "475453260014":{ps:"27920977430820636",cat:"577166567508289",name:"S26 spcfc fits",n:7},
+ "475418525934":{ps:"27577442691850870",cat:"577166567508289",name:"Baby boy set",n:2},
+ "475219984622":{ps:"27898554083061863",cat:"577166567508289",name:"S26 Best Sellers",n:198},
+ "475062599918":{ps:"27488491067443575",cat:"577166567508289",name:"S26 Aseel Bahjatt",n:280}
+};
+let PSET_SAVED={};try{PSET_SAVED=JSON.parse(localStorage.getItem('pset_saved')||'{}')}catch(e){}
+const COLJSON_CACHE={};
+async function shopColId(url){
+  /* resolve a Shopify collection link -> its collection id (== product set retailer_id), client-side */
+  const mm=url.match(/^(https?:\/\/[^\/]+).*?\/collections\/([\w\-\.%]+)/i);
+  if(!mm) return null;
+  const origin=mm[1], handle=mm[2].replace(/[?#].*$/,'').toLowerCase();
+  let cols=COLJSON_CACHE[origin];
+  if(!cols){
+    try{const r=await fetch(origin+'/collections.json?limit=250');const j=await r.json();cols=j.collections||[];COLJSON_CACHE[origin]=cols;}catch(e){return null}
+  }
+  const c=cols.find(x=>String(x.handle).toLowerCase()===handle);
+  return c?{id:String(c.id),title:c.title}:null;
+}
+async function resolveCollection(i,url){
+  const m=S.media[i]; if(!m) return;
+  const box=document.getElementById('colmsg-'+m.uiId);
+  const set=(txt)=>{ if(box) box.innerHTML=txt; };
+  url=(url||'').trim();
+  if(!url){ m.productSetId=''; m.productSetName=''; m.catalogId=''; set(''); paint(); return; }
+  set('<span style="color:var(--mut)">resolving\u2026</span>');
+  const col=await shopColId(url);
+  if(!col){ set('<span style="color:#c66">Couldn\'t read that collection link. Make sure it\'s a /collections/... URL on your store.</span>'); return; }
+  const hit=PSET_MAP[col.id]||PSET_SAVED[col.id];
+  if(hit){
+    m.productSetId=hit.ps; m.catalogId=hit.cat; m.productSetName=hit.name||col.title;
+    set('<span style="color:#2b8a5a">\u2713 Matched <b>'+esc(hit.name||col.title)+'</b>'+(hit.n?(' \u00b7 '+hit.n+' products'):'')+' \u2014 they\'ll show under this ad.</span>');
+    paint();
+  } else {
+    m.productSetId=''; m.catalogId=''; m.productSetName='';
+    set('<span style="color:#c90">Found the collection ("'+esc(col.title)+'", id '+col.id+') but it isn\'t indexed yet. Tell Claude to add it and it\'ll auto-fill next time.</span>');
+    paint();
+  }
+}
 function productBlock(i,m){
   if(m.kind==='existing') return '';
   const on=!!m.prodOpen||!!m.productSetId;
   if(!S.catalogs.length){
-    const tg='<div class="copytog" style="color:#8a4dff;background:rgba(138,77,255,.08);border-color:rgba(138,77,255,.28)" onclick="toggleProducts('+i+')">'+(m.productSetId?('\u2611 products under this ad: '+esc(m.productSetName||m.productSetId)):'\u2610 show products under this ad (optional)')+'</div>';
+    const tg='<div class="copytog" style="color:#8a4dff;background:rgba(138,77,255,.08);border-color:rgba(138,77,255,.28)" onclick="toggleProducts('+i+')">'+(m.productSetId?('\u2611 products under this ad: '+esc(m.productSetName||'set')):'\u2610 show products under this ad (optional)')+'</div>';
     if(!on) return tg;
-    /* app can't LIST catalogs (needs catalog_management approval) -> let the user paste the IDs, which still attach on launch */
+    /* paste a Shopify collection link -> auto-match the Meta product set (deterministic: retailer_id == collection id) */
     return tg+'<div class="copybox" style="display:block">'
-      +'<div class="hint" style="padding:2px 8px 6px">Auto-list is off for this account (Facebook app lacks catalog permission). Paste the IDs from <b>Commerce Manager \u2192 Catalog \u2192 Product sets</b>:</div>'
-      +'<input class="linkin" placeholder="Product set ID (required)" value="'+esc(m.productSetId||'')+'" oninput="setPsetManual('+i+',this.value)">'
-      +'<input class="linkin" placeholder="Catalog ID (helps delivery, optional)" value="'+esc(m.catalogId||'')+'" oninput="setCatManual('+i+',this.value)">'
-      +(m.productSetId?'<div class="hint" style="padding:4px 8px;color:#2b8a5a">\u2713 On \u2014 these products will show under this ad.</div>':'<div class="hint" style="padding:2px 8px">Leave blank for a normal ad. <a href="#" onclick="loadCatalogs();return false" style="color:#0866ff">Retry auto-list</a></div>')
+      +'<div class="hint" style="padding:2px 8px 6px">Paste the <b>Shopify collection link</b> and the matching products show under this ad:</div>'
+      +'<input class="linkin" placeholder="https://yourstore.com/collections/..." value="'+esc(m.colLink||'')+'" oninput="S.media['+i+'].colLink=this.value" onchange="resolveCollection('+i+',this.value)" onkeydown="if(event.key===\'Enter\')resolveCollection('+i+',this.value)">'
+      +'<div id="colmsg-'+m.uiId+'" class="hint" style="padding:2px 8px 4px">'+(m.productSetId?('\u2713 Matched <b>'+esc(m.productSetName||'set')+'</b> \u2014 products will show under this ad.'):'Paste a link, then press Enter.')+'</div>'
       +'</div>';
   }
   const tag=m.productSetId?('\u2611 products under this ad: '+esc(m.productSetName||'set')):'\u2610 show products under this ad (optional)';
