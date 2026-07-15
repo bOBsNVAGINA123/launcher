@@ -338,6 +338,11 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
             </select></div>
           </div>
           <div class="hint">Placements: Advantage+ (all). Targeting stays broad — the pixel does the work.</div>
+          <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+            <div id="extraAdsetsWrap"></div>
+            <button class="btn" onclick="addExtraAdset()">+ Add another ad set (same targeting, own creatives)</button>
+            <div class="hint" style="margin-top:6px">Each extra ad set uses the targeting above. On every card in step 4, use the → dropdown to send that creative to a specific ad set. That's how you split creatives across ad sets in one launch.</div>
+          </div>
         </div>
       </div>
       <div class="stepnav"><button class="btn" onclick="goStep('camp')">← Back</button><button class="btn primary" onclick="goStep('ad')">Next: Ad content →</button></div>
@@ -531,7 +536,7 @@ const S={
   media:[],                 // {kind, src, file?, url?, name, size?, id?, hash?, thumb?, link?, state?}
   accounts:[], acct:null, acctName:'', currency:'EGP',
   campMode:'exist', camp:null, campName:'', campMeta:null, newCamp:false,
-  adsets:[], selAdsets:[], newAdset:false,
+  adsets:[], selAdsets:[], newAdset:false, extraAdsets:[],
   pages:[], page:'', pixels:[],
   bodies:[], titles:[],
   body:'', bodyLabel:'', title:'', titleLabel:'', desc:'',
@@ -769,8 +774,12 @@ function setMediaState(m,txt,cls){m.state=txt;m.stateCls=cls||'';const el=docume
 let UIID=0;
 function targetOptions(m){
   const t=S.selAdsets.map(a=>[a.id,a.name]);
-  if(S.newAdset&&val('newAdsetName'))t.push(['NEW','NEW: '+val('newAdsetName')]);
-  return '<option value="">→ every ad set picked in step 3</option>'+t.map(([id,n])=>'<option value="'+id+'"'+(m.target===id?' selected':'')+'>→ only: '+esc(n)+'</option>').join('');
+  const newNames=[];
+  if(S.newAdset&&val('newAdsetName')) newNames.push(val('newAdsetName').trim());
+  (S.extraAdsets||[]).forEach(n=>{if(n&&n.trim())newNames.push(n.trim())});
+  newNames.forEach((nm,ni)=>t.push(['NEW'+ni,'NEW: '+nm]));
+  const cur=(m.target==='NEW')?'NEW0':m.target;
+  return '<option value="">→ every ad set picked in step 3</option>'+t.map(([id,n])=>'<option value="'+id+'"'+(cur===id?' selected':'')+'>→ only: '+esc(n)+'</option>').join('');
 }
 function refreshCardTargets(){document.querySelectorAll('select[data-tgt]').forEach(s=>{const m=S.media[+s.dataset.tgt];if(m)s.innerHTML=targetOptions(m)})}
 function applyLinkToAll(){
@@ -814,19 +823,25 @@ function renderMedia(){
 
 async function loadCatalogs(){
   S.catalogs=[]; S.psets={}; S.catLoaded=false;
+  const cats=[]; const add=c=>{if(c&&c.id&&!cats.find(x=>x.id===c.id))cats.push({id:c.id,name:c.name||('Catalog '+c.id)})};
   try{
+    /* a) the ad account's own business */
     let biz='';
     try{const a=await gget('act_'+S.acct+'?fields=business');biz=a&&a.business&&a.business.id||''}catch(e){}
-    let cats=[];
-    if(biz){
-      for(const edge of ['owned_product_catalogs','client_product_catalogs']){
-        try{const j=await gget(biz+'/'+edge+'?fields=name,product_count&limit=100');(j.data||[]).forEach(c=>{if(!cats.find(x=>x.id===c.id))cats.push(c)})}catch(e){}
+    if(biz){for(const edge of ['owned_product_catalogs','client_product_catalogs']){
+      try{const j=await gget(biz+'/'+edge+'?fields=name,product_count&limit=100');(j.data||[]).forEach(add)}catch(e){}}}
+    /* b) fallback: every business the user can access (catches catalogs shared to other BMs) */
+    try{const bs=await gget('me/businesses?fields=id&limit=50');
+      for(const b of (bs.data||[])){
+        for(const edge of ['owned_product_catalogs','client_product_catalogs']){
+          try{const j=await gget(b.id+'/'+edge+'?fields=name,product_count&limit=100');(j.data||[]).forEach(add)}catch(e){}
+        }
       }
-    }
-    S.catalogs=cats; S.catLoaded=true;
-    if(cats.length) log(cats.length+' product catalog(s) available for collection ads','ok');
-    renderMedia();
-  }catch(e){S.catLoaded=true}
+    }catch(e){}
+  }catch(e){}
+  S.catalogs=cats; S.catLoaded=true;
+  if(cats.length) log(cats.length+' product catalog(s) available','ok'); else log('No product catalogs found on your businesses (the toggle still shows — tap Reload inside it)','busy');
+  renderMedia();
 }
 async function loadPsets(catId,cb){
   if(S.psets[catId]){cb&&cb(S.psets[catId]);return S.psets[catId]}
@@ -867,9 +882,14 @@ function pickPset(i,val,name){
 }
 function productBlock(i,m){
   if(m.kind==='existing') return '';
-  if(!S.catLoaded) return '';
-  if(!S.catalogs.length) return '';
   const on=!!m.prodOpen||!!m.productSetId;
+  if(!S.catalogs.length){
+    /* still show the toggle so it's visible under every card */
+    if(!on) return '<div class="copytog" style="color:#8a4dff;background:rgba(138,77,255,.08);border-color:rgba(138,77,255,.28)" onclick="toggleProducts('+i+')">\u2610 show products under this ad (optional)</div>';
+    const msg=S.catLoaded?'No catalogs found for this account.':'Loading catalogs\u2026';
+    return '<div class="copytog" style="color:#8a4dff;background:rgba(138,77,255,.08);border-color:rgba(138,77,255,.28)" onclick="toggleProducts('+i+')">\u2610 show products under this ad (optional)</div>'
+      +'<div class="copybox" style="display:block"><div class="hint" style="padding:4px 8px">'+msg+' <a href="#" onclick="loadCatalogs();return false" style="color:#0866ff">Reload catalogs</a></div></div>';
+  }
   const tag=m.productSetId?('\u2611 products under this ad: '+esc(m.productSetName||'set')):'\u2610 show products under this ad (optional)';
   let inner='';
   if(on){
@@ -1389,9 +1409,15 @@ function refreshAdsetConditionals(){
     document.getElementById('exBidHint').textContent=hint;
   }
 }
+function addExtraAdset(){S.extraAdsets=S.extraAdsets||[];S.extraAdsets.push('');renderExtraAdsets();refreshCardTargets();paint();}
+function renderExtraAdsets(){
+  const w=document.getElementById('extraAdsetsWrap');if(!w)return;
+  w.innerHTML=(S.extraAdsets||[]).map((nm,i)=>'<div class="row" style="margin-bottom:6px;align-items:end"><div class="field" style="flex:2"><label>Extra ad set '+(i+2)+' name</label><input value="'+esc(nm||'')+'" placeholder="e.g. Lookalike 3%" oninput="S.extraAdsets['+i+']=this.value;refreshCardTargets();paint()"></div><div class="field" style="flex:0 0 auto"><button class="btn" title="Remove" onclick="S.extraAdsets.splice('+i+',1);renderExtraAdsets();refreshCardTargets();paint()">\u2715</button></div></div>').join('');
+}
 function toggleNewAdset(){
   S.newAdset=!S.newAdset;
   document.getElementById('newAdsetBox').style.display=S.newAdset?'block':'none';
+  if(S.newAdset)renderExtraAdsets();
   document.getElementById('newAdsetToggle').textContent=S.newAdset?'− Remove new ad set':'+ Create new ad set';
   if(S.newAdset) refreshGoalOptions();
   refreshAdsetConditionals(); paint();
@@ -1908,9 +1934,11 @@ async function launch(){
       bidMode=bs==='COST_CAP'?'cost_cap':bs==='LOWEST_COST_WITH_BID_CAP'?'bid_cap':bs==='LOWEST_COST_WITH_MIN_ROAS'?'min_roas':'volume';
     }
     /* 2. new ad set */
-    const targets=[...S.selAdsets];
-    if(S.newAdset&&val('newAdsetName')){
-      const nm=val('newAdsetName');
+    const targets=S.selAdsets.map(a=>({id:a.id,name:a.name,localId:a.id}));
+    const newNames=[];
+    if(S.newAdset&&val('newAdsetName')) newNames.push(val('newAdsetName').trim());
+    (S.extraAdsets||[]).forEach(n=>{if(n&&n.trim())newNames.push(n.trim())});
+    async function newAdsetPayload(nm){
       const cc=(val('newAdsetCountry')||'EG').toUpperCase();
       const goal=newAdsetGoal();
       const px=val('newAdsetPixel');
@@ -1976,17 +2004,22 @@ async function launch(){
       } else if(!cbo){
         pl.bid_strategy='LOWEST_COST_WITHOUT_CAP';
       }
+      return pl;
+    }
+    for(let ni=0;ni<newNames.length;ni++){
+      const nm=newNames[ni];
+      const pl=await newAdsetPayload(nm);
       loStart('t-adset'); log('Creating ad set '+nm,'busy');
       const as=await gpost(`act_${S.acct}/adsets`,pl);
-      targets.push({id:as.id,name:nm,_new:true}); log('Ad set '+as.id,'ok'); loOk('t-adset','created · '+as.id);
+      targets.push({id:as.id,name:nm,_new:true,localId:'NEW'+ni}); log('Ad set '+as.id+' \u2014 '+nm,'ok'); loOk('t-adset','created \u00b7 '+nm);
     }
     /* 3. media */
     await prepareMedia(true);
     /* 4. creatives + ads */
-    targets.forEach(t=>{if(!t._new&&S.newAdset&&val('newAdsetName')&&t.name===val('newAdsetName'))t._new=true});
     const tgtsFor=sp=>{
       if(!sp.target) return targets;
-      const hit=targets.filter(t=>t.id===sp.target||(sp.target==='NEW'&&t._new));
+      const want=sp.target==='NEW'?'NEW0':sp.target;
+      const hit=targets.filter(t=>t.localId===want||t.id===sp.target);
       return hit.length?hit:targets;
     };
     const specs=builtSpecs();
