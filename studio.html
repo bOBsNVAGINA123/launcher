@@ -6256,6 +6256,11 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   return _prev.apply(this,arguments);
  };
  function colorNameHex(hex){hex=(hex||'#888').replace('#','');return colorName(parseInt(hex.substr(0,2),16)||0,parseInt(hex.substr(2,2),16)||0,parseInt(hex.substr(4,2),16)||0);}
+ /* the format picker list is built before this patch registers the formats -> rebuild it so they show */
+ function _rebuildFmt(){try{if(typeof buildFmtList==='function')buildFmtList();}catch(e){}}
+ if(document.readyState==='complete')_rebuildFmt();
+ window.addEventListener('load',function(){setTimeout(_rebuildFmt,300);setTimeout(_rebuildFmt,1400);});
+ setTimeout(_rebuildFmt,1600);
 })();
 </script>
 
