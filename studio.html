@@ -6430,5 +6430,100 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
  if(document.readyState==='complete')setTimeout(wire,700); else window.addEventListener('load',function(){setTimeout(wire,700);});
 })();
 </script>
+<script>
+/* ===== v17 patch: reference ad formats (editable photos + copy-synced text) ===== */
+(function(){
+ if(typeof FORMATS==='undefined'||typeof stageHTMLraw!=='function')return;
+ var NEW={ok_pills:'Feature Pills',ok_callout:'Annotated Callouts',ok_circle:'Circle Zoom',ok_grid:'Grid + Model',ok_drop:'Just Dropped',ok_card:'Product Card',ok_qa:'Story Q&A'};
+ for(var k in NEW){FORMATS[k]={label:NEW[k]};if(typeof POOL!=='undefined')POOL[k]='photo';}
+ if(typeof LAYOUTP!=='undefined'){LAYOUTP.ok_circle={min:180,max:520,def:300,lbl:'zoom'};LAYOUTP.ok_grid={min:34,max:50,def:42,lbl:'tiles width'};LAYOUTP.ok_card={min:52,max:74,def:62,lbl:'card size'};}
+ function slotSrc(i){var sl=state.slots[i];return sl&&sl.src?srcOf(sl):null;}
+ function esc(t){return (t||'').replace(/</g,'&lt;');}
+
+ var _prev=stageHTMLraw;
+ stageHTMLraw=function(f){
+  if(!NEW[f])return _prev.apply(this,arguments);
+  var a=state.aspect,W=DIMS[a][0],H=DIMS[a][1],fl=filled();
+  var open='<div class="stage" data-w="'+W+'" data-h="'+H+'" style="width:'+W+'px;height:'+H+'px;';
+  function P(role,def,style){return C(f,role,def,style,true,0);}
+
+  if(f==='ok_pills'){
+   var bp=Math.round(W*0.06),pc=['rgba(240,170,180,.94)','rgba(198,120,132,.94)','#ffffff'],ink=['#7a2f3a','#ffffff','#222222'],dl=['Buttery-Soft Feel','Open Hem Design','Easy Relaxed Fit'],pills='';
+   for(var q=0;q<3;q++){var py=Math.round(H*(0.54+q*0.075));
+    pills+='<div style="position:absolute;left:'+bp+'px;top:'+py+'px;min-width:'+Math.round(W*0.52)+'px;background:'+pc[q]+';border-radius:100px;padding:'+Math.round(W*0.03)+'px '+Math.round(W*0.055)+'px;box-shadow:0 8px 22px rgba(0,0,0,.16);z-index:6">'
+     +CAP(f,'cl'+(q+1),dl[q],'position:relative;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.038)+'px;color:'+ink[q])+'</div>';}
+   return open+'background:#eee">'+P('bg',1,'position:absolute;inset:0')
+    +CAP(f,'brand','COMFRT','left:0;top:'+Math.round(H*0.03)+'px;width:'+W+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.05)+'px;color:#fff')
+    +pills
+    +CAP(f,'hl','MADE FOR SUMMER','left:'+bp+'px;top:'+Math.round(H*0.89)+'px;width:'+(W-bp*2)+'px;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(W*0.108)+'px;text-transform:uppercase;letter-spacing:-.01em;color:#fff;text-shadow:0 3px 18px rgba(0,0,0,.22)')
+    +'</div>';
+  }
+  if(f==='ok_callout'){
+   var lbls=['Designed With\nComfort In Mind','Everyday Wearability\nGuaranteed','Internal Adjustable\nWaistband'],ys=[0.32,0.48,0.6],cw=Math.round(W*0.28),out='';
+   for(var q=0;q<3;q++){var ty=Math.round(H*ys[q]);
+    out+=CAP(f,'cl'+(q+1),lbls[q],'left:'+Math.round(W*0.05)+'px;top:'+ty+'px;width:'+cw+'px;justify-content:flex-end;text-align:right;font-family:\'Newsreader\',serif;font-size:'+Math.round(W*0.037)+'px;line-height:1.22;color:#242424')
+     +'<div style="position:absolute;left:'+Math.round(W*0.35)+'px;top:'+(ty+14)+'px;width:'+Math.round(W*0.13)+'px;height:0;border-top:1.5px dotted #555;z-index:4"></div>'
+     +'<div style="position:absolute;left:'+Math.round(W*0.485)+'px;top:'+(ty+11)+'px;width:6px;height:6px;border-radius:50%;background:#333;z-index:5"></div>';}
+   return open+'background:'+surf(f,'bg','#efe9dd')+'">'+P('bg',1,'position:absolute;inset:0')
+    +CAP(f,'hl','Made For Their\nNext Adventure','left:0;top:'+Math.round(H*0.05)+'px;width:'+W+'px;justify-content:center;text-align:center;font-family:\'Playfair Display\',serif;font-style:italic;font-weight:600;font-size:'+Math.round(W*0.072)+'px;color:#1c1c1c')
+    +out+'</div>';
+  }
+  if(f==='ok_circle'){
+   var src=slotSrc(fl[0]),z=Math.round((typeof lay==='function'?lay(f):300)),cd=Math.round(W*0.44),cx=Math.round(W*0.5),cy=Math.round(H*0.52);
+   return open+'background:'+surf(f,'bg','#e9edf0')+'">'
+    +'<div style="position:absolute;left:0;top:0;width:'+Math.round(W*0.64)+'px;height:'+H+'px;overflow:hidden">'+P('bg',1,'position:absolute;inset:0')+'</div>'
+    +CAP(f,'brand','MORI','right:'+Math.round(W*0.05)+'px;top:'+Math.round(H*0.045)+'px;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.055)+'px;color:#2b6b6b')
+    +CAP(f,'hl','the softest\nbaby denim','right:'+Math.round(W*0.05)+'px;top:'+Math.round(H*0.14)+'px;width:'+Math.round(W*0.42)+'px;justify-content:flex-end;text-align:right;font-family:\'DM Sans\',sans-serif;font-weight:800;font-size:'+Math.round(W*0.07)+'px;line-height:1.05;color:#2b6b6b')
+    +'<div style="position:absolute;left:'+cx+'px;top:'+cy+'px;width:'+cd+'px;height:'+cd+'px;border-radius:50%;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.18);background:#ccc'+(src?(" url('"+src+"') center/"+z+"%"):'')+';z-index:6"></div>'
+    +'</div>';
+  }
+  if(f==='ok_grid'){
+   var lw=Math.round(W*((typeof lay==='function'?lay(f):42)/100)),cols=['#f2d675','#e0592a','#3a49b0'],g='';
+   for(var q=0;q<3;q++){var th=Math.round(H/3);
+    g+='<div style="position:absolute;left:0;top:'+(q*th)+'px;width:'+lw+'px;height:'+th+'px;background:'+cols[q]+'">'+P('g'+(q+1),q+2,'position:absolute;left:'+Math.round(W*0.03)+'px;top:'+Math.round(W*0.03)+'px;right:'+Math.round(W*0.03)+'px;bottom:'+Math.round(W*0.03)+'px')+'</div>';}
+   return open+'background:#fff">'
+    +'<div style="position:absolute;left:'+lw+'px;top:0;width:'+(W-lw)+'px;height:'+H+'px;overflow:hidden">'+P('bg',1,'position:absolute;inset:0')+'</div>'+g+'</div>';
+  }
+  if(f==='ok_drop'){
+   var topH=Math.round(H*0.62),bh=H-topH,tw=Math.round(W/3),dl2=['Fluid Drape','Made To Chill','Soothingly Soft'],tiles='';
+   for(var q=0;q<3;q++){
+    tiles+='<div style="position:absolute;left:'+(q*tw)+'px;top:'+topH+'px;width:'+tw+'px;height:'+bh+'px;padding:'+Math.round(W*0.018)+'px">'
+     +'<div style="position:relative;width:100%;height:'+Math.round(bh*0.76)+'px;overflow:hidden;border-radius:4px">'+P('t'+(q+1),q+2,'position:absolute;inset:0')+'</div>'
+     +CAP(f,'cl'+(q+1),dl2[q],'position:relative;margin-top:6px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.028)+'px;letter-spacing:.02em;color:#222')+'</div>';}
+   return open+'background:#fff">'
+    +'<div style="position:absolute;left:0;top:0;width:'+W+'px;height:'+topH+'px;overflow:hidden">'+P('bg',1,'position:absolute;inset:0')+'</div>'
+    +CAP(f,'brand','COMFRT','right:'+Math.round(W*0.05)+'px;top:'+Math.round(H*0.03)+'px;font-family:\'DM Sans\',sans-serif;font-weight:600;font-size:'+Math.round(W*0.04)+'px;color:#fff')
+    +CAP(f,'aff','JUST DROPPED','left:0;top:'+Math.round(topH*0.6)+'px;width:'+W+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:600;font-size:'+Math.round(W*0.045)+'px;letter-spacing:.08em;color:#fff')
+    +CAP(f,'hl','SLINKY RIB','left:0;top:'+Math.round(topH*0.68)+'px;width:'+W+'px;justify-content:center;text-align:center;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(W*0.1)+'px;color:#fff;text-shadow:0 3px 18px rgba(0,0,0,.25)')
+    +tiles+'</div>';
+  }
+  if(f==='ok_card'){
+   var cw=Math.round(W*((typeof lay==='function'?lay(f):62)/100)),ch=Math.round(H*0.72),cx=Math.round(W*0.06),cy=Math.round(H*0.13),pad=Math.round(cw*0.06);
+   return open+'background:#c9c4bd">'+P('bg',1,'position:absolute;inset:0')
+    +'<div style="position:absolute;left:'+cx+'px;top:'+cy+'px;width:'+cw+'px;height:'+ch+'px;background:#f3efe6;border-radius:'+Math.round(cw*0.06)+'px;overflow:hidden;box-shadow:0 16px 50px rgba(0,0,0,.22);z-index:6">'
+     +'<div style="position:absolute;left:'+pad+'px;top:'+pad+'px;right:'+pad+'px;height:'+Math.round(ch*0.5)+'px;border-radius:'+Math.round(cw*0.04)+'px;overflow:hidden">'+P('card',2,'position:absolute;inset:0')+'</div>'
+     +CAP(f,'aff','WAFFLE LOUNGE','left:0;top:'+Math.round(ch*0.585)+'px;width:'+cw+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:600;letter-spacing:.14em;font-size:'+Math.round(cw*0.04)+'px;color:#3a352c')
+     +CAP(f,'hl','Athleisure','left:0;top:'+Math.round(ch*0.63)+'px;width:'+cw+'px;justify-content:center;text-align:center;font-family:\'Playfair Display\',serif;font-style:italic;font-weight:600;font-size:'+Math.round(cw*0.145)+'px;color:#1c1c1c')
+     +CAP(f,'cta','LIVE NOW','left:0;top:'+Math.round(ch*0.8)+'px;width:'+cw+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;letter-spacing:.1em;font-size:'+Math.round(cw*0.045)+'px;text-decoration:underline;text-underline-offset:5px;color:#1c1c1c')
+     +CAP(f,'ds','Ultra-soft comfort, sculpting support, and a flattering fit designed for everyday wear.','left:'+pad+'px;top:'+Math.round(ch*0.88)+'px;width:'+(cw-pad*2)+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:400;font-size:'+Math.round(cw*0.032)+'px;line-height:1.5;color:#555')
+    +'</div></div>';
+  }
+  if(f==='ok_qa'){
+   var qw=Math.round(W*0.8),qx=Math.round(W*0.1);
+   return open+'background:#d6d6d6">'+P('bg',1,'position:absolute;inset:0')
+    +'<div style="position:absolute;left:'+qx+'px;top:'+Math.round(H*0.1)+'px;width:'+qw+'px;background:#26262b;border-radius:14px 14px 0 0;padding:'+Math.round(W*0.035)+'px;z-index:6">'+CAP(f,'aff','thoughts??','position:relative;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.04)+'px;color:#fff')+'</div>'
+    +'<div style="position:absolute;left:'+qx+'px;top:'+Math.round(H*0.155)+'px;width:'+qw+'px;background:#fff;border-radius:0 0 14px 14px;padding:'+Math.round(W*0.04)+'px;z-index:6">'+CAP(f,'hl','are there neutral colours available','position:relative;font-family:\'DM Sans\',sans-serif;font-weight:500;font-size:'+Math.round(W*0.042)+'px;color:#222')+'</div>'
+    +'<div style="position:absolute;left:'+Math.round(W*0.18)+'px;top:'+Math.round(H*0.3)+'px;width:'+Math.round(W*0.64)+'px;background:#fff;border-radius:12px;padding:'+Math.round(W*0.03)+'px;z-index:6">'+CAP(f,'ds','YES!! such a big colour range, there will defs be a colour for you','position:relative;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:600;font-size:'+Math.round(W*0.032)+'px;color:#222')+'</div>'
+    +'</div>';
+  }
+  return _prev.apply(this,arguments);
+ };
+ function _rebuild(){try{if(typeof buildFmtList==='function')buildFmtList();}catch(e){}}
+ if(document.readyState==='complete')_rebuild();
+ window.addEventListener('load',function(){setTimeout(_rebuild,400);setTimeout(_rebuild,1500);});
+ setTimeout(_rebuild,1700);
+})();
+</script>
+
 </body>
 </html>
