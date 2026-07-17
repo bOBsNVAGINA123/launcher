@@ -6246,5 +6246,87 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
 
 
 
+<script>
+/* ===== v13 patch: per-photo Adjust (Brightness/Contrast/Saturation/Warmth/Shadows), baked full-res.
+   Adds an "Adjust photo" panel to the Photo-spot editor so it works across every format. ===== */
+(function(){
+ if(typeof openCellEd!=='function'||typeof state==='undefined')return;
+ state.slotFx=state.slotFx||{};
+ function fxOf(slot){return state.slotFx[slot]||(state.slotFx[slot]={b:100,c:100,s:100,w:0,sh:0});}
+ function isDefault(fx){return fx.b===100&&fx.c===100&&fx.s===100&&fx.w===0&&fx.sh===0;}
+
+ function applyFx(slot,done){
+  var sl=state.slots[slot];if(!sl||!sl.src){if(done)done();return;}
+  /* capture original; if the photo was replaced since our last bake, treat current as the new original */
+  if(!sl._orig || (sl._fxBaked && sl.src!==sl._fxBaked)){sl._orig=sl.src;}
+  var fx=fxOf(slot);
+  if(isDefault(fx)){ /* nothing to do -> restore original */
+   if(sl._orig){sl.src=sl._orig;sl._fxBaked=null;
+    (typeof makeThumb==='function'?makeThumb(sl.src,1000):Promise.resolve(sl.src)).then(function(t){sl.disp=t;_repaint();if(done)done();});}
+   else{_repaint();if(done)done();}
+   return;
+  }
+  var img=new Image();
+  img.onload=function(){try{
+   var c=document.createElement('canvas');c.width=img.naturalWidth||img.width;c.height=img.naturalHeight||img.height;
+   var x=c.getContext('2d');
+   x.filter='brightness('+(fx.b/100)+') contrast('+(fx.c/100)+') saturate('+(fx.s/100)+')';
+   x.drawImage(img,0,0,c.width,c.height);x.filter='none';
+   if(fx.w!==0){x.globalCompositeOperation='soft-light';
+    x.fillStyle=fx.w>0?('rgba(255,150,40,'+Math.min(0.55,fx.w/120)+')'):('rgba(40,120,255,'+Math.min(0.55,-fx.w/120)+')');
+    x.fillRect(0,0,c.width,c.height);x.globalCompositeOperation='source-over';}
+   if(fx.sh!==0){try{var d=x.getImageData(0,0,c.width,c.height),dt=d.data,amt=fx.sh;
+    for(var i=0;i<dt.length;i+=4){for(var k=0;k<3;k++){var val=dt[i+k];var dark=1-val/255; /* lift/crush weighted to shadows */
+      dt[i+k]=Math.max(0,Math.min(255,val+amt*1.25*dark));}}
+    x.putImageData(d,0,0);}catch(e){}}
+   var isPng=/image\/png/.test(sl._orig.slice(0,20));
+   var out;try{out=c.toDataURL(isPng?'image/png':'image/jpeg',0.95);}catch(e){out=sl._orig;}
+   sl.src=out;sl._fxBaked=out;
+   (typeof makeThumb==='function'?makeThumb(out,1000):Promise.resolve(out)).then(function(t){sl.disp=t;_repaint();if(done)done();}).catch(function(){sl.disp=out;_repaint();if(done)done();});
+  }catch(e){if(done)done();}};
+  img.onerror=function(){if(done)done();};
+  img.src=sl._orig;
+ }
+ function _repaint(){try{if(typeof buildSlots==='function')buildSlots();}catch(e){}try{renderStage();}catch(e){}try{if(typeof renderMirror==='function')renderMirror();}catch(e){}}
+
+ var _t=null;
+ function debApply(slot){clearTimeout(_t);_t=setTimeout(function(){applyFx(slot);},150);}
+
+ function mkSlider(lab,min,max,val,oninput){
+  var row=document.createElement('div');row.className='ictl';
+  var l=document.createElement('label');l.textContent=lab;row.appendChild(l);
+  var i=document.createElement('input');i.type='range';i.min=min;i.max=max;i.step=1;i.value=val;
+  var sp=document.createElement('span');sp.style.cssText='min-width:38px;text-align:right;font-weight:700;color:var(--txt)';sp.textContent=val;
+  i.oninput=function(){sp.textContent=i.value;oninput(+i.value);};
+  row.appendChild(i);row.appendChild(sp);return row;
+ }
+
+ var _oce=openCellEd;
+ openCellEd=function(f,role,def,x,y){
+  _oce.apply(this,arguments);
+  try{
+   var box=document.getElementById('inspector');if(!box)return;
+   var v=rs(f,role,def);var slot=v.slot;
+   if(!slot||!state.slots[slot]||!state.slots[slot].src)return;
+   /* if photo was swapped out from under a previous edit, reset the sliders for this fresh photo */
+   var sl=state.slots[slot];
+   if(sl._fxBaked && sl.src!==sl._fxBaked){delete state.slotFx[slot];sl._orig=sl.src;sl._fxBaked=null;}
+   var fx=fxOf(slot);
+   var sec=document.createElement('div');sec.className='insp-sec';
+   var lbl=document.createElement('div');lbl.className='lbl';lbl.textContent='Adjust photo';sec.appendChild(lbl);
+   sec.appendChild(mkSlider('Brightness',50,150,fx.b,function(n){fx.b=n;debApply(slot);}));
+   sec.appendChild(mkSlider('Contrast',50,150,fx.c,function(n){fx.c=n;debApply(slot);}));
+   sec.appendChild(mkSlider('Saturation',0,200,fx.s,function(n){fx.s=n;debApply(slot);}));
+   sec.appendChild(mkSlider('Warmth',-100,100,fx.w,function(n){fx.w=n;debApply(slot);}));
+   sec.appendChild(mkSlider('Shadows',-100,100,fx.sh,function(n){fx.sh=n;debApply(slot);}));
+   var rst=document.createElement('button');rst.className='ibtn';rst.style.marginTop='7px';rst.textContent='↺ Reset adjustments';
+   rst.onclick=function(){state.slotFx[slot]={b:100,c:100,s:100,w:0,sh:0};applyFx(slot,function(){openCellEd(f,role,def);});};
+   sec.appendChild(rst);
+   box.appendChild(sec);
+  }catch(e){}
+ };
+})();
+</script>
+
 </body>
 </html>
