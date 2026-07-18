@@ -733,6 +733,7 @@ async function syncAll(){
     const sel=document.getElementById('acctSel');
     sel.innerHTML='<option value="">Pick an account</option>'+S.accounts.map(a=>`<option value="${a.account_id}">${esc(a.name||a.account_id)} (${a.currency})</option>`).join('');
     st.textContent='✓ '+S.accounts.length+' accounts live'; st.classList.add('on');
+    try{var pa=localStorage.getItem('presetAcct');if(pa&&S.accounts.some(a=>a.account_id===pa)){sel.value=pa;localStorage.removeItem('presetAcct');pickAccount();var ls=document.getElementById('launchStatus');if(ls)ls.value='PAUSED';log('Auto-selected account + PAUSED (from Content Studio batch)','ok');}}catch(e){}
     markSynced();
     log('Synced '+S.accounts.length+' ad accounts','ok');
   }catch(e){st.textContent='sync failed';log('Sync: '+e.message,'err')}
@@ -2288,6 +2289,7 @@ paint();
   const items=await new Promise(res=>{const out=[];const c=db.transaction('inbox').objectStore('inbox').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){out.push(cu.value);cu.continue()}else res(out)}});
   if(items.length){
     items.forEach(it=>{
+      if(it.preset){try{if(it.acct)localStorage.setItem('presetAcct',it.acct);}catch(e){}try{var ls=document.getElementById('launchStatus');if(ls&&it.paused!==false)ls.value='PAUSED';}catch(e){}return;}
       if(it.type==='drive'&&it.driveId){
         if(S.media.some(x=>x.driveId===it.driveId))return;
         S.media.push({kind:it.kind||'image',src:'drive',driveId:it.driveId,url:driveDirect(it.driveId),name:it.name,link:'',adName:(it.name||'').replace(/\.[^.]+$/,''),target:''});return;

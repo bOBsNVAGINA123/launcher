@@ -6525,5 +6525,42 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
 })();
 </script>
 
+<script>
+/* ===== v18 patch: Batch generate -> Launcher (Playmore 26 EGP Clean, PAUSED) ===== */
+(function(){
+ var ACCT='2619321185136291'; /* Playmore 26 EGP Clean */
+ function ready(){return document.getElementById('toLauncherBtn')||document.getElementById('saveBtn');}
+ function init(){
+  var anchor=document.getElementById('toLauncherBtn')||document.getElementById('saveBtn');
+  if(!anchor||document.getElementById('batchLaunchBtn')){setTimeout(init,800);return;}
+  var b=document.createElement('button');b.id='batchLaunchBtn';b.className=anchor.className;
+  b.textContent='🤖 Batch → Launcher (paused)';b.title='Render this design for every loaded product and send them all to the Launcher, pre-set to Playmore 26 EGP Clean and PAUSED';
+  b.style.cssText='background:#173a2b;border-color:#2b6b4f;color:#bfeed6;font-weight:700';
+  anchor.parentNode.insertBefore(b,anchor.nextSibling);
+  b.onclick=async function(){
+   try{
+    var fl=(typeof filled==='function')?filled():[]; var n=Math.min(fl.length,24);
+    if(!n){alert('Load some product photos first (Content Studio → sync a Playmore collection).');return;}
+    if(typeof busyShow==='function'){busyShow('Generating '+n+' creatives → Launcher');busySet(.05);}
+    var db=await new Promise(function(res,rej){var r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=function(){r.result.createObjectStore('inbox',{autoIncrement:true})};r.onsuccess=function(){res(r.result)};r.onerror=function(){rej(r.error)}});
+    function put(rec){return new Promise(function(res){var t=db.transaction('inbox','readwrite');t.objectStore('inbox').put(rec);t.oncomplete=res});}
+    await put({preset:true,acct:ACCT,paused:true,t:Date.now()});
+    var oldRot=state.rot;
+    for(var r=0;r<n;r++){
+     state.rot=r;
+     var c=await capture(ACTIVE,3);
+     var blob=await new Promise(function(res){c.toBlob(res,'image/png');});
+     await put({name:ACTIVE+'_'+state.aspect+'_'+String(r+1).padStart(2,'0')+'_'+Date.now()+'.png',blob:blob,t:Date.now()});
+     if(typeof busySet==='function')busySet(0.05+0.9*(r+1)/n,'Rendered '+(r+1)+' / '+n);
+    }
+    state.rot=oldRot;try{renderStage();if(typeof renderMirror==='function')renderMirror();}catch(e){}
+    if(typeof busySet==='function')busySet(1,n+' sent → open the Launcher (already on Playmore 26, PAUSED)');
+   }catch(e){alert('Batch failed: '+e.message);}
+   finally{if(typeof busyHide==='function')setTimeout(busyHide,1100);}
+  };
+ }
+ if(document.readyState==='complete')setTimeout(init,1200); else window.addEventListener('load',function(){setTimeout(init,1200);});
+})();
+</script>
 </body>
 </html>
