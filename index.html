@@ -353,7 +353,8 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
       <h2>Ad content</h2>
       <div class="sub">Format, page, and copy. Proven copy from this account is one click away.</div>
       <div class="card">
-        <div class="seg"><button class="on" id="fmtSingle" onclick="setFormat('single')">One ad per file</button><button id="fmtCarousel" onclick="setFormat('carousel')">Carousel (files become cards)</button></div>
+        <div class="seg"><button class="on" id="fmtSingle" onclick="setFormat('single')">One ad per file</button><button id="fmtCarousel" onclick="setFormat('carousel')">Carousel</button><button id="fmtCollection" onclick="setFormat('collection')">Collection / Storefront</button></div>
+        <div class="hint" id="fmtHint" style="margin-top:6px"></div>
         <div class="field"><label>Facebook page</label><select id="pageSel" onchange="S.page=this.value;paint()"><option value="">Pick account first</option></select></div>
 
         <h3 class="sec">Primary text <span id="bodyCount" class="mono" style="color:var(--dim);font-weight:400"></span></h3>
@@ -1549,6 +1550,11 @@ function setFormat(f){
   S.format=f; S.prepared=false;
   document.getElementById('fmtSingle').classList.toggle('on',f==='single');
   document.getElementById('fmtCarousel').classList.toggle('on',f==='carousel');
+  const col=document.getElementById('fmtCollection'); if(col) col.classList.toggle('on',f==='collection');
+  const h=document.getElementById('fmtHint');
+  if(h) h.textContent = f==='carousel' ? 'Your files become swipeable cards in one ad (2–10 files).'
+    : f==='collection' ? 'Storefront collection: each video/photo is the hero, with a product grid underneath — tick "show products under this ad" and paste the Shopify collection link on each.'
+    : 'Each file becomes its own ad.';
   paint();
 }
 
@@ -1617,6 +1623,11 @@ function validate(){
   if(S.format==='carousel'&&S.media.some(m=>m.kind==='existing')) issues.push('Carousel cannot include existing ads/posts — switch to One ad per file');
   if(S.format==='carousel'&&S.media.length<2) issues.push('Carousel needs at least 2 files');
   if(S.format==='carousel'&&S.media.length>10) issues.push('Carousel max is 10 cards — remove '+(S.media.length-10));
+  if(S.format==='collection'){
+    if(S.media.some(m=>m.kind==='existing')) issues.push('Collection ads are built from your own videos/photos — remove existing ads/posts');
+    const noSet=S.media.filter(m=>m.kind!=='existing'&&!m.productSetId);
+    if(noSet.length) issues.push('Each storefront ad needs products — tick "show products under this ad" and paste the collection link on: '+noSet.map(m=>(m.adName||m.name)).slice(0,3).join(', ')+(noSet.length>3?' +'+(noSet.length-3)+' more':''));
+  }
   const warns=[];
   if(S.newAdset&&val('newAdsetName')&&activeObjective()==='OUTCOME_SALES'&&['LANDING_PAGE_VIEWS','LINK_CLICKS','IMPRESSIONS','REACH'].includes(newAdsetGoal()))
     warns.push('Performance goal is "'+(document.getElementById('goalSel').selectedOptions[0]||{}).text+'" — that optimizes for VIEWS/CLICKS, not purchases. Meta default for Sales is Maximize conversions.');
@@ -1644,7 +1655,7 @@ function paint(){
     ['Text', S.body? S.body.slice(0,60).replace(/\n/g,' ')+(S.body.length>60?'…':''):'', !!S.body],
     ['Headline', S.title||'', true],
     ['Link', S.link||(S.media.some(m=>m.link)?'custom per card':''), !!(S.link||(S.media.length&&S.media.every(m=>m.kind==='existing'||m.link)))],
-    ['Will create', S.media.length&&asNames.length? nAds+' ad'+(nAds>1?'s':'')+' ('+(S.format==='carousel'?'1 carousel':'1 per file')+' × '+asNames.length+' audience'+(asNames.length>1?'s':'')+')':'', S.media.length>0&&asNames.length>0]
+    ['Will create', S.media.length&&asNames.length? nAds+' ad'+(nAds>1?'s':'')+' ('+(S.format==='carousel'?'1 carousel':S.format==='collection'?'1 storefront collection per file':'1 per file')+' × '+asNames.length+' audience'+(asNames.length>1?'s':'')+')':'', S.media.length>0&&asNames.length>0]
   ];
   document.getElementById('checklist').innerHTML=rows.map(([k,vv,set])=>
     `<div class="ck${set&&vv?' set':''}"><div class="ic">${set&&vv?'✓':''}</div><div class="tx"><b>${k}</b><span title="${esc(vv)}">${esc(vv)||'—'}</span></div></div>`).join('');
