@@ -3000,8 +3000,21 @@ async function csRun(record){
   if(v.url)return '<img loading="lazy" src="'+v.url+'">';
   return '<div class="rl-ph">●</div>';
  }
- var IO=null;
+ var IO=null,GRID=null,rafP=0;
  function fillThumb(el){if(el.__done)return;el.__done=1;el.innerHTML=thumbHTML(el.__rec)}
+ /* fill only what is on (or near) screen, so 300+ creatives don't all decode at once */
+ function fillVisible(){
+  if(!GRID)return;
+  var gr=GRID.getBoundingClientRect(),top=gr.top-500,bot=gr.bottom+500;
+  var cards=GRID.getElementsByClassName('rlCard');
+  for(var i=0;i<cards.length;i++){
+   var c=cards[i];if(c.style.display==='none')continue;
+   var t=c.firstChild;if(!t||t.__done||!t.__rec)continue;
+   var r=c.getBoundingClientRect();
+   if(r.bottom>=top&&r.top<=bot)fillThumb(t);
+  }
+ }
+ function queueFill(){if(rafP)return;rafP=requestAnimationFrame(function(){rafP=0;fillVisible()})}
  async function openReuse(){
   SEL={};
   if(!document.getElementById('rlCss')){
@@ -3031,7 +3044,7 @@ async function csRun(record){
   OV.innerHTML='<div id="rlBox"><div id="rlHead"><h3>🗂 Reuse exported content</h3><input id="rlSearch" placeholder="Search by name…"><span id="rlCount" style="font-size:12px;color:#8a93a6"></span><button class="rlBtn gho" id="rlClose">✕ Close</button></div><div id="rlGrid"></div><div id="rlFoot"><button class="rlBtn gho" id="rlUpload">⬆ Upload files</button><button class="rlBtn pri" id="rlAddSel">＋ Add selected</button><button class="rlBtn grn" id="rlAddAll">＋ Add all</button><span style="flex:1"></span><button class="rlBtn red" id="rlDelSel">🗑 Delete selected</button><button class="rlBtn red" id="rlWipe">Clear archive</button></div></div>';
   document.body.appendChild(OV);
   OV.onclick=function(e){if(e.target===OV)close()};
-  function close(){if(IO){try{IO.disconnect()}catch(e){}IO=null}dropURLs();if(OV){OV.remove();OV=null}}
+  function close(){GRID=null;dropURLs();if(OV){OV.remove();OV=null}}
   document.getElementById('rlClose').onclick=close;
   var recs=[];
   try{recs=await allArchive()}
@@ -3040,7 +3053,7 @@ async function csRun(record){
   var grid=document.getElementById('rlGrid');
   document.getElementById('rlCount').textContent=recs.length+' saved creative'+(recs.length===1?'':'s');
   if(!recs.length){grid.innerHTML='<div id="rlEmpty">Nothing archived yet.<br>Everything you add or export into the launcher from now on lands here automatically — studio exports, Drive imports, local files, all of it.</div>';}
-  try{IO=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;IO.unobserve(e.target);fillThumb(e.target)})},{root:grid,rootMargin:'400px'})}catch(e){IO=null}
+  GRID=grid;grid.onscroll=queueFill;
   recs.forEach(function(r){
    var c=document.createElement('div');c.className='rlCard';
    var already=inList(r.k);
@@ -3058,8 +3071,8 @@ async function csRun(record){
     document.getElementById('rlCount').textContent=n+' saved creative'+(n===1?'':'s');};
    var thEl=c.querySelector('.th');thEl.__rec=r.v;c.__name=(r.v.name||'').toLowerCase();
    grid.appendChild(c);
-   if(IO)IO.observe(thEl);else fillThumb(thEl);
   });
+  fillVisible();setTimeout(fillVisible,120);
   /* search filter */
   var sIn=document.getElementById('rlSearch');
   if(sIn)sIn.oninput=function(){
@@ -3069,6 +3082,7 @@ async function csRun(record){
     var hit=!q||(c.__name||'').indexOf(q)>=0;c.style.display=hit?'':'none';if(hit)shown++;
    });
    document.getElementById('rlCount').textContent=(q?shown+' of '+recs.length:recs.length+' saved creative'+(recs.length===1?'':'s'));
+   queueFill();
   };
   function addMany(list){
    var n=0,skip=0;
