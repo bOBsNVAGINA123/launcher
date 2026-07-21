@@ -2985,17 +2985,23 @@ async function csRun(record){
  function inList(k){for(var i=0;i<S.media.length;i++)if(keyOf(S.media[i])===k)return true;return false}
  function refreshApp(){try{sortMedia()}catch(e){}try{renderMedia()}catch(e){}try{paint()}catch(e){}}
  var OV=null,SEL={};
+ var URLS=[];
+ function mkURL(b){var u=URL.createObjectURL(b);URLS.push(u);return u}
+ function dropURLs(){URLS.forEach(function(u){try{URL.revokeObjectURL(u)}catch(e){}});URLS=[]}
  function thumbHTML(v){
   if(v.kind==='video'){
-   if(v.blob)return '<video muted preload="metadata" src="'+URL.createObjectURL(v.blob)+'"></video>';
-   if(v.driveId)return '<img loading="lazy" src="https://drive.google.com/thumbnail?id='+v.driveId+'&sz=w300">';
+   /* #t=0.1 makes Chrome paint a real frame instead of a black box */
+   if(v.blob)return '<video muted preload="metadata" src="'+mkURL(v.blob)+'#t=0.1"></video>';
+   if(v.driveId)return '<img loading="lazy" src="https://drive.google.com/thumbnail?id='+v.driveId+'&sz=w300" onerror="this.outerHTML=\'<div class=&quot;rl-ph&quot;>▶</div>\'">';
    return '<div class="rl-ph">▶</div>';
   }
-  if(v.blob)return '<img loading="lazy" src="'+URL.createObjectURL(v.blob)+'">';
-  if(v.driveId)return '<img loading="lazy" src="https://drive.google.com/thumbnail?id='+v.driveId+'&sz=w300">';
+  if(v.blob)return '<img loading="lazy" src="'+mkURL(v.blob)+'">';
+  if(v.driveId)return '<img loading="lazy" src="https://drive.google.com/thumbnail?id='+v.driveId+'&sz=w300" onerror="this.outerHTML=\'<div class=&quot;rl-ph&quot;>●</div>\'">';
   if(v.url)return '<img loading="lazy" src="'+v.url+'">';
   return '<div class="rl-ph">●</div>';
  }
+ var IO=null;
+ function fillThumb(el){if(el.__done)return;el.__done=1;el.innerHTML=thumbHTML(el.__rec)}
  async function openReuse(){
   SEL={};
   if(!document.getElementById('rlCss')){
@@ -3004,8 +3010,8 @@ async function csRun(record){
    +'#rlBox{background:#fff;border-radius:16px;max-width:980px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.35);overflow:hidden}'
    +'#rlHead{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #e8eaf0}'
    +'#rlHead h3{margin:0;font-size:17px;flex:1}'
-   +'#rlGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:16px 20px;overflow:auto}'
-   +'.rlCard{border:2px solid #e5e8ef;border-radius:12px;overflow:hidden;cursor:pointer;position:relative;background:#f7f8fb}'
+   +'#rlGrid{display:flex;flex-wrap:wrap;align-content:flex-start;gap:12px;padding:16px 20px;overflow:auto}'
+   +'.rlCard{width:160px;flex:0 0 160px;border:2px solid #e5e8ef;border-radius:12px;overflow:hidden;cursor:pointer;position:relative;background:#f7f8fb}'+'#rlSearch{flex:0 0 210px;border:1px solid #dfe3ec;border-radius:9px;padding:8px 11px;font-size:13px;outline:none}'+'#rlSearch:focus{border-color:#2f6bff}'
    +'.rlCard.on{border-color:#2f6bff;box-shadow:0 0 0 3px rgba(47,107,255,.18)}'
    +'.rlCard .th{height:110px;background:#eceff5;display:flex;align-items:center;justify-content:center;overflow:hidden}'
    +'.rlCard .th img,.rlCard .th video{width:100%;height:100%;object-fit:cover}'
@@ -3022,10 +3028,10 @@ async function csRun(record){
   }
   if(OV){OV.remove();OV=null}
   OV=document.createElement('div');OV.id='rlOv';
-  OV.innerHTML='<div id="rlBox"><div id="rlHead"><h3>🗂 Reuse exported content</h3><span id="rlCount" style="font-size:12px;color:#8a93a6"></span><button class="rlBtn gho" id="rlClose">✕ Close</button></div><div id="rlGrid"></div><div id="rlFoot"><button class="rlBtn gho" id="rlUpload">⬆ Upload files</button><button class="rlBtn pri" id="rlAddSel">＋ Add selected</button><button class="rlBtn grn" id="rlAddAll">＋ Add all</button><span style="flex:1"></span><button class="rlBtn red" id="rlDelSel">🗑 Delete selected</button><button class="rlBtn red" id="rlWipe">Clear archive</button></div></div>';
+  OV.innerHTML='<div id="rlBox"><div id="rlHead"><h3>🗂 Reuse exported content</h3><input id="rlSearch" placeholder="Search by name…"><span id="rlCount" style="font-size:12px;color:#8a93a6"></span><button class="rlBtn gho" id="rlClose">✕ Close</button></div><div id="rlGrid"></div><div id="rlFoot"><button class="rlBtn gho" id="rlUpload">⬆ Upload files</button><button class="rlBtn pri" id="rlAddSel">＋ Add selected</button><button class="rlBtn grn" id="rlAddAll">＋ Add all</button><span style="flex:1"></span><button class="rlBtn red" id="rlDelSel">🗑 Delete selected</button><button class="rlBtn red" id="rlWipe">Clear archive</button></div></div>';
   document.body.appendChild(OV);
   OV.onclick=function(e){if(e.target===OV)close()};
-  function close(){if(OV){OV.remove();OV=null}}
+  function close(){if(IO){try{IO.disconnect()}catch(e){}IO=null}dropURLs();if(OV){OV.remove();OV=null}}
   document.getElementById('rlClose').onclick=close;
   var recs=[];
   try{recs=await allArchive()}
@@ -3034,10 +3040,11 @@ async function csRun(record){
   var grid=document.getElementById('rlGrid');
   document.getElementById('rlCount').textContent=recs.length+' saved creative'+(recs.length===1?'':'s');
   if(!recs.length){grid.innerHTML='<div id="rlEmpty">Nothing archived yet.<br>Everything you add or export into the launcher from now on lands here automatically — studio exports, Drive imports, local files, all of it.</div>';}
+  try{IO=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;IO.unobserve(e.target);fillThumb(e.target)})},{root:grid,rootMargin:'400px'})}catch(e){IO=null}
   recs.forEach(function(r){
    var c=document.createElement('div');c.className='rlCard';
    var already=inList(r.k);
-   c.innerHTML='<div class="th">'+thumbHTML(r.v)+'</div>'
+   c.innerHTML='<div class="th"></div>'
     +(already?'<span class="inlist">IN LIST</span>':'')
     +'<button class="del" title="remove from archive">🗑</button>'
     +'<div class="nm">'+(r.v.name||'untitled').replace(/</g,'&lt;')+'</div>'
@@ -3049,8 +3056,20 @@ async function csRun(record){
     await delArchive([r.k]);delete SEL[r.k];c.remove();
     var n=document.querySelectorAll('.rlCard').length;
     document.getElementById('rlCount').textContent=n+' saved creative'+(n===1?'':'s');};
+   var thEl=c.querySelector('.th');thEl.__rec=r.v;c.__name=(r.v.name||'').toLowerCase();
    grid.appendChild(c);
+   if(IO)IO.observe(thEl);else fillThumb(thEl);
   });
+  /* search filter */
+  var sIn=document.getElementById('rlSearch');
+  if(sIn)sIn.oninput=function(){
+   var q=sIn.value.trim().toLowerCase(),shown=0;
+   Array.prototype.forEach.call(grid.children,function(c){
+    if(!c.classList||!c.classList.contains('rlCard'))return;
+    var hit=!q||(c.__name||'').indexOf(q)>=0;c.style.display=hit?'':'none';if(hit)shown++;
+   });
+   document.getElementById('rlCount').textContent=(q?shown+' of '+recs.length:recs.length+' saved creative'+(recs.length===1?'':'s'));
+  };
   function addMany(list){
    var n=0,skip=0;
    list.forEach(function(r){if(inList(r.k)){skip++;return}if(window.__pxAddRec(r.v))n++});
