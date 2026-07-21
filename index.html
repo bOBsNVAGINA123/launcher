@@ -3014,7 +3014,8 @@ async function csRun(record){
    if(r.bottom>=top&&r.top<=bot)fillThumb(t);
   }
  }
- function queueFill(){if(rafP)return;rafP=requestAnimationFrame(function(){rafP=0;fillVisible()})}
+ /* setTimeout, not requestAnimationFrame: rAF is frozen in background tabs and thumbs would never load */
+ function queueFill(){if(rafP)return;rafP=setTimeout(function(){rafP=0;fillVisible()},60)}
  async function openReuse(){
   SEL={};
   if(!document.getElementById('rlCss')){
