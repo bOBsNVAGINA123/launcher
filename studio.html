@@ -4902,6 +4902,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syToLauncher" class="btn ghost" style="flex:1;border-color:#4a7">🚀 → Launcher (selected, or all shown)</button></div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syDlAll" class="btn ghost" style="flex:1;border-color:#77a">⬇ Download full-res (selected, or all shown)</button></div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syBatch" class="btn ghost" style="flex:2;border-color:#c9a95c">⚡ Batch: every product × this design → Launcher</button><button id="syBatchDl" class="btn ghost" style="flex:1;border-color:#c9a95c" title="download the renders instead">⚡⬇</button></div>'
+   +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syMarpipe" class="btn ghost" style="flex:1;border-color:#d17ecf">🧪 Marpipe replica — preview product × design grid</button></div>'
    +'<label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="syAllImg"> pull <b>every</b> image per product (not just the first)</label>'
    +'<div id="syGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;max-height:230px;overflow:auto;padding-right:3px"></div>'
    +'<div id="syStatus" style="font-size:10px;color:#8b8470;margin:6px 0 2px;min-height:12px"></div>';
@@ -4994,6 +4995,17 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    stat('\u2b07 '+ok+' / '+picked.length+' saved at full res \u2014 drag the folder into Google Drive');
   };
 
+  /* put one product's image(s) + real title/price into the slots so any format renders it */
+  async function prepSlotsFor(it,d,d2){
+   for(let j=1;j<=NSLOT;j++){state.slots[j].src=null;state.slots[j].disp=null}
+   state.slots[1].src=d;state.slots[1].disp=d;
+   if(d2){state.slots[2].src=d2;state.slots[2].disp=d2}
+   window.PX_SLOTMETA=window.PX_SLOTMETA||{};
+   const meta={t:(it.title||'').replace(/\s*\u00b7\s*\d+$/,''),p:it.price||'',dims:{},d:''};
+   window.PX_SLOTMETA[1]=meta;window.PX_SLOTMETA[2]=meta;
+   try{const c0=await sampleColor(d);if(c0)state.slotColors[1]=c0}catch(e){}
+  }
+
   /* ---------- \u26a1 Marpipe-style batch: render the ACTIVE design once per product ----------
      swaps each product's image (and 2nd image) into slots 1/2, injects real title+price
      via PX_SLOTMETA, captures, ships every PNG to the Launcher bridge (or downloads). */
@@ -5014,13 +5026,8 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
     try{
      const d=it.file?await _rd(it.file):await toData(it.img,it.fb);
      if(!d)continue;
-     for(let j=1;j<=NSLOT;j++){state.slots[j].src=null;state.slots[j].disp=null}
-     state.slots[1].src=d;state.slots[1].disp=d;
-     if(it.img2){const d2=await toData(it.img2);if(d2){state.slots[2].src=d2;state.slots[2].disp=d2}}
-     window.PX_SLOTMETA=window.PX_SLOTMETA||{};
-     const meta={t:(it.title||'').replace(/\s*\u00b7\s*\d+$/,''),p:it.price||'',dims:{},d:''};
-     window.PX_SLOTMETA[1]=meta;window.PX_SLOTMETA[2]=meta;
-     try{const c0=await sampleColor(d);if(c0)state.slotColors[1]=c0}catch(e){}
+     const d2=it.img2?await toData(it.img2):null;
+     await prepSlotsFor(it,d,d2);
      const c=await capture(ACTIVE,3);
      const blob=await new Promise(r=>c.toBlob(r,'image/png'));
      const name=clean(it.title)+'_'+ACTIVE+'_'+state.aspect+'.png';
@@ -5035,6 +5042,104 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   }
   document.getElementById('syBatch').onclick=()=>batchRender(false);
   document.getElementById('syBatchDl').onclick=()=>batchRender(true);
+
+  /* ---------- 🧪 Marpipe replica: preview matrix (products ↓ × designs →) ----------
+     low-res preview of every combo, tap the cells you like, then only those get
+     re-rendered at full res and shipped to the Launcher (or downloaded). */
+  const MP={cells:[],cancel:false};
+  const mpClean=n=>String(n||'ad').replace(/[^\w\-. ]+/g,'_').slice(0,60);
+  function mpMsg(m){const s=document.getElementById('mpStat');if(s)s.textContent=m}
+  function mpCount(){
+   const n=MP.cells.filter(c=>c.on).length;
+   const sh=document.getElementById('mpShip'),dl=document.getElementById('mpDl');
+   if(sh)sh.textContent='🚀 Launcher ('+n+')';if(dl)dl.textContent='⬇ ('+n+')';
+  }
+  async function mpShipSel(download){
+   const on=MP.cells.filter(c=>c.on);
+   if(!on.length){mpMsg('tap the previews you like first');return}
+   const bakSlots=JSON.stringify(state.slots),bakMeta=JSON.stringify(window.PX_SLOTMETA||{});
+   let db=null;
+   if(!download)db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+   let ok=0;
+   for(let i=0;i<on.length;i++){
+    mpMsg('full-res '+(i+1)+'/'+on.length+' · '+on[i].it.title.slice(0,30)+'…');
+    try{
+     await prepSlotsFor(on[i].it,on[i].d,on[i].d2);
+     const c=await capture(on[i].f,3);
+     const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+     const name=mpClean(on[i].it.title)+'_'+on[i].f+'_'+state.aspect+'.png';
+     if(download){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();await new Promise(r=>setTimeout(r,300))}
+     else await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').put({name,blob,t:Date.now()});t.oncomplete=res});
+     ok++;
+    }catch(e){}
+   }
+   state.slots=JSON.parse(bakSlots);window.PX_SLOTMETA=JSON.parse(bakMeta);
+   buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();
+   mpMsg('🚀 '+ok+'/'+on.length+(download?' downloaded':' sent — open the Launcher, they land in Media automatically'));
+  }
+  function mpOpen(){
+   let picked=SHOWN.filter(it=>sel.has(it.key));
+   if(!picked.length)picked=SHOWN.slice(0,12);
+   picked=picked.filter(it=>it.kind!=='video').slice(0,12); /* ponytail: 12-product preview cap — select specific products for a different dozen */
+   if(!picked.length){stat('sync a collection first');return}
+   const old=document.getElementById('mpOverlay');if(old)old.remove();
+   MP.cells=[];MP.cancel=false;
+   const o=document.createElement('div');o.id='mpOverlay';
+   o.style.cssText='position:fixed;inset:0;z-index:99998;background:#0b0c10;color:#e8e9ec;display:flex;flex-direction:column;font-family:inherit';
+   o.innerHTML='<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #262a33;flex-wrap:wrap">'
+    +'<b style="font-size:15px;white-space:nowrap">🧪 Marpipe replica</b>'
+    +'<span style="font-size:10.5px;color:#8b8f98">'+picked.length+' products · tick designs → Render → tap what you like → ship</span>'
+    +'<div id="mpFmts" style="display:flex;gap:5px;flex-wrap:wrap;font-size:10.5px;max-height:58px;overflow:auto;flex:1;min-width:200px"></div>'
+    +'<button id="mpGo" style="background:#7ea2ff;color:#111;border:none;border-radius:8px;padding:9px 13px;font-weight:700;cursor:pointer">Render previews</button>'
+    +'<button id="mpShip" style="background:#9fe6a0;color:#111;border:none;border-radius:8px;padding:9px 13px;font-weight:800;cursor:pointer">🚀 Launcher (0)</button>'
+    +'<button id="mpDl" style="background:#1d222b;color:#e8e9ec;border:1px solid #333;border-radius:8px;padding:9px 11px;cursor:pointer">⬇ (0)</button>'
+    +'<button id="mpX" style="background:none;border:none;color:#8b8f98;font-size:22px;cursor:pointer;line-height:1">×</button></div>'
+    +'<div id="mpStat" style="font-size:11px;color:#c9a95c;padding:4px 14px;min-height:16px"></div>'
+    +'<div id="mpGrid" style="flex:1;overflow:auto;padding:10px 14px"><div style="font-size:12px;color:#6b7280;padding:20px;text-align:center">tick one or more designs up top, then hit Render previews</div></div>';
+   document.body.appendChild(o);
+   document.getElementById('mpFmts').innerHTML=Object.keys(FORMATS).map(k=>'<label style="display:flex;align-items:center;gap:3px;background:#14161c;border:1px solid #262a33;border-radius:6px;padding:3px 6px;cursor:pointer;white-space:nowrap"><input type="checkbox" data-f="'+k+'"'+(k===ACTIVE?' checked':'')+' style="accent-color:#7ea2ff;margin:0">'+FORMATS[k].label+'</label>').join('');
+   document.getElementById('mpX').onclick=()=>{MP.cancel=true;o.remove()};
+   document.getElementById('mpShip').onclick=()=>mpShipSel(false);
+   document.getElementById('mpDl').onclick=()=>mpShipSel(true);
+   document.getElementById('mpGo').onclick=async()=>{
+    const fmts=[...o.querySelectorAll('#mpFmts input:checked')].map(i=>i.dataset.f);
+    if(!fmts.length){mpMsg('tick at least one design first');return}
+    MP.cells=[];MP.cancel=false;mpCount();
+    const grid=document.getElementById('mpGrid');
+    grid.innerHTML='<div id="mpTbl" style="display:grid;grid-template-columns:96px repeat('+fmts.length+',minmax(140px,220px));gap:8px;align-items:start;min-width:'+(96+fmts.length*150)+'px"></div>';
+    const tbl=document.getElementById('mpTbl');
+    tbl.insertAdjacentHTML('beforeend','<div></div>'+fmts.map(f=>'<div style="font-size:10px;color:#8b8f98;text-transform:uppercase;letter-spacing:.06em">'+FORMATS[f].label+'</div>').join(''));
+    const bakSlots=JSON.stringify(state.slots),bakMeta=JSON.stringify(window.PX_SLOTMETA||{});
+    const total=picked.length*fmts.length;let done=0;
+    for(const it of picked){
+     if(MP.cancel)break;
+     tbl.insertAdjacentHTML('beforeend','<div style="font-size:10px;color:#aeb4bf;word-break:break-word"><div style="height:56px;border-radius:6px;background:#14161c center/cover;background-image:url(\''+(thumbOf(it)||'')+'\')"></div>'+it.title.slice(0,48)+'</div>');
+     let d=null,d2=null;
+     try{d=it.file?await _rd(it.file):await toData(it.img,it.fb);if(it.img2)d2=await toData(it.img2)}catch(e){}
+     for(const f of fmts){
+      if(MP.cancel)break;
+      const cell=document.createElement('div');
+      cell.style.cssText='border:2px solid transparent;border-radius:10px;background:#101218;min-height:60px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#6b7280';
+      cell.textContent='rendering…';tbl.appendChild(cell);
+      done++;mpMsg('previewing '+done+'/'+total+' · '+it.title.slice(0,28)+'…');
+      if(!d){cell.textContent='⚠ image failed';continue}
+      try{
+       await prepSlotsFor(it,d,d2);
+       const c=await capture(f,0.4);
+       const rec={it,f,d,d2,on:false,el:cell};
+       cell.innerHTML='<img src="'+c.toDataURL('image/jpeg',.72)+'" style="width:100%;border-radius:8px;display:block">';
+       cell.style.cursor='pointer';
+       cell.onclick=()=>{rec.on=!rec.on;cell.style.borderColor=rec.on?'#9fe6a0':'transparent';mpCount()};
+       MP.cells.push(rec);
+      }catch(e){cell.textContent='⚠ '+(e&&e.message?e.message.slice(0,40):'render failed')}
+     }
+    }
+    state.slots=JSON.parse(bakSlots);window.PX_SLOTMETA=JSON.parse(bakMeta);
+    buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();
+    if(!MP.cancel)mpMsg(MP.cells.length+' previews ready — tap the ones you like, then 🚀 or ⬇');
+   };
+  }
+  document.getElementById('syMarpipe').onclick=mpOpen;
 
   document.getElementById('sySearch').oninput=paintGrid;
   document.getElementById('syAddCol').onclick=async()=>{
