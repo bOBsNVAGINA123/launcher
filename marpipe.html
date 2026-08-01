@@ -6,7 +6,7 @@
 <title>marpipe — bootleg cut</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='11' cy='16' r='9' fill='%236b76e3'/><circle cx='24' cy='12' r='5' fill='%236fd97a'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&family=Playfair+Display:ital,wght@1,500;1,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Playfair+Display:ital,wght@1,500;1,700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root{--bg:#e9e8e5;--ink:#111;--peri:#6b76e3;--grn:#6fd97a;--mono:'Space Mono',monospace;--disp:'Archivo Black',sans-serif}
@@ -128,8 +128,8 @@ footer{padding:26px 22px;font-size:10px;color:#555;letter-spacing:.08em;border-t
   <div class="tchips" id="tchips"></div>
   <div class="gridbar">
    <div class="aspect" id="aspects"></div>
-   <button class="btn" id="dlBtn">⬇ EXPORT (0)</button>
-   <button class="btn alt" id="shipBtn">🚀 LAUNCHER (0)</button>
+   <button class="btn" id="dlBtn">EXPORT (0)</button>
+   <button class="btn alt" id="shipBtn">→ LAUNCHER (0)</button>
    <button class="btn ghost" id="selAllC">select all</button>
    <button class="btn ghost" id="clrC">clear</button>
    <span class="stat" id="gstat" style="margin-left:auto"></span>
@@ -182,7 +182,7 @@ async function fetchCollection(url){
   const price=(j.variants&&j.variants[0]&&j.variants[0].price!=null)?String(Math.round(j.variants[0].price)/100):'';
   const raw=(j.images||[]).map(im=>/^\/\//.test(im)?'https:'+im:im).filter(Boolean);
   if(!raw.length)throw new Error('product has no images');
-  return{url,handle:'p_'+handle,name:'🛍 '+j.title,products:[{title:j.title,price,img:hiRes(raw[0]),fb:raw[0],img2:raw[1]?hiRes(raw[1]):''}],last:Date.now()}}
+  return{url,handle:'p_'+handle,name:'PRODUCT · '+j.title,products:[{title:j.title,price,img:hiRes(raw[0]),fb:raw[0],img2:raw[1]?hiRes(raw[1]):''}],last:Date.now()}}
  const m=url.match(/^(https?:\/\/[^\/]+)\/.*?collections\/([\w\-\.%]+)/i)||url.match(/^(https?:\/\/[^\/]+)\/?$/);
  if(!m)throw new Error('not a collection / product / drive-folder link');
  const origin=m[1],handle=m[2]||'all';let prods=[];
@@ -204,7 +204,7 @@ async function fetchDrive(u){
   if(!/\.(jpe?g|png|webp|gif|avif)$/i.test(name))continue;
   prods.push({title:name.replace(/\.[a-z]+$/i,''),price:'',img:'https://drive.google.com/thumbnail?id='+id+'&sz=w2000',fb:null,img2:''})}
  if(!prods.length)throw new Error('no images — share folder as “Anyone with the link”');
- return{url:u,handle:'drive_'+fm[1].slice(0,10),name:'📁 drive · '+prods.length,products:prods,last:Date.now()}}
+ return{url:u,handle:'drive_'+fm[1].slice(0,10),name:'DRIVE · '+prods.length+' FILES',products:prods,last:Date.now()}}
 const fetchAny=u=>/\/folders\//.test(u)?fetchDrive(u):fetchCollection(u);
 
 /* ============ feed UI ============ */
@@ -236,72 +236,86 @@ $('toGrid').onclick=()=>{go('Grid');paintMatrix()};
 function fmtPrice(p){if(!p.price)return'';const n=String(p.price).replace(/\.00$/,'');return n+' '+B.cur}
 function E(t){return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}
 function IM(u,st){return '<img src="'+u+'" style="'+st+'" crossorigin="anonymous">'}
-const ctaS='font-family:var(--mono);font-weight:700;letter-spacing:.1em;background:'+'REPL_G'+';border:3px solid #111;box-shadow:9px 9px 0 #111;padding:22px 44px;font-size:30px;display:inline-block';
-function cta(txt,bg){return '<div style="font-family:\'Space Mono\',monospace;font-weight:700;letter-spacing:.1em;background:'+(bg||B.c2)+';color:#111;border:3px solid #111;box-shadow:8px 8px 0 #111;padding:20px 42px;font-size:28px;display:inline-block">'+txt+'</div>'}
+/* ---- ad-creative design system — deliberately NOT the tool's marpipe chrome ---- */
+const DISP="'Bricolage Grotesque',sans-serif",BODY="'Inter',sans-serif",MONO="'Space Mono',monospace",SERIF="'Playfair Display',serif",INK='#16151a';
+function hx(c){c=String(c||'#888').replace('#','');if(c.length===3)c=c.split('').map(x=>x+x).join('');return[parseInt(c.slice(0,2),16)||0,parseInt(c.slice(2,4),16)||0,parseInt(c.slice(4,6),16)||0]}
+function mixw(c,pct){const a=hx(c);const m=x=>Math.round(255-(255-x)*pct/100);return'rgb('+m(a[0])+','+m(a[1])+','+m(a[2])+')'}
+function darkc(c){const a=hx(c);return(a[0]*299+a[1]*587+a[2]*114)/1000<150}
+function onC(c){return darkc(c)?'#fff':INK}
+function tc(s){s=String(s||'').trim();if(!s)return s;if(s===s.toUpperCase()||s===s.toLowerCase())return s.toLowerCase().replace(/(^|[\s\-&(])[a-z؀-ۿ]/g,m=>m.toUpperCase());return s}
+function splitTitle(raw){let t=String(raw||'').replace(/["“”]/g,'').trim();
+ let variant='';const vm=t.match(/\s[–—-]\s*([A-Za-z ]{3,24})$/);if(vm){variant=vm[1].trim();t=t.slice(0,vm.index).trim()}
+ let sub='';const pm=t.match(/\(([^)]+)\)/);if(pm){sub=pm[1].trim();t=(t.replace(pm[0],'')).replace(/\s{2,}/g,' ').trim()}
+ return{main:tc(t),sub:tc(sub),variant:tc(variant)}}
+function bgFill(c){return'<div style="position:absolute;inset:0;background:'+c+'"></div>'}
+function imgBox(u,pos,extra){return'<div style="position:absolute;'+pos+';display:flex;align-items:center;justify-content:center">'+IM(u,'max-width:100%;max-height:100%;object-fit:contain;'+(extra||''))+'</div>'}
+function brandTag(color,pos){return'<div style="position:absolute;'+(pos||'left:60px;top:56px')+';font:600 23px/1 '+BODY+';letter-spacing:.3em;text-transform:uppercase;color:'+color+'">'+E(B.name)+'</div>'}
+function priceChip(p,extra){if(!p.price)return'';return'<div style="'+(extra||'')+';font:700 34px/1 '+BODY+';background:'+B.c1+';color:'+onC(B.c1)+';border-radius:999px;padding:20px 34px;white-space:nowrap">'+fmtPrice(p)+'</div>'}
+function titleBlock(t,size,color,subColor){return'<div style="min-width:0"><div style="font:700 '+size+'px/1.08 '+DISP+';color:'+color+';max-height:'+Math.round(size*2.3)+'px;overflow:hidden">'+E(t.main)+'</div>'+((t.sub||t.variant)?'<div style="font:500 '+Math.round(size*0.52)+'px/1.3 '+BODY+';color:'+subColor+';margin-top:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+E([t.sub,t.variant].filter(Boolean).join(' · '))+'</div>':'')+'</div>'}
 const T=[
- {id:'clean',name:'CLEAN CARD',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:'+B.c1+'"></div>'
-  +'<div style="position:absolute;left:70px;right:70px;top:70px;bottom:'+(H*0.24)+'px;background:#fff;border:3px solid #111;box-shadow:14px 14px 0 #111;display:flex;align-items:center;justify-content:center;padding:40px">'+IM(p.img,'max-width:88%;max-height:88%;object-fit:contain')+'</div>'
-  +'<div style="position:absolute;left:70px;right:70px;bottom:70px;height:'+(H*0.24-110)+'px;display:flex;align-items:center;justify-content:space-between;gap:30px">'
-  +'<div style="font-family:\'Archivo Black\';font-size:44px;line-height:1.05;color:#fff;text-transform:uppercase;max-height:100%;overflow:hidden">'+E(p.title)+'</div>'
-  +(p.price?'<div style="flex-shrink:0;font-family:\'Space Mono\',monospace;font-weight:700;font-size:40px;background:'+B.c2+';border:3px solid #111;box-shadow:8px 8px 0 #111;padding:16px 28px">'+fmtPrice(p)+'</div>':'')+'</div>'},
- {id:'splash',name:'PRICE SPLASH',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:#fff"></div>'
-  +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:'+(H*0.1)+'px 90px">'+IM(p.img,'max-width:100%;max-height:100%;object-fit:contain')+'</div>'
-  +'<div style="position:absolute;left:0;top:0;width:100%;padding:34px 46px;font-family:\'Space Mono\',monospace;font-weight:700;font-size:26px;letter-spacing:.24em">'+E(B.name)+'</div>'
-  +(p.price?'<div style="position:absolute;right:60px;top:'+(H*0.56)+'px;width:330px;height:330px;border-radius:50%;background:'+B.c1+';border:4px solid #111;transform:rotate(10deg);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff">'
-  +'<div style="font-family:\'Space Mono\',monospace;font-size:24px;letter-spacing:.2em">ONLY</div><div style="font-family:\'Archivo Black\';font-size:64px;line-height:1">'+String(p.price).replace(/\.00$/,'')+'</div><div style="font-family:\'Space Mono\',monospace;font-size:26px">'+B.cur+'</div></div>':'')
-  +'<div style="position:absolute;left:46px;bottom:52px;right:420px;font-family:\'Archivo Black\';font-size:52px;line-height:1;text-transform:uppercase">'+E(p.title)+'</div>'},
- {id:'frame',name:'HARD FRAME',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:'+'#e9e8e5'+'"></div>'
-  +'<div style="position:absolute;left:60px;top:60px;right:60px;font-family:\'Space Mono\',monospace;font-weight:700;font-size:30px;letter-spacing:.14em">[ '+E(B.badge)+' ]</div>'
-  +'<div style="position:absolute;left:60px;top:'+(H*0.14)+'px;right:60px;bottom:'+(H*0.2)+'px;border:5px solid #111;box-shadow:18px 18px 0 '+B.c1+';background:#fff;display:flex;align-items:center;justify-content:center;padding:44px">'+IM(p.img,'max-width:90%;max-height:90%;object-fit:contain')+'</div>'
-  +'<div style="position:absolute;left:60px;bottom:56px;right:60px;display:flex;justify-content:space-between;align-items:flex-end;gap:26px">'
-  +'<div style="font-family:\'Archivo Black\';font-size:40px;line-height:1.06;text-transform:uppercase;max-width:'+(W*0.6)+'px">'+E(p.title)+'</div>'
-  +(p.price?'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:36px;white-space:nowrap">'+fmtPrice(p)+'</div>':'')+'</div>'},
- {id:'grad',name:'GRADIENT POP',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:linear-gradient(160deg,'+B.c1+','+B.c2+')"></div>'
-  +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:'+(H*0.16)+'px 100px '+(H*0.2)+'px">'+IM(p.img,'max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 44px 60px rgba(0,0,0,.45))')+'</div>'
-  +'<div style="position:absolute;top:48px;left:0;width:100%;text-align:center;font-family:\'Space Mono\',monospace;font-weight:700;letter-spacing:.34em;font-size:26px;color:#fff">'+E(B.name)+'</div>'
-  +'<div style="position:absolute;left:70px;bottom:64px;right:70px;display:flex;align-items:flex-end;justify-content:space-between;gap:24px">'
-  +'<div style="font-family:\'Archivo Black\';color:#fff;font-size:54px;line-height:1;text-transform:uppercase;text-shadow:4px 4px 0 rgba(0,0,0,.3)">'+E(p.title)+'</div>'
-  +(p.price?'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:34px;color:#111;background:#fff;border:3px solid #111;padding:14px 22px;white-space:nowrap">'+fmtPrice(p)+'</div>':'')+'</div>'},
- {id:'sale',name:'SALE SLASH',r:(p,W,H)=>{const old=p.price?Math.round(parseFloat(p.price)*1.35):0;
-  return '<div style="position:absolute;inset:0;background:#fff"></div>'
-  +'<div style="position:absolute;left:-140px;top:'+(H*0.07)+'px;width:'+(W+280)+'px;transform:rotate(-7deg);background:'+B.c2+';border-top:4px solid #111;border-bottom:4px solid #111;padding:18px 0;text-align:center;font-family:\'Archivo Black\';font-size:56px;letter-spacing:.1em">SALE&nbsp;·&nbsp;SALE&nbsp;·&nbsp;SALE</div>'
-  +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:'+(H*0.22)+'px 110px '+(H*0.22)+'px">'+IM(p.img,'max-width:100%;max-height:100%;object-fit:contain')+'</div>'
-  +'<div style="position:absolute;left:70px;bottom:60px;right:70px;display:flex;align-items:flex-end;justify-content:space-between;gap:26px">'
-  +'<div style="font-family:\'Archivo Black\';font-size:42px;line-height:1.06;text-transform:uppercase;max-width:'+(W*0.55)+'px">'+E(p.title)+'</div>'
-  +(p.price?'<div style="text-align:right;font-family:\'Space Mono\',monospace;font-weight:700;white-space:nowrap"><div style="font-size:30px;color:#999;text-decoration:line-through">'+old+' '+B.cur+'</div><div style="font-size:52px;color:'+B.c1+'">'+fmtPrice(p)+'</div></div>':'')+'</div>'}},
- {id:'edit',name:'EDITORIAL',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:#f1eee6"></div>'
-  +'<div style="position:absolute;left:64px;top:60px;right:64px;border-top:2px solid #111;border-bottom:2px solid #111;padding:14px 4px;display:flex;justify-content:space-between;font-family:\'Space Mono\',monospace;font-size:22px;letter-spacing:.2em"><span>'+E(B.name)+'</span><span>N°1</span></div>'
-  +'<div style="position:absolute;left:0;right:0;top:'+(H*0.15)+'px;text-align:center;font-family:\'Playfair Display\',serif;font-style:italic;font-weight:700;font-size:66px;line-height:1.06;padding:0 80px">'+E(p.title)+'</div>'
-  +'<div style="position:absolute;left:'+(W*0.2)+'px;right:'+(W*0.2)+'px;top:'+(H*0.34)+'px;bottom:'+(H*0.15)+'px;background:#fff;border:2px solid #111;box-shadow:22px 22px 0 rgba(17,17,17,.14);transform:rotate(-2deg);display:flex;align-items:center;justify-content:center;padding:36px">'+IM(p.img,'max-width:92%;max-height:92%;object-fit:contain')+'</div>'
-  +'<div style="position:absolute;left:0;right:0;bottom:58px;text-align:center;font-family:\'Space Mono\',monospace;font-weight:700;font-size:30px;letter-spacing:.24em">'+(p.price?fmtPrice(p):E(B.badge))+'</div>'},
- {id:'bigtype',name:'BIG TYPE',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:'+B.c1+'"></div>'
-  +'<div style="position:absolute;left:0;top:'+(H*0.06)+'px;width:100%;font-family:\'Archivo Black\';font-size:150px;line-height:.9;color:transparent;-webkit-text-stroke:3px rgba(255,255,255,.75);text-transform:uppercase;white-space:normal;word-break:break-word;padding:0 30px;max-height:'+(H*0.62)+'px;overflow:hidden">'+E(p.title)+' '+E(p.title)+'</div>'
-  +'<div style="position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:0 120px '+(H*0.13)+'px">'+IM(p.img,'max-width:100%;max-height:78%;object-fit:contain;filter:drop-shadow(0 40px 50px rgba(0,0,0,.5))')+'</div>'
-  +'<div style="position:absolute;left:0;right:0;bottom:52px;display:flex;justify-content:center;gap:20px;align-items:center">'
-  +(p.price?'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:34px;background:#fff;border:3px solid #111;box-shadow:8px 8px 0 #111;padding:14px 26px">'+fmtPrice(p)+'</div>':'')
-  +'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:34px;background:'+B.c2+';border:3px solid #111;box-shadow:8px 8px 0 #111;padding:14px 26px">SHOP NOW</div></div>'},
- {id:'sticker',name:'STICKER POP',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:#e9e8e5"></div>'
-  +'<div style="position:absolute;left:'+(W*0.13)+'px;right:'+(W*0.13)+'px;top:'+(H*0.1)+'px;bottom:'+(H*0.16)+'px;background:#fff;border:3px solid #111;box-shadow:16px 16px 0 #111;transform:rotate(2deg);padding:34px 34px 120px;display:flex;align-items:center;justify-content:center">'+IM(p.img,'max-width:94%;max-height:94%;object-fit:contain')+'</div>'
-  +'<div style="position:absolute;left:'+(W*0.16)+'px;right:'+(W*0.16)+'px;bottom:'+(H*0.185)+'px;text-align:center;font-family:\'Space Mono\',monospace;font-weight:700;font-size:32px;transform:rotate(2deg);overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+E(p.title)+'</div>'
-  +'<div style="position:absolute;right:'+(W*0.06)+'px;top:'+(H*0.05)+'px;width:250px;height:250px;border-radius:50%;background:'+B.c2+';border:4px solid #111;display:flex;flex-direction:column;align-items:center;justify-content:center;transform:rotate(-12deg)"><div style="font-family:\'Archivo Black\';font-size:42px">'+E(B.badge).split(' ')[0]+'</div>'+(p.price?'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:30px">'+fmtPrice(p)+'</div>':'')+'</div>'
-  +'<div style="position:absolute;left:0;right:0;bottom:44px;text-align:center;font-family:\'Space Mono\',monospace;font-size:24px;letter-spacing:.3em">'+E(B.name)+'</div>'},
- {id:'split',name:'SPLIT',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:#fff"></div>'
-  +'<div style="position:absolute;left:0;top:0;width:'+(W*0.46)+'px;height:100%;background:'+B.c1+';border-right:4px solid #111;padding:70px 50px;display:flex;flex-direction:column;justify-content:space-between">'
-  +'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:24px;letter-spacing:.22em;color:#fff">'+E(B.name)+'</div>'
-  +'<div><div style="font-family:\'Archivo Black\';color:#fff;font-size:58px;line-height:1.02;text-transform:uppercase;margin-bottom:34px">'+E(p.title)+'</div>'
-  +(p.price?'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:40px;color:#fff;margin-bottom:44px">'+fmtPrice(p)+'</div>':'')
-  +cta('SHOP NOW')+'</div>'
-  +'<div style="font-family:\'Space Mono\',monospace;font-size:20px;color:rgba(255,255,255,.7);letter-spacing:.14em">[ '+E(B.badge)+' ]</div></div>'
-  +'<div style="position:absolute;left:'+(W*0.46)+'px;top:0;right:0;height:100%;display:flex;align-items:center;justify-content:center;padding:60px">'+IM(p.img,'max-width:96%;max-height:96%;object-fit:contain')+'</div>'},
- {id:'native',name:'FEED NATIVE',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:#fff"></div>'
-  +'<div style="position:absolute;left:0;top:0;width:100%;height:110px;border-bottom:2px solid #ddd;display:flex;align-items:center;gap:22px;padding:0 40px">'
-  +'<div style="width:64px;height:64px;border-radius:50%;background:'+B.c1+';flex-shrink:0"></div>'
-  +'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:28px">'+E(B.handle)+'</div>'
-  +'<div style="margin-left:auto;font-family:\'Space Mono\',monospace;font-size:34px;letter-spacing:4px">···</div></div>'
-  +'<div style="position:absolute;left:0;top:110px;right:0;bottom:'+(H*0.22)+'px;background:#f4f3f0;display:flex;align-items:center;justify-content:center;padding:40px">'+IM(p.img,'max-width:100%;max-height:100%;object-fit:contain')+'</div>'
-  +'<div style="position:absolute;left:0;bottom:0;width:100%;height:'+(H*0.22)+'px;padding:26px 40px;font-family:\'Space Mono\',monospace">'
-  +'<div style="font-size:32px;margin-bottom:12px">♥ ✦ ➤&nbsp;&nbsp;&nbsp;&nbsp;<b>95 LIKES</b></div>'
-  +'<div style="font-size:27px;line-height:1.4;overflow:hidden"><b>'+E(B.handle)+'</b>&nbsp; '+E(p.title)+(p.price?' — <b style="color:'+B.c1+'">'+fmtPrice(p)+'</b>':'')+' · tap to shop</div></div>'}
+ {id:'clean',name:'CLEAN CARD',r:function(p,W,H){const t=splitTitle(p.title);
+  return bgFill('#fff')
+  +'<div style="position:absolute;left:'+Math.round(W*0.14)+'px;top:'+Math.round(H*0.5-W*0.36)+'px;width:'+Math.round(W*0.72)+'px;height:'+Math.round(W*0.72)+'px;border-radius:50%;background:'+mixw(B.c1,14)+'"></div>'
+  +brandTag('#9a97a0')
+  +imgBox(p.img,'left:'+Math.round(W*0.15)+'px;right:'+Math.round(W*0.15)+'px;top:'+Math.round(H*0.17)+'px;bottom:'+Math.round(H*0.25)+'px','filter:drop-shadow(0 26px 34px rgba(22,21,26,.16))')
+  +'<div style="position:absolute;left:60px;right:60px;bottom:64px;display:flex;align-items:flex-end;justify-content:space-between;gap:36px">'+titleBlock(t,48,INK,'#77747d')+priceChip(p,'flex-shrink:0')+'</div>'}},
+ {id:'splash',name:'PRICE SPLASH',r:function(p,W,H){const t=splitTitle(p.title);
+  return bgFill(mixw(B.c1,12))
+  +brandTag('#8b8794')
+  +imgBox(p.img,'left:'+Math.round(W*0.13)+'px;right:'+Math.round(W*0.13)+'px;top:'+Math.round(H*0.14)+'px;bottom:'+Math.round(H*0.26)+'px','filter:drop-shadow(0 30px 40px rgba(22,21,26,.18))')
+  +(p.price?'<div style="position:absolute;right:64px;top:'+Math.round(H*0.55)+'px;transform:rotate(6deg);background:'+B.c1+';color:'+onC(B.c1)+';border-radius:28px;padding:26px 36px;text-align:center;box-shadow:0 22px 40px rgba(22,21,26,.2)"><div style="font:600 22px/1 '+BODY+';letter-spacing:.18em;opacity:.75;margin-bottom:8px">ONLY</div><div style="font:800 54px/1 '+DISP+'">'+fmtPrice(p)+'</div></div>':'')
+  +'<div style="position:absolute;left:64px;right:'+Math.round(W*0.34)+'px;bottom:64px">'+titleBlock(t,46,INK,'#77747d')+'</div>'}},
+ {id:'frame',name:'FINE FRAME',r:function(p,W,H){const t=splitTitle(p.title);
+  return bgFill('#faf9f6')
+  +'<div style="position:absolute;left:44px;top:44px;right:44px;bottom:44px;border:3px solid '+INK+'"></div>'
+  +'<div style="position:absolute;left:0;right:0;top:76px;text-align:center;font:700 22px/1 '+MONO+';letter-spacing:.22em;color:'+INK+'">[ '+E(String(B.badge).toUpperCase())+' ]</div>'
+  +imgBox(p.img,'left:'+Math.round(W*0.16)+'px;right:'+Math.round(W*0.16)+'px;top:'+Math.round(H*0.16)+'px;bottom:'+Math.round(H*0.27)+'px')
+  +'<div style="position:absolute;left:92px;right:92px;bottom:'+Math.round(H*0.105)+'px;text-align:center"><div style="font:700 42px/1.12 '+DISP+';color:'+INK+';max-height:96px;overflow:hidden">'+E(t.main)+'</div>'+((t.sub||t.variant)?'<div style="font:500 25px/1 '+BODY+';color:#77747d;margin-top:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+E([t.sub,t.variant].filter(Boolean).join(' · '))+'</div>':'')+(p.price?'<div style="font:700 31px/1 '+BODY+';color:'+INK+';margin-top:16px">'+fmtPrice(p)+'</div>':'')+'</div>'}},
+ {id:'grad',name:'GRADIENT POP',r:function(p,W,H){const t=splitTitle(p.title);
+  return bgFill('linear-gradient(160deg,'+B.c1+','+B.c2+')')
+  +brandTag('rgba(255,255,255,.92)','left:0;right:0;top:58px;text-align:center')
+  +'<div style="position:absolute;left:'+Math.round(W*0.13)+'px;right:'+Math.round(W*0.13)+'px;top:'+Math.round(H*0.14)+'px;bottom:'+Math.round(H*0.27)+'px;background:#fff;border-radius:36px;box-shadow:0 40px 70px rgba(22,21,26,.3);display:flex;align-items:center;justify-content:center;padding:44px">'+IM(p.img,'max-width:92%;max-height:92%;object-fit:contain')+'</div>'
+  +'<div style="position:absolute;left:'+Math.round(W*0.13)+'px;right:'+Math.round(W*0.13)+'px;bottom:70px;background:#fff;border-radius:26px;box-shadow:0 24px 44px rgba(22,21,26,.25);padding:30px 38px;display:flex;align-items:center;justify-content:space-between;gap:30px">'+titleBlock(t,36,INK,'#77747d')+priceChip(p,'flex-shrink:0')+'</div>'}},
+ {id:'sale',name:'SALE SLASH',r:function(p,W,H){const t=splitTitle(p.title);const old=p.price?Math.round(parseFloat(p.price)*1.35):0;
+  return bgFill('#fff')
+  +'<div style="position:absolute;right:-150px;top:'+Math.round(H*0.08)+'px;width:560px;transform:rotate(35deg);background:'+B.c1+';color:'+onC(B.c1)+';text-align:center;font:700 30px/1 '+BODY+';letter-spacing:.26em;padding:16px 0">SALE</div>'
+  +brandTag('#9a97a0')
+  +imgBox(p.img,'left:'+Math.round(W*0.14)+'px;right:'+Math.round(W*0.14)+'px;top:'+Math.round(H*0.16)+'px;bottom:'+Math.round(H*0.25)+'px','filter:drop-shadow(0 26px 36px rgba(22,21,26,.15))')
+  +'<div style="position:absolute;left:60px;right:60px;bottom:64px;display:flex;align-items:flex-end;justify-content:space-between;gap:32px">'+titleBlock(t,44,INK,'#77747d')
+  +(p.price?'<div style="flex-shrink:0;text-align:right"><div style="font:600 26px/1 '+BODY+';color:#a7a4ad;text-decoration:line-through;margin-bottom:10px">'+old+' '+B.cur+'</div><div style="font:800 52px/1 '+DISP+';color:'+B.c1+'">'+fmtPrice(p)+'</div></div>':'')+'</div>'}},
+ {id:'edit',name:'EDITORIAL',r:function(p,W,H){const t=splitTitle(p.title);
+  return bgFill('#f4f1ea')
+  +'<div style="position:absolute;left:64px;right:64px;top:60px;border-top:2px solid '+INK+';border-bottom:2px solid '+INK+';padding:16px 4px;display:flex;justify-content:space-between;font:400 22px/1 '+MONO+';letter-spacing:.2em;color:'+INK+'"><span>'+E(String(B.name).toUpperCase())+'</span><span>N°1</span></div>'
+  +'<div style="position:absolute;left:80px;right:80px;top:'+Math.round(H*0.155)+'px;text-align:center;font:italic 700 56px/1.14 '+SERIF+';color:'+INK+';max-height:136px;overflow:hidden">'+E(t.main)+'</div>'
+  +'<div style="position:absolute;left:'+Math.round(W*0.21)+'px;right:'+Math.round(W*0.21)+'px;top:'+Math.round(H*0.34)+'px;bottom:'+Math.round(H*0.16)+'px;background:#fff;box-shadow:0 30px 60px rgba(22,21,26,.14);display:flex;align-items:center;justify-content:center;padding:40px">'+IM(p.img,'max-width:92%;max-height:92%;object-fit:contain')+'</div>'
+  +'<div style="position:absolute;left:0;right:0;bottom:62px;text-align:center;font:700 26px/1 '+MONO+';letter-spacing:.26em;color:'+INK+'">'+(p.price?fmtPrice(p):E(String(t.variant||B.badge).toUpperCase()))+'</div>'}},
+ {id:'bigtype',name:'BIG TYPE',r:function(p,W,H){const t=splitTitle(p.title);const word=(t.variant||t.main.split(' ')[0]||'New');
+  return bgFill('#fff')
+  +'<div style="position:absolute;left:0;right:0;top:'+Math.round(H*0.09)+'px;text-align:center;font:800 '+Math.round(W*0.21)+'px/0.86 '+DISP+';letter-spacing:-.02em;text-transform:uppercase;color:'+mixw(B.c1,22)+';white-space:nowrap;overflow:hidden">'+E(word)+'</div>'
+  +imgBox(p.img,'left:'+Math.round(W*0.16)+'px;right:'+Math.round(W*0.16)+'px;top:'+Math.round(H*0.13)+'px;bottom:'+Math.round(H*0.24)+'px','filter:drop-shadow(0 34px 44px rgba(22,21,26,.2))')
+  +'<div style="position:absolute;left:60px;right:60px;bottom:64px;display:flex;align-items:flex-end;justify-content:space-between;gap:32px">'+titleBlock(t,44,INK,'#77747d')+priceChip(p,'flex-shrink:0')+'</div>'}},
+ {id:'sticker',name:'STICKER POP',r:function(p,W,H){const t=splitTitle(p.title);
+  return bgFill(mixw(B.c2,16))
+  +'<div style="position:absolute;left:'+Math.round(W*0.15)+'px;right:'+Math.round(W*0.15)+'px;top:'+Math.round(H*0.11)+'px;bottom:'+Math.round(H*0.19)+'px;background:#fff;border-radius:18px;box-shadow:0 34px 60px rgba(22,21,26,.16);transform:rotate(1.6deg);padding:40px 40px 120px;display:flex;align-items:center;justify-content:center">'+IM(p.img,'max-width:94%;max-height:94%;object-fit:contain')+'</div>'
+  +'<div style="position:absolute;left:'+Math.round(W*0.18)+'px;right:'+Math.round(W*0.18)+'px;bottom:'+Math.round(H*0.225)+'px;transform:rotate(1.6deg);text-align:center;font:600 30px/1.2 '+DISP+';color:'+INK+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+E(t.main)+'</div>'
+  +'<div style="position:absolute;right:'+Math.round(W*0.07)+'px;top:'+Math.round(H*0.055)+'px;width:230px;height:230px;border-radius:50%;background:'+B.c1+';color:'+onC(B.c1)+';display:flex;flex-direction:column;align-items:center;justify-content:center;transform:rotate(-10deg);box-shadow:0 22px 40px rgba(22,21,26,.22)"><div style="font:800 38px/1 '+DISP+';text-transform:uppercase">'+E(String(B.badge).split(' ')[0])+'</div>'+(p.price?'<div style="font:700 27px/1 '+BODY+';margin-top:10px;opacity:.85">'+fmtPrice(p)+'</div>':'')+'</div>'
+  +'<div style="position:absolute;left:0;right:0;bottom:52px;text-align:center;font:600 22px/1 '+BODY+';letter-spacing:.3em;text-transform:uppercase;color:#8b8794">'+E(B.name)+'</div>'}},
+ {id:'split',name:'SPLIT',r:function(p,W,H){const t=splitTitle(p.title);const ik=onC(B.c1);const sub2=darkc(B.c1)?'rgba(255,255,255,.72)':'rgba(22,21,26,.6)';
+  return bgFill('#fff')
+  +'<div style="position:absolute;left:0;top:0;width:'+Math.round(W*0.46)+'px;height:'+H+'px;background:'+B.c1+';padding:70px 54px;display:flex;flex-direction:column;justify-content:space-between"><div style="font:600 23px/1 '+BODY+';letter-spacing:.3em;text-transform:uppercase;color:'+sub2+'">'+E(B.name)+'</div>'
+  +'<div><div style="font:700 52px/1.1 '+DISP+';color:'+ik+';max-height:240px;overflow:hidden">'+E(t.main)+'</div>'+((t.sub||t.variant)?'<div style="font:500 26px/1.4 '+BODY+';color:'+sub2+';margin-top:16px">'+E([t.sub,t.variant].filter(Boolean).join(' · '))+'</div>':'')
+  +(p.price?'<div style="font:700 40px/1 '+BODY+';color:'+ik+';margin-top:34px">'+fmtPrice(p)+'</div>':'')
+  +'<div style="display:inline-block;font:700 26px/1 '+BODY+';background:'+ik+';color:'+(ik==='#fff'?B.c1:'#fff')+';border-radius:999px;padding:20px 40px;margin-top:40px">Shop now</div></div>'
+  +'<div style="font:400 20px/1 '+MONO+';letter-spacing:.16em;color:'+sub2+'">[ '+E(String(B.badge).toUpperCase())+' ]</div></div>'
+  +imgBox(p.img,'left:'+Math.round(W*0.46+50)+'px;right:50px;top:'+Math.round(H*0.1)+'px;bottom:'+Math.round(H*0.1)+'px','filter:drop-shadow(0 26px 40px rgba(22,21,26,.14))')}},
+ {id:'native',name:'FEED NATIVE',r:function(p,W,H){const t=splitTitle(p.title);
+  const ic=function(d){return'<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="'+INK+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right:26px">'+d+'</svg>'};
+  return bgFill('#fff')
+  +'<div style="position:absolute;left:0;top:0;width:100%;height:112px;border-bottom:2px solid #eceae6;display:flex;align-items:center;gap:22px;padding:0 42px"><div style="width:62px;height:62px;border-radius:50%;background:'+B.c1+';color:'+onC(B.c1)+';display:flex;align-items:center;justify-content:center;font:700 30px/1 '+DISP+'">'+E(String(B.name||'B').trim().charAt(0).toUpperCase())+'</div><div style="font:600 27px/1 '+BODY+';color:'+INK+'">'+E(B.handle)+'</div><div style="margin-left:auto;font:700 30px/0.4 '+BODY+';color:#a7a4ad;letter-spacing:4px">···</div></div>'
+  +'<div style="position:absolute;left:0;top:112px;right:0;bottom:'+Math.round(H*0.215)+'px;background:#f6f5f2;display:flex;align-items:center;justify-content:center;padding:44px">'+IM(p.img,'max-width:100%;max-height:100%;object-fit:contain')+'</div>'
+  +'<div style="position:absolute;left:0;bottom:0;width:100%;height:'+Math.round(H*0.215)+'px;padding:30px 42px">'
+  +'<div style="display:flex;align-items:center;margin-bottom:18px">'+ic('<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>')+ic('<path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.6 0-3.1-.4-4.4-1.2L3 20l1.2-5.1A8.5 8.5 0 1 1 21 11.5z"/>')+ic('<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>')+'<div style="font:600 24px/1 '+BODY+';color:'+INK+';margin-left:4px">2,184 likes</div></div>'
+  +'<div style="font:400 26px/1.45 '+BODY+';color:'+INK+';overflow:hidden;max-height:76px"><b style="font-weight:700">'+E(B.handle)+'</b>&nbsp; '+E(t.main)+(t.variant?' — '+E(t.variant):'')+(p.price?' · <b style="font-weight:700;color:'+B.c1+'">'+fmtPrice(p)+'</b>':'')+'</div></div>'}}
 ];
 T.forEach(t=>selT.add(t.id));
 
@@ -315,7 +329,7 @@ function paintTChips(){$('tchips').innerHTML=T.map(t=>'<label class="'+(selT.has
 function paintAspects(){$('aspects').innerHTML=Object.keys(DIMS).map(a=>'<button class="'+(a===ASPECT?'on':'')+'" data-a="'+a+'">'+a+'</button>').join('');
  $('aspects').querySelectorAll('button').forEach(b=>b.onclick=()=>{ASPECT=b.dataset.a;paintAspects();paintMatrix()})}
 function cKey(t,k){return t+'||'+k}
-function countSel(){$('dlBtn').textContent='⬇ EXPORT ('+selC.size+')';$('shipBtn').textContent='🚀 LAUNCHER ('+selC.size+')'}
+function countSel(){$('dlBtn').textContent='EXPORT ('+selC.size+')';$('shipBtn').textContent='→ LAUNCHER ('+selC.size+')'}
 function paintMatrix(){
  const prods=pickedProducts(),tps=T.filter(t=>selT.has(t.id));
  if(!prods.length){$('matrix').innerHTML='<div class="empty">NO PRODUCTS TICKED — GO TO FEED, SYNC + TICK, THEN COME BACK</div>';countSel();return}
@@ -349,7 +363,7 @@ async function renderCombo(t,p){const[W,H]=DIMS[ASPECT];
  document.body.appendChild(fr);
  try{
   fr.contentDocument.write('<!doctype html><html><head>'
-   +'<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&family=Playfair+Display:ital,wght@1,500;1,700&display=swap" rel="stylesheet">'
+   +'<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Playfair+Display:ital,wght@1,500;1,700&display=swap" rel="stylesheet">'
    +'<style>*{box-sizing:border-box;margin:0}body{margin:0}</style></head><body>'
    +'<div id="xstage" style="width:'+W+'px;height:'+H+'px;position:relative;overflow:hidden;font-family:\'Space Mono\',monospace">'+t.r(p2,W,H)+'</div>'
    +'</body></html>');
