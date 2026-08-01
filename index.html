@@ -190,6 +190,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
     <div class="spacer"></div>
     <a class="navlink" href="studio.html" target="_blank">🎨 Content Studio</a>
     <a class="navlink" href="#" onclick="openTT();return false">⇪ Sync to TikTok</a>
+    <a class="navlink" href="#" onclick="openDup();return false">⧉ Duplicate to another account</a>
     <button class="navlink" onclick="copyTeamLink(event)">Copy team link</button>
     <button class="navlink" onclick="openSettings()">Settings</button>
   </nav>
@@ -3129,5 +3130,132 @@ async function csRun(record){
 })();
 </script>
 
+<script>
+/* ===== Duplicate campaigns / ad sets into ANOTHER ad account (different settings, always PAUSED) ===== */
+(function(){
+ var D={src:'',camps:[],camp:'',adsets:[],tgt:''};
+ function E(t,a,h){var e=document.createElement(t);if(a)for(var k in a)e.setAttribute(k,a[k]);if(h!=null)e.innerHTML=h;return e;}
+ function acctOpts(sel){return '<option value="">Pick an account</option>'+(S.accounts||[]).map(function(a){return '<option value="'+a.account_id+'"'+(a.account_id===sel?' selected':'')+'>'+esc(a.name||a.account_id)+' ('+a.currency+')</option>'}).join('');}
+ function dlog(t,err){var d=document.getElementById('dupLog');if(d){d.textContent+=(err?'✗ ':'')+t+'\n';d.scrollTop=d.scrollHeight;}try{log('Duplicate: '+t,err?'err':'busy')}catch(e){}}
+ function css(){if(document.getElementById('dupCss'))return;var c=E('style',{id:'dupCss'});
+  c.textContent='#dupOv{position:fixed;inset:0;background:rgba(15,18,25,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px}'
+  +'#dupBox{background:#fff;border-radius:16px;max-width:640px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,.35)}'
+  +'#dupBox h2{margin:0;font-size:18px}#dupBox .hd{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid #e8eaf0}'
+  +'#dupBox .bd{padding:16px 20px;display:flex;flex-direction:column;gap:12px}'
+  +'#dupBox label{font-size:12px;font-weight:700;color:#41485a;display:block;margin-bottom:4px}'
+  +'#dupBox select,#dupBox input{width:100%;border:1px solid #dfe3ec;border-radius:9px;padding:9px 11px;font-size:13.5px;outline:none;box-sizing:border-box}'
+  +'#dupBox select:focus,#dupBox input:focus{border-color:#2f6bff}'
+  +'#dupBox .row{display:flex;gap:10px}#dupBox .row>div{flex:1}'
+  +'.dupBtn{border:none;border-radius:10px;padding:11px 16px;font-weight:800;font-size:13.5px;cursor:pointer}'
+  +'.dupBtn.pri{background:#2f6bff;color:#fff}.dupBtn.grn{background:#22a55f;color:#fff}.dupBtn.gho{background:#eef1f6;color:#333}'
+  +'#dupLog{white-space:pre-wrap;font:12px/1.5 ui-monospace,Menlo,monospace;background:#0f1219;color:#cfe3ff;border-radius:10px;padding:12px;min-height:60px;max-height:200px;overflow:auto}'
+  +'.dupNote{font-size:12px;color:#6b7280;line-height:1.5}';
+  document.head.appendChild(c);}
+ function close(){var o=document.getElementById('dupOv');if(o)o.remove();}
+ window.openDup=function(){
+  if(!cfg.meta){alert('Connect Meta first (Settings), then reopen this.');try{openSettings()}catch(e){}return;}
+  if(!S.accounts||!S.accounts.length){alert('No accounts loaded yet - let the launcher finish syncing accounts, then reopen.');return;}
+  css();close();
+  var ov=E('div',{id:'dupOv'});
+  ov.innerHTML='<div id="dupBox"><div class="hd"><h2>⧉ Duplicate into another account</h2><span style="flex:1"></span><button class="dupBtn gho" id="dupX">✕ Close</button></div>'
+   +'<div class="bd">'
+   +'<div class="dupNote">Copies a campaign (or one ad set) from one account into another, with new settings. Ads are rebuilt from their published post so the same creative shows in the new account (the target account must be able to use the same Facebook Page). Everything lands <b>PAUSED</b> for you to review.</div>'
+   +'<div><label>Source account</label><select id="dupSrc">'+acctOpts(D.src)+'</select></div>'
+   +'<div><label>Campaign to copy</label><select id="dupCamp"><option value="">— pick a source account first —</option></select></div>'
+   +'<div><label>Which ad sets</label><select id="dupScope"><option value="all">All ad sets in the campaign</option></select></div>'
+   +'<hr style="border:none;border-top:1px solid #eef0f4;margin:2px 0">'
+   +'<div><label>Target account (where the copy goes)</label><select id="dupTgt">'+acctOpts(D.tgt)+'</select></div>'
+   +'<div class="row"><div><label>New campaign name</label><input id="dupName" placeholder="COPY - (source name)"></div>'
+   +'<div><label>Daily budget override</label><input id="dupBudget" placeholder="leave blank = keep source"></div></div>'
+   +'<div class="row"><div><label>Country override (optional)</label><input id="dupGeo" placeholder="e.g. EG, US - blank = keep"></div>'
+   +'<div><label>Copy the ads?</label><select id="dupAds"><option value="1">Yes - rebuild ads from their post</option><option value="0">No - just campaign + ad sets</option></select></div></div>'
+   +'<button class="dupBtn grn" id="dupRun">⧉ Duplicate now (paused)</button>'
+   +'<div id="dupLog">Ready.\n</div>'
+   +'</div></div>';
+  document.body.appendChild(ov);
+  ov.onclick=function(e){if(e.target===ov)close()};
+  document.getElementById('dupX').onclick=close;
+  document.getElementById('dupSrc').onchange=loadCamps;
+  document.getElementById('dupRun').onclick=run;
+  if(D.src){document.getElementById('dupSrc').value=D.src;loadCamps();}
+ };
+ async function loadCamps(){
+  var src=document.getElementById('dupSrc').value;D.src=src;var sel=document.getElementById('dupCamp');
+  if(!src){sel.innerHTML='<option value="">— pick a source account first —</option>';return;}
+  sel.innerHTML='<option>loading…</option>';
+  try{
+   var j=await gget('act_'+src+'/campaigns?fields=name,objective,effective_status&limit=200');
+   D.camps=(j.data||[]);
+   sel.innerHTML=D.camps.length?D.camps.map(function(c){return '<option value="'+c.id+'">'+esc(c.name)+'  ('+(c.effective_status||'')+')</option>'}).join(''):'<option value="">(no campaigns in this account)</option>';
+  }catch(e){sel.innerHTML='<option value="">error</option>';dlog(e.message,1);}
+ }
+ function minorDup(v){var n=Math.round(parseFloat(v)*100);return isNaN(n)?null:String(n);}
+ async function run(){
+  var src=document.getElementById('dupSrc').value, tgt=document.getElementById('dupTgt').value, campId=document.getElementById('dupCamp').value;
+  if(!src||!campId){alert('Pick a source account and campaign.');return;}
+  if(!tgt){alert('Pick a target account.');return;}
+  if(tgt===src && !confirm('Source and target are the SAME account. Make a copy inside the same account?'))return;
+  D.tgt=tgt;
+  var nameOv=document.getElementById('dupName').value.trim();
+  var budgetOv=document.getElementById('dupBudget').value.trim();
+  var geoOv=document.getElementById('dupGeo').value.trim().toUpperCase();
+  var copyAds=document.getElementById('dupAds').value==='1';
+  var btn=document.getElementById('dupRun');btn.disabled=true;btn.textContent='Working…';
+  try{
+   dlog('Reading source campaign…');
+   var sc=await gget(campId+'?fields=name,objective,buying_type,bid_strategy,daily_budget,lifetime_budget,special_ad_categories');
+   var cbo=!!(sc.daily_budget||sc.lifetime_budget);
+   var cp={name:nameOv||('COPY - '+sc.name),objective:sc.objective,status:'PAUSED',buying_type:sc.buying_type||'AUCTION',special_ad_categories:JSON.stringify(sc.special_ad_categories||[])};
+   if(sc.bid_strategy)cp.bid_strategy=sc.bid_strategy;
+   if(cbo){
+    var cbud=budgetOv?minorDup(budgetOv):(sc.daily_budget||sc.lifetime_budget);
+    if(sc.daily_budget||budgetOv)cp.daily_budget=budgetOv?minorDup(budgetOv):sc.daily_budget; else cp.lifetime_budget=sc.lifetime_budget;
+   }
+   var nc=await gpost('act_'+tgt+'/campaigns',cp);
+   dlog('New campaign '+nc.id+' ✓');
+   dlog('Reading ad sets…');
+   var asj=await gget(campId+'/adsets?fields=name,optimization_goal,billing_event,bid_amount,daily_budget,lifetime_budget,targeting,promoted_object,attribution_spec,destination_type,start_time,end_time&limit=200');
+   var adsets=asj.data||[];
+   if(!adsets.length)dlog('No ad sets found.',1);
+   var madeAds=0, skipAds=0;
+   for(var i=0;i<adsets.length;i++){
+    var a=adsets[i];
+    dlog('Ad set: '+a.name);
+    var tg=a.targeting||{};
+    /* custom audiences are account-scoped - they will not exist in the target account, so drop them */
+    delete tg.custom_audiences;delete tg.excluded_custom_audiences;
+    if(geoOv){tg.geo_locations={countries:geoOv.split(/[,\s]+/).filter(Boolean)};}
+    var ap={name:a.name,campaign_id:nc.id,status:'PAUSED',billing_event:a.billing_event||'IMPRESSIONS',optimization_goal:a.optimization_goal,targeting:JSON.stringify(tg)};
+    if(a.attribution_spec)ap.attribution_spec=JSON.stringify(a.attribution_spec);
+    if(a.destination_type)ap.destination_type=a.destination_type;
+    if(a.bid_amount)ap.bid_amount=a.bid_amount;
+    if(a.promoted_object)ap.promoted_object=JSON.stringify(a.promoted_object);
+    if(!cbo){var ab=budgetOv?minorDup(budgetOv):(a.daily_budget||a.lifetime_budget);
+     if(a.daily_budget||budgetOv)ap.daily_budget=budgetOv?minorDup(budgetOv):a.daily_budget; else if(a.lifetime_budget){ap.lifetime_budget=a.lifetime_budget;if(a.end_time)ap.end_time=a.end_time;}}
+    var nas;
+    try{nas=await gpost('act_'+tgt+'/adsets',ap);dlog('  → ad set '+nas.id+' ✓');}
+    catch(e){dlog('  ad set failed: '+e.message,1);continue;}
+    if(!copyAds)continue;
+    var adj;
+    try{adj=await gget(a.id+'/ads?fields=name,creative{effective_object_story_id,object_story_id}&limit=100');}
+    catch(e){dlog('  could not read ads: '+e.message,1);continue;}
+    var ads=adj.data||[];
+    for(var k=0;k<ads.length;k++){
+     var ad=ads[k],cr=ad.creative||{},story=cr.effective_object_story_id||cr.object_story_id;
+     if(!story){skipAds++;dlog('  ad "'+ad.name+'" has no published post - rebuild its creative manually',1);continue;}
+     try{
+      var ncr=await gpost('act_'+tgt+'/adcreatives',{name:ad.name,object_story_id:story});
+      await gpost('act_'+tgt+'/ads',{name:ad.name,adset_id:nas.id,creative:JSON.stringify({creative_id:ncr.id}),status:'PAUSED'});
+      madeAds++;dlog('  ad "'+ad.name+'" ✓');
+     }catch(e){skipAds++;dlog('  ad "'+ad.name+'" failed: '+e.message,1);}
+    }
+   }
+   dlog('DONE - campaign + '+adsets.length+' ad set(s)'+(copyAds?(', '+madeAds+' ad(s) copied'+(skipAds?(', '+skipAds+' need manual creative'):'')):'')+'. All PAUSED - review in Ads Manager.');
+   try{log('Duplicate finished - '+adsets.length+' ad sets into act_'+tgt+' (paused)','ok')}catch(e){}
+  }catch(e){dlog('FAILED: '+e.message,1);}
+  finally{btn.disabled=false;btn.textContent='⧉ Duplicate now (paused)';}
+ }
+})();
+</script>
 </body>
 </html>

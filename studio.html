@@ -518,7 +518,7 @@ body.mp4editing #insp{z-index:560}
 /* ============ state ============ */
 let NSLOT=12;
 function growSlots(n){while(NSLOT<n){NSLOT++;state.slots[NSLOT]={src:null,fx:50,fy:30}}}
-const state={caps:{},capPos:{},count:{},tilebg:{},linked:{},color:'#f4798c',aspect:'feed',slots:{},slotColors:{},els:{},vibe:{},assign:{},surf:{},layout:{},rot:0,reel:[],copyBak:{},copyOn:{},capStyle:{},angleIdx:{},calloutBox:{},calloutAnch:{}};
+const state={caps:{},capPos:{},count:{},tilebg:{},linked:{},color:'#f4798c',aspect:'feed',slots:{},slotColors:{},els:{},vibe:{},assign:{},surf:{},layout:{},rot:0,reel:[],copyBak:{},copyOn:{},capStyle:{},angleIdx:{},calloutBox:{},calloutAnch:{},circPos:{}};
 for(let i=1;i<=NSLOT;i++)state.slots[i]={src:null,fx:50,fy:30};
 const DIMS={feed:[1080,1350],story:[1080,1920]};
 const CREAM='#f3f0e9';
@@ -2571,6 +2571,23 @@ function bindStage(sc,f,s){
    const mv=ev=>{o.dx=ox+(ev.clientX-sx)/s;o.dy=oy+(ev.clientY-sy)/s;rafStage();};
    const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);clearTimeout(window._mc);window._mc=setTimeout(renderMirror,120)};
    window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up)}});
+ sc.querySelectorAll('[data-circ]').forEach(h=>{
+  h.onpointerdown=e=>{e.preventDefault();e.stopPropagation();
+   const k=fKey(f);state.circPos=state.circPos||{};
+   const o=state.circPos[k]=state.circPos[k]||{dx:0,dy:0};
+   h.style.cursor='grabbing';
+   const sx=e.clientX,sy=e.clientY,ox=o.dx||0,oy=o.dy||0;let moved=false;
+   const mv=ev=>{moved=true;o.dx=Math.round(ox+(ev.clientX-sx)/s);o.dy=Math.round(oy+(ev.clientY-sy)/s);
+    h.style.transform='translate('+o.dx+'px,'+o.dy+'px)';if(ev.cancelable)ev.preventDefault()};
+   const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
+    h.style.cursor='grab';if(moved){clearTimeout(window._mc);window._mc=setTimeout(renderMirror,140)}};
+   window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up)};
+  h.onwheel=e=>{e.preventDefault();e.stopPropagation();
+   const k=fKey(f);state.circPos=state.circPos||{};
+   const o=state.circPos[k]=state.circPos[k]||{dx:0,dy:0};
+   const W2=DIMS[state.aspect][0];const base=o.d||Math.round(W2*0.44);
+   o.d=Math.max(180,Math.min(Math.round(W2*0.92),Math.round(base*(e.deltaY<0?1.07:0.935))));
+   rafStage();clearTimeout(window._mc);window._mc=setTimeout(renderMirror,180)};});
  sc.querySelectorAll('[data-cap]').forEach(cp=>{
   cp.onclick=e=>e.stopPropagation();
   cp.onpointerdown=e=>{
@@ -6469,12 +6486,15 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
     +out+'</div>';
   }
   if(f==='ok_circle'){
-   var src=slotSrc(fl[0]),z=Math.round((typeof lay==='function'?lay(f):300)),cd=Math.round(W*0.44),cx=Math.round(W*0.5),cy=Math.round(H*0.52);
+   var src=slotSrc(fl[0]),z=Math.round((typeof lay==='function'?lay(f):300));
+   var _ck=fKey(f);var _cp=(state.circPos&&state.circPos[_ck])||{};
+   var cd=Math.round(_cp.d||W*0.44),cx=Math.round(W*0.5),cy=Math.round(H*0.52);
+   var _ctf=(_cp.dx||_cp.dy)?('transform:translate('+Math.round(_cp.dx||0)+'px,'+Math.round(_cp.dy||0)+'px);'):'';
    return open+'background:'+surf(f,'bg','#e9edf0')+'">'
     +'<div style="position:absolute;left:0;top:0;width:'+Math.round(W*0.64)+'px;height:'+H+'px;overflow:hidden">'+P('bg',1,'position:absolute;inset:0')+'</div>'
     +CAP(f,'brand','MORI','right:'+Math.round(W*0.05)+'px;top:'+Math.round(H*0.045)+'px;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.055)+'px;color:#2b6b6b')
     +CAP(f,'hl','the softest\nbaby denim','right:'+Math.round(W*0.05)+'px;top:'+Math.round(H*0.14)+'px;width:'+Math.round(W*0.42)+'px;justify-content:flex-end;text-align:right;font-family:\'DM Sans\',sans-serif;font-weight:800;font-size:'+Math.round(W*0.07)+'px;line-height:1.05;color:#2b6b6b')
-    +'<div style="position:absolute;left:'+cx+'px;top:'+cy+'px;width:'+cd+'px;height:'+cd+'px;border-radius:50%;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.18);background:#ccc'+(src?(" url('"+src+"') center/"+z+"%"):'')+';z-index:6"></div>'
+    +'<div data-circ="1" style="position:absolute;left:'+cx+'px;top:'+cy+'px;width:'+cd+'px;height:'+cd+'px;'+_ctf+'border-radius:50%;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.18);background:#ccc'+(src?(" url('"+src+"') center/"+z+"%"):'')+';z-index:6;cursor:grab;touch-action:none"></div>'
     +'</div>';
   }
   if(f==='ok_grid'){
