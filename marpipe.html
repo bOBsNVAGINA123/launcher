@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>marpipe — bootleg cut</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='11' cy='16' r='9' fill='%236b76e3'/><circle cx='24' cy='12' r='5' fill='%236fd97a'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&family=Playfair+Display:ital,wght@1,500;1,700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{--bg:#e9e8e5;--ink:#111;--peri:#6b76e3;--grn:#6fd97a;--mono:'Space Mono',monospace;--disp:'Archivo Black',sans-serif}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:13px;-webkit-font-smoothing:antialiased}
+.rule{border-top:1.5px solid var(--ink)}
+.btn{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;background:var(--grn);color:var(--ink);border:1.5px solid var(--ink);padding:12px 22px;cursor:pointer;box-shadow:5px 5px 0 var(--ink);transition:transform .06s,box-shadow .06s;white-space:nowrap}
+.btn:active{transform:translate(4px,4px);box-shadow:1px 1px 0 var(--ink)}
+.btn.alt{background:var(--peri);color:#fff}
+.btn.ghost{background:transparent;box-shadow:3px 3px 0 var(--ink);padding:9px 14px;font-size:11px}
+.btn:disabled{opacity:.45;cursor:default}
+header{display:flex;align-items:center;gap:18px;padding:16px 22px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:9px;font:600 26px/1 'Trebuchet MS',sans-serif;color:var(--peri);letter-spacing:-.5px}
+.logo i{width:26px;height:26px;border-radius:50%;background:var(--peri);display:inline-block;position:relative}
+.logo i:after{content:'';position:absolute;right:-8px;top:-3px;width:13px;height:13px;border-radius:50%;background:var(--grn)}
+.logo small{font-family:var(--mono);font-size:10px;color:#555;letter-spacing:.1em;align-self:flex-end;margin-bottom:2px}
+nav{display:flex;gap:0;margin-left:auto;border:1.5px solid var(--ink);background:#fff}
+nav button{font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.12em;background:transparent;border:none;border-right:1.5px solid var(--ink);padding:10px 20px;cursor:pointer;color:var(--ink)}
+nav button:last-child{border-right:none}
+nav button.on{background:var(--peri);color:#fff}
+.hero{padding:26px 22px 8px}
+.hero h1{font-family:var(--disp);font-size:clamp(38px,7vw,84px);line-height:.92;color:var(--peri);text-transform:uppercase;letter-spacing:-1px}
+.hero .sub{font-family:'Playfair Display',serif;font-style:italic;font-size:clamp(16px,2.4vw,24px);margin:14px 0 4px;color:#222}
+.ticks{display:flex;justify-content:space-between;padding:6px 22px;color:#333;font-size:11px}
+.wrap{padding:0 22px 60px}
+.syncrow{display:flex;gap:12px;margin:18px 0 8px;flex-wrap:wrap}
+.syncrow input{flex:1;min-width:240px;font-family:var(--mono);font-size:14px;padding:13px 14px;border:1.5px solid var(--ink);background:#fff;box-shadow:5px 5px 0 var(--ink);outline:none}
+.syncrow input:focus{box-shadow:5px 5px 0 var(--peri)}
+.srcs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.chip{display:flex;align-items:center;gap:8px;border:1.5px solid var(--ink);background:#fff;padding:7px 10px;font-size:11px}
+.chip b{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip span{cursor:pointer}
+.stat{min-height:18px;font-size:11px;color:#7a5c00;letter-spacing:.05em;margin:4px 0}
+table{width:100%;border-collapse:collapse;background:#fff;border:1.5px solid var(--ink)}
+th{font-size:10px;letter-spacing:.14em;text-align:left;padding:10px 12px;border-bottom:1.5px solid var(--ink);background:#f3f2ef;text-transform:uppercase}
+td{padding:8px 12px;border-bottom:1px solid #d8d6d0;font-size:12px;vertical-align:middle}
+tr:hover td{background:#f6f5f2}
+td img{width:44px;height:44px;object-fit:cover;border:1px solid #ccc;display:block}
+.tchips{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0}
+.tchips label{display:flex;align-items:center;gap:6px;border:1.5px solid var(--ink);background:#fff;padding:6px 10px;font-size:11px;font-weight:700;letter-spacing:.08em;cursor:pointer;user-select:none}
+.tchips label.on{background:var(--peri);color:#fff}
+.gridbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 16px}
+#matrix{overflow:auto;border:1.5px solid var(--ink);background:#fff;padding:16px}
+.mrow{display:flex;gap:14px;margin-bottom:16px;align-items:flex-start}
+.mlabel{width:110px;flex-shrink:0;font-size:10px;letter-spacing:.06em;word-break:break-word;padding-top:4px}
+.mlabel img{width:100%;aspect-ratio:1;object-fit:cover;border:1px solid #ccc;margin-bottom:6px;display:block}
+.mhead{display:flex;gap:14px;margin-bottom:10px}
+.mhead div{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#555}
+.cell{position:relative;cursor:pointer;flex-shrink:0;border:2px solid transparent}
+.cell.on{border-color:var(--grn)}
+.cell.on:after{content:'✓';position:absolute;top:6px;right:6px;width:22px;height:22px;background:var(--grn);border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-weight:700;z-index:5}
+.cell .clip{overflow:hidden;pointer-events:none;background:#eee}
+.aspect{display:flex;border:1.5px solid var(--ink);background:#fff}
+.aspect button{font-family:var(--mono);font-weight:700;font-size:11px;border:none;border-right:1.5px solid var(--ink);background:transparent;padding:8px 13px;cursor:pointer}
+.aspect button:last-child{border-right:none}
+.aspect button.on{background:var(--ink);color:#fff}
+.brand{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-top:18px;max-width:900px}
+.brand label{display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px}
+.brand input[type=text]{width:100%;font-family:var(--mono);font-size:14px;padding:11px 12px;border:1.5px solid var(--ink);background:#fff;outline:none}
+.brand input[type=color]{width:100%;height:44px;border:1.5px solid var(--ink);background:#fff;padding:3px;cursor:pointer}
+.marq{overflow:hidden;border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);background:var(--peri);color:#fff;font-size:11px;letter-spacing:.2em;padding:7px 0;white-space:nowrap}
+.marq span{display:inline-block;animation:mq 28s linear infinite}
+@keyframes mq{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+footer{padding:26px 22px;font-size:10px;color:#666;letter-spacing:.08em}
+.pg{display:none}.pg.on{display:block}
+#exportHost{position:fixed;left:-99999px;top:0}
+@media(max-width:640px){nav{width:100%;order:9}nav button{flex:1;padding:10px 6px}}
+</style>
+</head>
+<body>
+
+<header>
+ <div class="logo"><i></i>marpipe <small>BOOTLEG CUT</small></div>
+ <nav>
+  <button id="nbFeed" class="on">FEED</button>
+  <button id="nbGrid">GRID</button>
+  <button id="nbBrand">BRAND</button>
+ </nav>
+</header>
+<div class="rule"></div>
+<div class="ticks"><span>⟋</span><span>⟋</span><span>⟋</span><span>⟋</span><span>⟋</span><span>⟋</span></div>
+
+<!-- ================= FEED ================= -->
+<div class="pg on" id="pgFeed">
+ <div class="hero">
+  <h1>Ctrl your<br>catalog</h1>
+  <div class="sub">Turn any Shopify collection — or a Drive folder — into your brand’s best catalog ads.</div>
+ </div>
+ <div class="wrap">
+  <div class="syncrow">
+   <input id="feedUrl" inputmode="url" spellcheck="false" placeholder="https://store.com/collections/…  ·  /products/…  ·  drive.google.com/…/folders/…">
+   <button class="btn" id="syncBtn">[ SYNC FEED ]</button>
+  </div>
+  <div class="stat" id="stat"></div>
+  <div class="srcs" id="srcs"></div>
+  <div style="display:flex;gap:10px;align-items:center;margin:14px 0 8px;flex-wrap:wrap">
+   <b style="font-size:11px;letter-spacing:.14em">PRODUCTS <span id="pcount"></span></b>
+   <input id="q" placeholder="search…" style="font-family:var(--mono);border:1.5px solid var(--ink);padding:7px 10px;font-size:12px;background:#fff;outline:none">
+   <button class="btn ghost" id="selAllP">select shown</button>
+   <button class="btn ghost" id="clrP">clear</button>
+   <span style="font-size:11px;color:#555">ticked products feed the grid →</span>
+   <button class="btn alt" id="toGrid" style="margin-left:auto">BUILD THE GRID →</button>
+  </div>
+  <div style="overflow:auto;max-height:52vh"><table id="ptbl"></table></div>
+ </div>
+</div>
+
+<!-- ================= GRID ================= -->
+<div class="pg" id="pgGrid">
+ <div class="hero"><h1 style="font-size:clamp(28px,4.6vw,54px)">The multivariate grid</h1>
+  <div class="sub">Every product × every template. Tap the winners, export or ship.</div></div>
+ <div class="wrap">
+  <div class="tchips" id="tchips"></div>
+  <div class="gridbar">
+   <div class="aspect" id="aspects"></div>
+   <button class="btn" id="dlBtn">⬇ EXPORT (0)</button>
+   <button class="btn alt" id="shipBtn">🚀 LAUNCHER (0)</button>
+   <button class="btn ghost" id="selAllC">select all</button>
+   <button class="btn ghost" id="clrC">clear</button>
+   <span class="stat" id="gstat" style="margin-left:auto"></span>
+  </div>
+  <div id="matrix"><div style="padding:30px;color:#666">sync a feed and tick products first — then this fills itself</div></div>
+ </div>
+</div>
+
+<!-- ================= BRAND ================= -->
+<div class="pg" id="pgBrand">
+ <div class="hero"><h1 style="font-size:clamp(28px,4.6vw,54px)">Brand kit</h1>
+  <div class="sub">The templates drink from these. Change once, every variant follows.</div></div>
+ <div class="wrap">
+  <div class="brand">
+   <div><label>Brand name</label><input type="text" id="bName"></div>
+   <div><label>Accent 1</label><input type="color" id="bC1"></div>
+   <div><label>Accent 2</label><input type="color" id="bC2"></div>
+   <div><label>Currency</label><input type="text" id="bCur"></div>
+   <div><label>Badge word</label><input type="text" id="bBadge"></div>
+   <div><label>Handle (feed-native)</label><input type="text" id="bHandle"></div>
+  </div>
+ </div>
+</div>
+
+<div class="marq"><span id="mq"></span></div>
+<footer>UNOFFICIAL PERSONAL TOOL · NOT AFFILIATED WITH MARPIPE.COM · FEEDS STAY IN YOUR BROWSER (LOCALSTORAGE) · RENDERS ARE LOCAL</footer>
+<div id="exportHost"></div>
+
+<script>
+/* ============ state ============ */
+const $=id=>document.getElementById(id);
+const PROX=[u=>u,u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
+let SRC=[];try{SRC=JSON.parse(localStorage.getItem('mp_src')||'[]')}catch(e){}
+let B=Object.assign({name:'OUR KIDS',c1:'#6b76e3',c2:'#6fd97a',cur:'EGP',badge:'NEW DROP',handle:'@ourkids.eg'},JSON.parse(localStorage.getItem('mp_brand')||'{}'));
+const selP=new Set(),selC=new Set(),selT=new Set();
+let ASPECT='1:1';const DIMS={'1:1':[1080,1080],'4:5':[1080,1350],'9:16':[1080,1920]};
+const stat=m=>{$('stat').textContent=m};const gstat=m=>{$('gstat').textContent=m};
+const saveSrc=()=>{try{localStorage.setItem('mp_src',JSON.stringify(SRC))}catch(e){try{localStorage.setItem('mp_src',JSON.stringify(SRC.map(s=>({...s,products:s.products.slice(0,80)}))))}catch(_){}}};
+$('mq').textContent=('  BEFORE MARPIPE — AFTER MARPIPE — '.repeat(12));
+
+/* ============ feed fetch (shopify + drive) ============ */
+const SIZE_RE=/_(?:\d+x\d*|x\d+|pico|icon|thumb|small|compact|medium|large|grande|master|\d+x)(?:@\dx)?(?=\.(?:jpe?g|png|webp|gif|avif)\b)/i;
+function hiRes(u){if(!u)return'';if(u.startsWith('//'))u='https:'+u;
+ try{const url=new URL(u,'https://x');['width','height','crop','format'].forEach(k=>url.searchParams.delete(k));
+  url.pathname=url.pathname.replace(SIZE_RE,'');return url.origin==='https://x'?url.pathname+url.search:url.toString()
+ }catch(e){return u.replace(SIZE_RE,'')}}
+async function jfetch(api){let last;for(const p of PROX){try{const r=await fetch(p(api));if(r.ok)return await r.json();last=new Error('HTTP '+r.status)}catch(e){last=e}}throw last||new Error('unreachable')}
+async function fetchCollection(url){
+ const pm=url.match(/^(https?:\/\/[^\/]+)\/.*?products\/([\w\-\.%]+)/i);
+ if(pm){const origin=pm[1],handle=pm[2].replace(/[?#].*$/,'');
+  const j=await jfetch(origin+'/products/'+handle+'.js');
+  const price=(j.variants&&j.variants[0]&&j.variants[0].price!=null)?String(Math.round(j.variants[0].price)/100):'';
+  const raw=(j.images||[]).map(im=>/^\/\//.test(im)?'https:'+im:im).filter(Boolean);
+  if(!raw.length)throw new Error('product has no images');
+  return{url,handle:'p_'+handle,name:'🛍 '+j.title,products:[{title:j.title,price,img:hiRes(raw[0]),fb:raw[0],img2:raw[1]?hiRes(raw[1]):''}],last:Date.now()}}
+ const m=url.match(/^(https?:\/\/[^\/]+)\/.*?collections\/([\w\-\.%]+)/i)||url.match(/^(https?:\/\/[^\/]+)\/?$/);
+ if(!m)throw new Error('not a collection / product / drive-folder link');
+ const origin=m[1],handle=m[2]||'all';let prods=[];
+ for(let page=1;page<=4;page++){
+  let j;try{j=await jfetch(origin+'/collections/'+handle+'/products.json?limit=250&page='+page)}catch(e){if(page===1)throw e;break}
+  (j.products||[]).forEach(p=>{const price=(p.variants&&p.variants[0]&&p.variants[0].price)||'';
+   const raw=(p.images||[]).map(im=>im.src).filter(Boolean);if(!raw.length)return;
+   prods.push({title:p.title,price,img:hiRes(raw[0]),fb:raw[0],img2:raw[1]?hiRes(raw[1]):''})});
+  if((j.products||[]).length<250)break}
+ if(!prods.length)throw new Error('collection has no product images');
+ return{url,handle,name:decodeURIComponent(handle).replace(/-/g,' '),products:prods,last:Date.now()}}
+async function fetchDrive(u){
+ const fm=u.match(/\/folders\/([\w-]{15,})/);if(!fm)throw new Error('bad drive link');
+ let html=null,last;
+ for(const p of PROX.slice(1)){try{const r=await fetch(p('https://drive.google.com/embeddedfolderview?id='+fm[1]+'#list'));if(r.ok){html=await r.text();break}last=new Error('HTTP '+r.status)}catch(e){last=e}}
+ if(html===null)throw last||new Error('could not read folder');
+ const re=/id="entry-([\w-]+)"[\s\S]*?flip-entry-title">([^<]+)</g;const prods=[];let mt;
+ while((mt=re.exec(html))!==null){const id=mt[1],name=mt[2].trim();
+  if(!/\.(jpe?g|png|webp|gif|avif)$/i.test(name))continue;
+  prods.push({title:name.replace(/\.[a-z]+$/i,''),price:'',img:'https://drive.google.com/thumbnail?id='+id+'&sz=w2000',fb:null,img2:''})}
+ if(!prods.length)throw new Error('no images — share folder as “Anyone with the link”');
+ return{url:u,handle:'drive_'+fm[1].slice(0,10),name:'📁 drive · '+prods.length,products:prods,last:Date.now()}}
+const fetchAny=u=>/\/folders\//.test(u)?fetchDrive(u):fetchCollection(u);
+
+/* ============ feed UI ============ */
+function items(){const q=($('q').value||'').toLowerCase();const out=[];
+ SRC.forEach(s=>s.products.forEach(p=>{if(!q||p.title.toLowerCase().includes(q))out.push(p)}));return out}
+function key(p){return p.img}
+function paintSrcs(){$('srcs').innerHTML=SRC.map((s,i)=>'<div class="chip"><b>'+s.name+'</b> · '+s.products.length+' <span data-r="'+i+'">↻</span><span data-x="'+i+'" style="color:#a33">×</span></div>').join('');
+ $('srcs').querySelectorAll('[data-r]').forEach(el=>el.onclick=async()=>{const s=SRC[+el.dataset.r];stat('re-syncing…');try{Object.assign(s,await fetchAny(s.url));saveSrc();paintAll();stat('✓ re-synced')}catch(e){stat('⚠ '+e.message)}});
+ $('srcs').querySelectorAll('[data-x]').forEach(el=>el.onclick=()=>{SRC.splice(+el.dataset.x,1);saveSrc();paintAll()})}
+function paintTable(){const list=items();$('pcount').textContent='· '+list.length;
+ $('ptbl').innerHTML='<tr><th></th><th></th><th>PRODUCT</th><th>PRICE</th></tr>'+list.slice(0,400).map(p=>{
+  const k=key(p);return '<tr><td><input type="checkbox" data-k="'+encodeURIComponent(k)+'"'+(selP.has(k)?' checked':'')+'></td><td><img loading="lazy" src="'+p.img+'"></td><td>'+p.title+'</td><td>'+fmtPrice(p)+'</td></tr>'}).join('');
+ $('ptbl').querySelectorAll('input[data-k]').forEach(cb=>cb.onchange=()=>{const k=decodeURIComponent(cb.dataset.k);cb.checked?selP.add(k):selP.delete(k)})}
+function paintAll(){paintSrcs();paintTable()}
+$('syncBtn').onclick=async()=>{let u=$('feedUrl').value.trim();if(!u){stat('paste a link first');return}
+ if(!/^https?:\/\//i.test(u))u='https://'+u.replace(/^\/+/,'');
+ $('syncBtn').disabled=true;stat('syncing '+u.replace(/^https?:\/\//,'').slice(0,50)+'…');
+ try{const s=await fetchAny(u);const i=SRC.findIndex(x=>x.handle===s.handle);i>=0?SRC[i]=s:SRC.push(s);saveSrc();
+  s.products.slice(0,8).forEach(p=>selP.add(key(p)));
+  $('feedUrl').value='';paintAll();stat('✓ '+s.name+' · '+s.products.length+' products — first 8 auto-ticked')}
+ catch(e){stat('⚠ '+e.message)}
+ finally{$('syncBtn').disabled=false}};
+$('q').oninput=paintTable;
+$('selAllP').onclick=()=>{items().slice(0,400).forEach(p=>selP.add(key(p)));paintTable()};
+$('clrP').onclick=()=>{selP.clear();paintTable()};
+$('toGrid').onclick=()=>{go('Grid');paintMatrix()};
+
+/* ============ templates ============ */
+function fmtPrice(p){if(!p.price)return'';const n=String(p.price).replace(/\.00$/,'');return n+' '+B.cur}
+function E(t){return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function IM(u,st){return '<img src="'+u+'" style="'+st+'" crossorigin="anonymous">'}
+const ctaS='font-family:var(--mono);font-weight:700;letter-spacing:.1em;background:'+'REPL_G'+';border:3px solid #111;box-shadow:9px 9px 0 #111;padding:22px 44px;font-size:30px;display:inline-block';
+function cta(txt,bg){return '<div style="font-family:\'Space Mono\',monospace;font-weight:700;letter-spacing:.1em;background:'+(bg||B.c2)+';color:#111;border:3px solid #111;box-shadow:8px 8px 0 #111;padding:20px 42px;font-size:28px;display:inline-block">'+txt+'</div>'}
+const T=[
+ {id:'clean',name:'CLEAN CARD',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:'+B.c1+'"></div>'
+  +'<div style="position:absolute;left:70px;right:70px;top:70px;bottom:'+(H*0.24)+'px;background:#fff;border:3px solid #111;box-shadow:14px 14px 0 #111;display:flex;align-items:center;justify-content:center;padding:40px">'+IM(p.img,'max-width:88%;max-height:88%;object-fit:contain')+'</div>'
+  +'<div style="position:absolute;left:70px;right:70px;bottom:70px;height:'+(H*0.24-110)+'px;display:flex;align-items:center;justify-content:space-between;gap:30px">'
+  +'<div style="font-family:\'Archivo Black\';font-size:44px;line-height:1.05;color:#fff;text-transform:uppercase;max-height:100%;overflow:hidden">'+E(p.title)+'</div>'
+  +(p.price?'<div style="flex-shrink:0;font-family:\'Space Mono\',monospace;font-weight:700;font-size:40px;background:'+B.c2+';border:3px solid #111;box-shadow:8px 8px 0 #111;padding:16px 28px">'+fmtPrice(p)+'</div>':'')+'</div>'},
+ {id:'splash',name:'PRICE SPLASH',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:#fff"></div>'
+  +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:'+(H*0.1)+'px 90px">'+IM(p.img,'max-width:100%;max-height:100%;object-fit:contain')+'</div>'
+  +'<div style="position:absolute;left:0;top:0;width:100%;padding:34px 46px;font-family:\'Space Mono\',monospace;font-weight:700;font-size:26px;letter-spacing:.24em">'+E(B.name)+'</div>'
+  +(p.price?'<div style="position:absolute;right:60px;top:'+(H*0.56)+'px;width:330px;height:330px;border-radius:50%;background:'+B.c1+';border:4px solid #111;transform:rotate(10deg);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff">'
+  +'<div style="font-family:\'Space Mono\',monospace;font-size:24px;letter-spacing:.2em">ONLY</div><div style="font-family:\'Archivo Black\';font-size:64px;line-height:1">'+String(p.price).replace(/\.00$/,'')+'</div><div style="font-family:\'Space Mono\',monospace;font-size:26px">'+B.cur+'</div></div>':'')
+  +'<div style="position:absolute;left:46px;bottom:52px;right:420px;font-family:\'Archivo Black\';font-size:52px;line-height:1;text-transform:uppercase">'+E(p.title)+'</div>'},
+ {id:'frame',name:'HARD FRAME',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:'+'#e9e8e5'+'"></div>'
+  +'<div style="position:absolute;left:60px;top:60px;right:60px;font-family:\'Space Mono\',monospace;font-weight:700;font-size:30px;letter-spacing:.14em">[ '+E(B.badge)+' ]</div>'
+  +'<div style="position:absolute;left:60px;top:'+(H*0.14)+'px;right:60px;bottom:'+(H*0.2)+'px;border:5px solid #111;box-shadow:18px 18px 0 '+B.c1+';background:#fff;display:flex;align-items:center;justify-content:center;padding:44px">'+IM(p.img,'max-width:90%;max-height:90%;object-fit:contain')+'</div>'
+  +'<div style="position:absolute;left:60px;bottom:56px;right:60px;display:flex;justify-content:space-between;align-items:flex-end;gap:26px">'
+  +'<div style="font-family:\'Archivo Black\';font-size:40px;line-height:1.06;text-transform:uppercase;max-width:'+(W*0.6)+'px">'+E(p.title)+'</div>'
+  +(p.price?'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:36px;white-space:nowrap">'+fmtPrice(p)+'</div>':'')+'</div>'},
+ {id:'grad',name:'GRADIENT POP',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:linear-gradient(160deg,'+B.c1+','+B.c2+')"></div>'
+  +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:'+(H*0.16)+'px 100px '+(H*0.2)+'px">'+IM(p.img,'max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 44px 60px rgba(0,0,0,.45))')+'</div>'
+  +'<div style="position:absolute;top:48px;left:0;width:100%;text-align:center;font-family:\'Space Mono\',monospace;font-weight:700;letter-spacing:.34em;font-size:26px;color:#fff">'+E(B.name)+'</div>'
+  +'<div style="position:absolute;left:70px;bottom:64px;right:70px;display:flex;align-items:flex-end;justify-content:space-between;gap:24px">'
+  +'<div style="font-family:\'Archivo Black\';color:#fff;font-size:54px;line-height:1;text-transform:uppercase;text-shadow:4px 4px 0 rgba(0,0,0,.3)">'+E(p.title)+'</div>'
+  +(p.price?'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:34px;color:#111;background:#fff;border:3px solid #111;padding:14px 22px;white-space:nowrap">'+fmtPrice(p)+'</div>':'')+'</div>'},
+ {id:'sale',name:'SALE SLASH',r:(p,W,H)=>{const old=p.price?Math.round(parseFloat(p.price)*1.35):0;
+  return '<div style="position:absolute;inset:0;background:#fff"></div>'
+  +'<div style="position:absolute;left:-140px;top:'+(H*0.07)+'px;width:'+(W+280)+'px;transform:rotate(-7deg);background:'+B.c2+';border-top:4px solid #111;border-bottom:4px solid #111;padding:18px 0;text-align:center;font-family:\'Archivo Black\';font-size:56px;letter-spacing:.1em">SALE&nbsp;·&nbsp;SALE&nbsp;·&nbsp;SALE</div>'
+  +'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:'+(H*0.22)+'px 110px '+(H*0.22)+'px">'+IM(p.img,'max-width:100%;max-height:100%;object-fit:contain')+'</div>'
+  +'<div style="position:absolute;left:70px;bottom:60px;right:70px;display:flex;align-items:flex-end;justify-content:space-between;gap:26px">'
+  +'<div style="font-family:\'Archivo Black\';font-size:42px;line-height:1.06;text-transform:uppercase;max-width:'+(W*0.55)+'px">'+E(p.title)+'</div>'
+  +(p.price?'<div style="text-align:right;font-family:\'Space Mono\',monospace;font-weight:700;white-space:nowrap"><div style="font-size:30px;color:#999;text-decoration:line-through">'+old+' '+B.cur+'</div><div style="font-size:52px;color:'+B.c1+'">'+fmtPrice(p)+'</div></div>':'')+'</div>'}},
+ {id:'edit',name:'EDITORIAL',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:#f1eee6"></div>'
+  +'<div style="position:absolute;left:64px;top:60px;right:64px;border-top:2px solid #111;border-bottom:2px solid #111;padding:14px 4px;display:flex;justify-content:space-between;font-family:\'Space Mono\',monospace;font-size:22px;letter-spacing:.2em"><span>'+E(B.name)+'</span><span>N°1</span></div>'
+  +'<div style="position:absolute;left:0;right:0;top:'+(H*0.15)+'px;text-align:center;font-family:\'Playfair Display\',serif;font-style:italic;font-weight:700;font-size:66px;line-height:1.06;padding:0 80px">'+E(p.title)+'</div>'
+  +'<div style="position:absolute;left:'+(W*0.2)+'px;right:'+(W*0.2)+'px;top:'+(H*0.34)+'px;bottom:'+(H*0.15)+'px;background:#fff;border:2px solid #111;box-shadow:22px 22px 0 rgba(17,17,17,.14);transform:rotate(-2deg);display:flex;align-items:center;justify-content:center;padding:36px">'+IM(p.img,'max-width:92%;max-height:92%;object-fit:contain')+'</div>'
+  +'<div style="position:absolute;left:0;right:0;bottom:58px;text-align:center;font-family:\'Space Mono\',monospace;font-weight:700;font-size:30px;letter-spacing:.24em">'+(p.price?fmtPrice(p):E(B.badge))+'</div>'},
+ {id:'bigtype',name:'BIG TYPE',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:'+B.c1+'"></div>'
+  +'<div style="position:absolute;left:0;top:'+(H*0.06)+'px;width:100%;font-family:\'Archivo Black\';font-size:150px;line-height:.9;color:transparent;-webkit-text-stroke:3px rgba(255,255,255,.75);text-transform:uppercase;white-space:normal;word-break:break-word;padding:0 30px;max-height:'+(H*0.62)+'px;overflow:hidden">'+E(p.title)+' '+E(p.title)+'</div>'
+  +'<div style="position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:0 120px '+(H*0.13)+'px">'+IM(p.img,'max-width:100%;max-height:78%;object-fit:contain;filter:drop-shadow(0 40px 50px rgba(0,0,0,.5))')+'</div>'
+  +'<div style="position:absolute;left:0;right:0;bottom:52px;display:flex;justify-content:center;gap:20px;align-items:center">'
+  +(p.price?'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:34px;background:#fff;border:3px solid #111;box-shadow:8px 8px 0 #111;padding:14px 26px">'+fmtPrice(p)+'</div>':'')
+  +'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:34px;background:'+B.c2+';border:3px solid #111;box-shadow:8px 8px 0 #111;padding:14px 26px">SHOP NOW</div></div>'},
+ {id:'sticker',name:'STICKER POP',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:#e9e8e5"></div>'
+  +'<div style="position:absolute;left:'+(W*0.13)+'px;right:'+(W*0.13)+'px;top:'+(H*0.1)+'px;bottom:'+(H*0.16)+'px;background:#fff;border:3px solid #111;box-shadow:16px 16px 0 #111;transform:rotate(2deg);padding:34px 34px 120px;display:flex;align-items:center;justify-content:center">'+IM(p.img,'max-width:94%;max-height:94%;object-fit:contain')+'</div>'
+  +'<div style="position:absolute;left:'+(W*0.16)+'px;right:'+(W*0.16)+'px;bottom:'+(H*0.185)+'px;text-align:center;font-family:\'Space Mono\',monospace;font-weight:700;font-size:32px;transform:rotate(2deg);overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+E(p.title)+'</div>'
+  +'<div style="position:absolute;right:'+(W*0.06)+'px;top:'+(H*0.05)+'px;width:250px;height:250px;border-radius:50%;background:'+B.c2+';border:4px solid #111;display:flex;flex-direction:column;align-items:center;justify-content:center;transform:rotate(-12deg)"><div style="font-family:\'Archivo Black\';font-size:42px">'+E(B.badge).split(' ')[0]+'</div>'+(p.price?'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:30px">'+fmtPrice(p)+'</div>':'')+'</div>'
+  +'<div style="position:absolute;left:0;right:0;bottom:44px;text-align:center;font-family:\'Space Mono\',monospace;font-size:24px;letter-spacing:.3em">'+E(B.name)+'</div>'},
+ {id:'split',name:'SPLIT',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:#fff"></div>'
+  +'<div style="position:absolute;left:0;top:0;width:'+(W*0.46)+'px;height:100%;background:'+B.c1+';border-right:4px solid #111;padding:70px 50px;display:flex;flex-direction:column;justify-content:space-between">'
+  +'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:24px;letter-spacing:.22em;color:#fff">'+E(B.name)+'</div>'
+  +'<div><div style="font-family:\'Archivo Black\';color:#fff;font-size:58px;line-height:1.02;text-transform:uppercase;margin-bottom:34px">'+E(p.title)+'</div>'
+  +(p.price?'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:40px;color:#fff;margin-bottom:44px">'+fmtPrice(p)+'</div>':'')
+  +cta('SHOP NOW')+'</div>'
+  +'<div style="font-family:\'Space Mono\',monospace;font-size:20px;color:rgba(255,255,255,.7);letter-spacing:.14em">[ '+E(B.badge)+' ]</div></div>'
+  +'<div style="position:absolute;left:'+(W*0.46)+'px;top:0;right:0;height:100%;display:flex;align-items:center;justify-content:center;padding:60px">'+IM(p.img,'max-width:96%;max-height:96%;object-fit:contain')+'</div>'},
+ {id:'native',name:'FEED NATIVE',r:(p,W,H)=>'<div style="position:absolute;inset:0;background:#fff"></div>'
+  +'<div style="position:absolute;left:0;top:0;width:100%;height:110px;border-bottom:2px solid #ddd;display:flex;align-items:center;gap:22px;padding:0 40px">'
+  +'<div style="width:64px;height:64px;border-radius:50%;background:'+B.c1+';flex-shrink:0"></div>'
+  +'<div style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:28px">'+E(B.handle)+'</div>'
+  +'<div style="margin-left:auto;font-family:\'Space Mono\',monospace;font-size:34px;letter-spacing:4px">···</div></div>'
+  +'<div style="position:absolute;left:0;top:110px;right:0;bottom:'+(H*0.22)+'px;background:#f4f3f0;display:flex;align-items:center;justify-content:center;padding:40px">'+IM(p.img,'max-width:100%;max-height:100%;object-fit:contain')+'</div>'
+  +'<div style="position:absolute;left:0;bottom:0;width:100%;height:'+(H*0.22)+'px;padding:26px 40px;font-family:\'Space Mono\',monospace">'
+  +'<div style="font-size:32px;margin-bottom:12px">♥ ✦ ➤&nbsp;&nbsp;&nbsp;&nbsp;<b>95 LIKES</b></div>'
+  +'<div style="font-size:27px;line-height:1.4;overflow:hidden"><b>'+E(B.handle)+'</b>&nbsp; '+E(p.title)+(p.price?' — <b style="color:'+B.c1+'">'+fmtPrice(p)+'</b>':'')+' · tap to shop</div></div>'}
+];
+T.forEach(t=>selT.add(t.id));
+
+/* ============ grid ============ */
+function pickedProducts(){const all=[];SRC.forEach(s=>s.products.forEach(p=>{if(selP.has(key(p)))all.push(p)}));return all.slice(0,20)} /* ponytail: 20-product grid cap — DOM stays snappy */
+function cellHTML(t,p){const[W,H]=DIMS[ASPECT];const cw=190,s=cw/W;
+ return '<div class="cell" data-t="'+t.id+'" data-k="'+encodeURIComponent(key(p))+'"><div class="clip" style="width:'+cw+'px;height:'+Math.round(H*s)+'px"><div style="width:'+W+'px;height:'+H+'px;transform:scale('+s+');transform-origin:0 0;position:relative;overflow:hidden">'+t.r(p,W,H)+'</div></div></div>'}
+function paintTChips(){$('tchips').innerHTML=T.map(t=>'<label class="'+(selT.has(t.id)?'on':'')+'" data-t="'+t.id+'">'+t.name+'</label>').join('');
+ $('tchips').querySelectorAll('label').forEach(l=>l.onclick=()=>{const id=l.dataset.t;selT.has(id)?selT.delete(id):selT.add(id);paintTChips();paintMatrix()})}
+function paintAspects(){$('aspects').innerHTML=Object.keys(DIMS).map(a=>'<button class="'+(a===ASPECT?'on':'')+'" data-a="'+a+'">'+a+'</button>').join('');
+ $('aspects').querySelectorAll('button').forEach(b=>b.onclick=()=>{ASPECT=b.dataset.a;paintAspects();paintMatrix()})}
+function cKey(t,k){return t+'||'+k}
+function countSel(){$('dlBtn').textContent='⬇ EXPORT ('+selC.size+')';$('shipBtn').textContent='🚀 LAUNCHER ('+selC.size+')'}
+function paintMatrix(){
+ const prods=pickedProducts(),tps=T.filter(t=>selT.has(t.id));
+ if(!prods.length){$('matrix').innerHTML='<div style="padding:30px;color:#666">no products ticked — go to FEED, sync + tick, then come back</div>';countSel();return}
+ $('matrix').innerHTML='<div class="mhead"><div style="width:110px;flex-shrink:0"></div>'+tps.map(t=>'<div style="width:190px;flex-shrink:0">'+t.name+'</div>').join('')+'</div>'
+  +prods.map(p=>'<div class="mrow"><div class="mlabel"><img loading="lazy" src="'+p.img+'">'+E(p.title.slice(0,52))+'</div>'+tps.map(t=>cellHTML(t,p)).join('')+'</div>').join('');
+ $('matrix').querySelectorAll('.cell').forEach(c=>{
+  const k=cKey(c.dataset.t,decodeURIComponent(c.dataset.k));
+  if(selC.has(k))c.classList.add('on');
+  c.onclick=()=>{selC.has(k)?(selC.delete(k),c.classList.remove('on')):(selC.add(k),c.classList.add('on'));countSel()}});
+ countSel()}
+$('selAllC').onclick=()=>{$('matrix').querySelectorAll('.cell').forEach(c=>{selC.add(cKey(c.dataset.t,decodeURIComponent(c.dataset.k)));c.classList.add('on')});countSel()};
+$('clrC').onclick=()=>{selC.clear();$('matrix').querySelectorAll('.cell').forEach(c=>c.classList.remove('on'));countSel()};
+
+/* ============ export ============ */
+const _rd=b=>new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=()=>res(null);fr.readAsDataURL(b)});
+async function toData(u,fb){if(!u)return null;if(/^data:/.test(u))return u;
+ const one=async v=>{try{const r=await fetch(v,{mode:'cors'});if(r.ok){const b=await r.blob();if(b.size>512)return await _rd(b)}}catch(e){}
+  try{const r=await fetch('https://images.weserv.nl/?url='+encodeURIComponent(v.replace(/^https?:\/\//,''))+'&n=-1',{mode:'cors'});if(r.ok){const b=await r.blob();if(b.size>512)return await _rd(b)}}catch(e){}return null};
+ return await one(u)||(fb&&fb!==u?await one(fb):null)}
+function findCombo(k){const[tid,pk]=k.split('||');const t=T.find(x=>x.id===tid);let prod=null;
+ SRC.forEach(s=>s.products.forEach(p=>{if(key(p)===pk)prod=p}));return t&&prod?{t,p:prod}:null}
+/* render in an isolated iframe — html2canvas clones the whole document, and the
+   main page carries a 400-row product table it would otherwise re-fetch every time */
+async function renderCombo(t,p){const[W,H]=DIMS[ASPECT];
+ const d=await toData(p.img,p.fb);const p2={...p,img:d||p.img};
+ const fr=document.createElement('iframe');
+ fr.style.cssText='position:fixed;left:-99999px;top:0;width:'+W+'px;height:'+H+'px;border:0';
+ document.body.appendChild(fr);
+ try{
+  fr.contentDocument.write('<!doctype html><html><head>'
+   +'<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&family=Playfair+Display:ital,wght@1,500;1,700&display=swap" rel="stylesheet">'
+   +'<style>*{box-sizing:border-box;margin:0}body{margin:0}</style></head><body>'
+   +'<div id="xstage" style="width:'+W+'px;height:'+H+'px;position:relative;overflow:hidden;font-family:\'Space Mono\',monospace">'+t.r(p2,W,H)+'</div>'
+   +'</body></html>');
+  fr.contentDocument.close();
+  await new Promise(r=>{if(fr.contentDocument.readyState==='complete')r();else fr.onload=r;setTimeout(r,2500)});
+  try{await fr.contentDocument.fonts.ready}catch(e){}
+  await new Promise(r=>setTimeout(r,120));
+  return await html2canvas(fr.contentDocument.getElementById('xstage'),{useCORS:true,scale:1,backgroundColor:'#fff',logging:false,imageTimeout:8000});
+ }finally{fr.remove()}}
+const clean=n=>String(n||'ad').replace(/[^\w\-. ]+/g,'_').slice(0,60);
+async function exportSel(ship){
+ if(!selC.size){gstat('tap some cells first');return}
+ const keys=[...selC];let db=null,ok=0;
+ if(ship)db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+ for(let i=0;i<keys.length;i++){
+  const cb=findCombo(keys[i]);if(!cb)continue;
+  gstat((ship?'shipping ':'exporting ')+(i+1)+'/'+keys.length+' · '+cb.p.title.slice(0,26)+'…');
+  try{const c=await renderCombo(cb.t,cb.p);
+   const name=clean(cb.p.title)+'_'+cb.t.id+'_'+ASPECT.replace(':','x')+'.png';
+   if(ship){const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+    await new Promise(res=>{const tx=db.transaction('inbox','readwrite');tx.objectStore('inbox').put({name,blob,t:Date.now()});tx.oncomplete=res})}
+   else{const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download=name;document.body.appendChild(a);a.click();a.remove();await new Promise(r=>setTimeout(r,320))}
+   ok++}catch(e){}}
+ gstat('✓ '+ok+'/'+keys.length+(ship?' shipped — open the Launcher, they land in Media':' downloaded'))}
+$('dlBtn').onclick=()=>exportSel(false);
+$('shipBtn').onclick=()=>exportSel(true);
+
+/* ============ brand ============ */
+function loadBrand(){$('bName').value=B.name;$('bC1').value=B.c1;$('bC2').value=B.c2;$('bCur').value=B.cur;$('bBadge').value=B.badge;$('bHandle').value=B.handle}
+['bName','bC1','bC2','bCur','bBadge','bHandle'].forEach(id=>$(id).oninput=()=>{
+ B={name:$('bName').value,c1:$('bC1').value,c2:$('bC2').value,cur:$('bCur').value,badge:$('bBadge').value,handle:$('bHandle').value};
+ localStorage.setItem('mp_brand',JSON.stringify(B));paintMatrix()});
+
+/* ============ nav ============ */
+function go(pg){['Feed','Grid','Brand'].forEach(p=>{$('pg'+p).classList.toggle('on',p===pg);$('nb'+p).classList.toggle('on',p===pg)})}
+$('nbFeed').onclick=()=>go('Feed');
+$('nbGrid').onclick=()=>{go('Grid');paintMatrix()};
+$('nbBrand').onclick=()=>go('Brand');
+
+/* ============ boot ============ */
+loadBrand();paintAll();paintTChips();paintAspects();
+if(SRC.length){SRC.forEach(s=>s.products.slice(0,8).forEach(p=>selP.add(key(p))));paintTable();
+ (async()=>{stat('auto-syncing '+SRC.length+' source(s)…');for(const s of SRC){try{Object.assign(s,await fetchAny(s.url))}catch(e){}}saveSrc();paintAll();stat('✓ feeds fresh')})()}
+</script>
+</body>
+</html>
