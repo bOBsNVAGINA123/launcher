@@ -18,6 +18,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:13p
 .btn.alt{background:var(--peri);color:#fff}
 .btn.ghost{background:transparent;box-shadow:3px 3px 0 var(--ink);padding:9px 14px;font-size:11px}
 .btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,nav button:focus-visible,.aspect button:focus-visible,input:focus-visible,.tchips label:focus-within{outline:3px solid var(--peri);outline-offset:2px}
+.btn:hover:not(:disabled){filter:brightness(1.05)}
 header{display:flex;align-items:center;gap:18px;padding:16px 22px;flex-wrap:wrap}
 .logo{display:flex;align-items:center;gap:9px;font:600 26px/1 'Trebuchet MS',sans-serif;color:var(--peri);letter-spacing:-.5px}
 .logo i{width:26px;height:26px;border-radius:50%;background:var(--peri);display:inline-block;position:relative}
@@ -44,11 +46,16 @@ table{width:100%;border-collapse:collapse;background:#fff;border:1.5px solid var
 th{font-size:10px;letter-spacing:.14em;text-align:left;padding:10px 12px;border-bottom:1.5px solid var(--ink);background:#f3f2ef;text-transform:uppercase}
 td{padding:8px 12px;border-bottom:1px solid #d8d6d0;font-size:12px;vertical-align:middle}
 tr:hover td{background:#f6f5f2}
+input[type=checkbox]{width:17px;height:17px;accent-color:var(--peri);cursor:pointer}
+.empty{padding:44px 30px;color:#444;font-size:12px;letter-spacing:.06em;text-align:center;border:1.5px dashed #999;margin:6px}
 td img{width:44px;height:44px;object-fit:cover;border:1px solid #ccc;display:block}
 .tchips{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0}
 .tchips label{display:flex;align-items:center;gap:6px;border:1.5px solid var(--ink);background:#fff;padding:6px 10px;font-size:11px;font-weight:700;letter-spacing:.08em;cursor:pointer;user-select:none}
 .tchips label.on{background:var(--peri);color:#fff}
-.gridbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 16px}
+.tchips label:hover{box-shadow:3px 3px 0 var(--ink)}
+.tchips label:focus-visible{outline:3px solid var(--peri);outline-offset:2px}
+.gridbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 0;position:sticky;top:0;z-index:20;background:var(--bg);padding:12px 0 16px;border-bottom:1.5px solid var(--ink)}
+#matrix{margin-top:16px}
 #matrix{overflow:auto;border:1.5px solid var(--ink);background:#fff;padding:16px}
 .mrow{display:flex;gap:14px;margin-bottom:16px;align-items:flex-start}
 .mlabel{width:110px;flex-shrink:0;font-size:10px;letter-spacing:.06em;word-break:break-word;padding-top:4px}
@@ -56,9 +63,11 @@ td img{width:44px;height:44px;object-fit:cover;border:1px solid #ccc;display:blo
 .mhead{display:flex;gap:14px;margin-bottom:10px}
 .mhead div{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#555}
 .cell{position:relative;cursor:pointer;flex-shrink:0;border:2px solid transparent}
-.cell.on{border-color:var(--grn)}
+.cell:hover{border-color:#bbb}
+.cell:focus-visible{outline:3px solid var(--peri);outline-offset:1px}
+.cell.on,.cell.on:hover{border-color:var(--grn)}
 .cell.on:after{content:'✓';position:absolute;top:6px;right:6px;width:22px;height:22px;background:var(--grn);border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-weight:700;z-index:5}
-.cell .clip{overflow:hidden;pointer-events:none;background:#eee}
+.cell .clip{overflow:hidden;pointer-events:none;background:#eee;outline:1px solid #dcdad4}
 .aspect{display:flex;border:1.5px solid var(--ink);background:#fff}
 .aspect button{font-family:var(--mono);font-weight:700;font-size:11px;border:none;border-right:1.5px solid var(--ink);background:transparent;padding:8px 13px;cursor:pointer}
 .aspect button:last-child{border-right:none}
@@ -67,10 +76,7 @@ td img{width:44px;height:44px;object-fit:cover;border:1px solid #ccc;display:blo
 .brand label{display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px}
 .brand input[type=text]{width:100%;font-family:var(--mono);font-size:14px;padding:11px 12px;border:1.5px solid var(--ink);background:#fff;outline:none}
 .brand input[type=color]{width:100%;height:44px;border:1.5px solid var(--ink);background:#fff;padding:3px;cursor:pointer}
-.marq{overflow:hidden;border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);background:var(--peri);color:#fff;font-size:11px;letter-spacing:.2em;padding:7px 0;white-space:nowrap}
-.marq span{display:inline-block;animation:mq 28s linear infinite}
-@keyframes mq{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-footer{padding:26px 22px;font-size:10px;color:#666;letter-spacing:.08em}
+footer{padding:26px 22px;font-size:10px;color:#555;letter-spacing:.08em;border-top:1.5px solid var(--ink)}
 .pg{display:none}.pg.on{display:block}
 #exportHost{position:fixed;left:-99999px;top:0}
 @media(max-width:640px){nav{width:100%;order:9}nav button{flex:1;padding:10px 6px}}
@@ -128,7 +134,7 @@ footer{padding:26px 22px;font-size:10px;color:#666;letter-spacing:.08em}
    <button class="btn ghost" id="clrC">clear</button>
    <span class="stat" id="gstat" style="margin-left:auto"></span>
   </div>
-  <div id="matrix"><div style="padding:30px;color:#666">sync a feed and tick products first — then this fills itself</div></div>
+  <div id="matrix"><div class="empty">SYNC A FEED + TICK PRODUCTS FIRST — THEN THIS FILLS ITSELF</div></div>
  </div>
 </div>
 
@@ -148,7 +154,6 @@ footer{padding:26px 22px;font-size:10px;color:#666;letter-spacing:.08em}
  </div>
 </div>
 
-<div class="marq"><span id="mq"></span></div>
 <footer>UNOFFICIAL PERSONAL TOOL · NOT AFFILIATED WITH MARPIPE.COM · FEEDS STAY IN YOUR BROWSER (LOCALSTORAGE) · RENDERS ARE LOCAL</footer>
 <div id="exportHost"></div>
 
@@ -162,7 +167,6 @@ const selP=new Set(),selC=new Set(),selT=new Set();
 let ASPECT='1:1';const DIMS={'1:1':[1080,1080],'4:5':[1080,1350],'9:16':[1080,1920]};
 const stat=m=>{$('stat').textContent=m};const gstat=m=>{$('gstat').textContent=m};
 const saveSrc=()=>{try{localStorage.setItem('mp_src',JSON.stringify(SRC))}catch(e){try{localStorage.setItem('mp_src',JSON.stringify(SRC.map(s=>({...s,products:s.products.slice(0,80)}))))}catch(_){}}};
-$('mq').textContent=('  BEFORE MARPIPE — AFTER MARPIPE — '.repeat(12));
 
 /* ============ feed fetch (shopify + drive) ============ */
 const SIZE_RE=/_(?:\d+x\d*|x\d+|pico|icon|thumb|small|compact|medium|large|grande|master|\d+x)(?:@\dx)?(?=\.(?:jpe?g|png|webp|gif|avif)\b)/i;
@@ -304,22 +308,26 @@ T.forEach(t=>selT.add(t.id));
 /* ============ grid ============ */
 function pickedProducts(){const all=[];SRC.forEach(s=>s.products.forEach(p=>{if(selP.has(key(p)))all.push(p)}));return all.slice(0,20)} /* ponytail: 20-product grid cap — DOM stays snappy */
 function cellHTML(t,p){const[W,H]=DIMS[ASPECT];const cw=190,s=cw/W;
- return '<div class="cell" data-t="'+t.id+'" data-k="'+encodeURIComponent(key(p))+'"><div class="clip" style="width:'+cw+'px;height:'+Math.round(H*s)+'px"><div style="width:'+W+'px;height:'+H+'px;transform:scale('+s+');transform-origin:0 0;position:relative;overflow:hidden">'+t.r(p,W,H)+'</div></div></div>'}
-function paintTChips(){$('tchips').innerHTML=T.map(t=>'<label class="'+(selT.has(t.id)?'on':'')+'" data-t="'+t.id+'">'+t.name+'</label>').join('');
- $('tchips').querySelectorAll('label').forEach(l=>l.onclick=()=>{const id=l.dataset.t;selT.has(id)?selT.delete(id):selT.add(id);paintTChips();paintMatrix()})}
+ return '<div class="cell" role="button" tabindex="0" aria-label="'+E(p.title)+' — '+t.name+'" data-t="'+t.id+'" data-k="'+encodeURIComponent(key(p))+'"><div class="clip" style="width:'+cw+'px;height:'+Math.round(H*s)+'px"><div style="width:'+W+'px;height:'+H+'px;transform:scale('+s+');transform-origin:0 0;position:relative;overflow:hidden">'+t.r(p,W,H)+'</div></div></div>'}
+function paintTChips(){$('tchips').innerHTML=T.map(t=>'<label class="'+(selT.has(t.id)?'on':'')+'" data-t="'+t.id+'" tabindex="0" role="switch" aria-checked="'+selT.has(t.id)+'">'+t.name+'</label>').join('');
+ $('tchips').querySelectorAll('label').forEach(l=>{const tog=()=>{const id=l.dataset.t;selT.has(id)?selT.delete(id):selT.add(id);paintTChips();paintMatrix()};
+  l.onclick=tog;l.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tog()}}})}
 function paintAspects(){$('aspects').innerHTML=Object.keys(DIMS).map(a=>'<button class="'+(a===ASPECT?'on':'')+'" data-a="'+a+'">'+a+'</button>').join('');
  $('aspects').querySelectorAll('button').forEach(b=>b.onclick=()=>{ASPECT=b.dataset.a;paintAspects();paintMatrix()})}
 function cKey(t,k){return t+'||'+k}
 function countSel(){$('dlBtn').textContent='⬇ EXPORT ('+selC.size+')';$('shipBtn').textContent='🚀 LAUNCHER ('+selC.size+')'}
 function paintMatrix(){
  const prods=pickedProducts(),tps=T.filter(t=>selT.has(t.id));
- if(!prods.length){$('matrix').innerHTML='<div style="padding:30px;color:#666">no products ticked — go to FEED, sync + tick, then come back</div>';countSel();return}
- $('matrix').innerHTML='<div class="mhead"><div style="width:110px;flex-shrink:0"></div>'+tps.map(t=>'<div style="width:190px;flex-shrink:0">'+t.name+'</div>').join('')+'</div>'
-  +prods.map(p=>'<div class="mrow"><div class="mlabel"><img loading="lazy" src="'+p.img+'">'+E(p.title.slice(0,52))+'</div>'+tps.map(t=>cellHTML(t,p)).join('')+'</div>').join('');
+ if(!prods.length){$('matrix').innerHTML='<div class="empty">NO PRODUCTS TICKED — GO TO FEED, SYNC + TICK, THEN COME BACK</div>';countSel();return}
+ if(!tps.length){$('matrix').innerHTML='<div class="empty">EVERY TEMPLATE IS SWITCHED OFF — TICK AT LEAST ONE ABOVE</div>';countSel();return}
+ $('matrix').innerHTML='<div class="mhead"><div style="width:110px;flex-shrink:0"></div>'+tps.map(t=>'<div style="width:194px;flex-shrink:0">'+t.name+'</div>').join('')+'</div>'
+  +prods.map(p=>'<div class="mrow"><div class="mlabel"><img loading="lazy" src="'+p.img+'" alt="">'+E(p.title.slice(0,52))+'</div>'+tps.map(t=>cellHTML(t,p)).join('')+'</div>').join('');
  $('matrix').querySelectorAll('.cell').forEach(c=>{
   const k=cKey(c.dataset.t,decodeURIComponent(c.dataset.k));
   if(selC.has(k))c.classList.add('on');
-  c.onclick=()=>{selC.has(k)?(selC.delete(k),c.classList.remove('on')):(selC.add(k),c.classList.add('on'));countSel()}});
+  const tog=()=>{selC.has(k)?(selC.delete(k),c.classList.remove('on')):(selC.add(k),c.classList.add('on'));countSel()};
+  c.onclick=tog;
+  c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tog()}}});
  countSel()}
 $('selAllC').onclick=()=>{$('matrix').querySelectorAll('.cell').forEach(c=>{selC.add(cKey(c.dataset.t,decodeURIComponent(c.dataset.k)));c.classList.add('on')});countSel()};
 $('clrC').onclick=()=>{selC.clear();$('matrix').querySelectorAll('.cell').forEach(c=>c.classList.remove('on'));countSel()};
