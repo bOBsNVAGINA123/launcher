@@ -4864,6 +4864,8 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    state.slots[t].src=data;
    try{state.slots[t].disp=await makeThumb(data)}catch(e){state.slots[t].disp=data}
    try{const c=await sampleColor(data);if(c)state.slotColors[t]=c}catch(e){}
+   if(item.title&&!item.file){window.PX_SLOTMETA=window.PX_SLOTMETA||{};
+    window.PX_SLOTMETA[t]={t:item.title.replace(/\s*·\s*\d+$/,''),p:item.price||'',dims:{},d:''}}
   }
 
   /* ---------- folders (File System Access API) ---------- */
@@ -4899,6 +4901,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syLoadSel" class="btn ghost" style="flex:1">Add selected</button><button id="syLoadAll" class="btn ghost" style="flex:1">Load all shown</button></div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syToLauncher" class="btn ghost" style="flex:1;border-color:#4a7">🚀 → Launcher (selected, or all shown)</button></div>'
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syDlAll" class="btn ghost" style="flex:1;border-color:#77a">⬇ Download full-res (selected, or all shown)</button></div>'
+   +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syBatch" class="btn ghost" style="flex:2;border-color:#c9a95c">⚡ Batch: every product × this design → Launcher</button><button id="syBatchDl" class="btn ghost" style="flex:1;border-color:#c9a95c" title="download the renders instead">⚡⬇</button></div>'
    +'<label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="syAllImg"> pull <b>every</b> image per product (not just the first)</label>'
    +'<div id="syGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;max-height:230px;overflow:auto;padding-right:3px"></div>'
    +'<div id="syStatus" style="font-size:10px;color:#8b8470;margin:6px 0 2px;min-height:12px"></div>';
@@ -4910,7 +4913,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   function items(){
    const q=(document.getElementById('sySearch').value||'').toLowerCase();
    const out=[];
-   COLS.forEach(c=>{if(!enOn('col_'+c.handle))return;c.products.forEach(p=>{if(!q||p.title.toLowerCase().indexOf(q)>=0)out.push({title:p.title,img:p.img,thumb:p.img,kind:p.kind||'image',driveId:p.driveId||null,key:'c'+c.handle+(p.driveId||p.img)})})});
+   COLS.forEach(c=>{if(!enOn('col_'+c.handle))return;c.products.forEach(p=>{if(!q||p.title.toLowerCase().indexOf(q)>=0)out.push({title:p.title,img:p.img,thumb:p.img,kind:p.kind||'image',driveId:p.driveId||null,price:p.price||'',img2:p.img2||'',fb:p.fb||null,key:'c'+c.handle+(p.driveId||p.img)})})});
    if(enOn('inbox'))INBOX.forEach(it=>{if(!q||it.title.toLowerCase().indexOf(q)>=0)out.push(it)});
    FOLDERS.forEach(f=>{if(!enOn('fol_'+f.key))return;(f.files||[]).forEach(fl=>{if(!q||fl.name.toLowerCase().indexOf(q)>=0)out.push({title:fl.name,file:fl,thumb:null,key:'f'+f.key+fl.name+fl.size})})});
    return out;
@@ -4990,6 +4993,48 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    }
    stat('\u2b07 '+ok+' / '+picked.length+' saved at full res \u2014 drag the folder into Google Drive');
   };
+
+  /* ---------- \u26a1 Marpipe-style batch: render the ACTIVE design once per product ----------
+     swaps each product's image (and 2nd image) into slots 1/2, injects real title+price
+     via PX_SLOTMETA, captures, ships every PNG to the Launcher bridge (or downloads). */
+  async function batchRender(download){
+   let picked=SHOWN.filter(it=>sel.has(it.key));
+   if(!picked.length)picked=SHOWN.slice(0,60);
+   picked=picked.filter(it=>it.kind!=='video').slice(0,60); /* ponytail: 60-product cap per run \u2014 re-run with search/selection for more */
+   if(!picked.length){stat('nothing to render');return}
+   if(typeof capture!=='function'){stat('\u26a0 renderer not ready yet');return}
+   const bakSlots=JSON.stringify(state.slots),bakMeta=JSON.stringify(window.PX_SLOTMETA||{});
+   const clean=n=>String(n||'ad').replace(/[^\w\-. ]+/g,'_').slice(0,60);
+   let db=null;
+   if(!download)db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+   let ok=0;
+   for(let i=0;i<picked.length;i++){
+    const it=picked[i];
+    stat('\u26a1 '+(i+1)+'/'+picked.length+' \u00b7 '+it.title.slice(0,32)+'\u2026');
+    try{
+     const d=it.file?await _rd(it.file):await toData(it.img,it.fb);
+     if(!d)continue;
+     for(let j=1;j<=NSLOT;j++){state.slots[j].src=null;state.slots[j].disp=null}
+     state.slots[1].src=d;state.slots[1].disp=d;
+     if(it.img2){const d2=await toData(it.img2);if(d2){state.slots[2].src=d2;state.slots[2].disp=d2}}
+     window.PX_SLOTMETA=window.PX_SLOTMETA||{};
+     const meta={t:(it.title||'').replace(/\s*\u00b7\s*\d+$/,''),p:it.price||'',dims:{},d:''};
+     window.PX_SLOTMETA[1]=meta;window.PX_SLOTMETA[2]=meta;
+     try{const c0=await sampleColor(d);if(c0)state.slotColors[1]=c0}catch(e){}
+     const c=await capture(ACTIVE,3);
+     const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+     const name=clean(it.title)+'_'+ACTIVE+'_'+state.aspect+'.png';
+     if(download){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();await new Promise(r=>setTimeout(r,300))}
+     else await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').put({name,blob,t:Date.now()});t.oncomplete=res});
+     ok++;
+    }catch(e){}
+   }
+   state.slots=JSON.parse(bakSlots);window.PX_SLOTMETA=JSON.parse(bakMeta);
+   buildSlots();renderStage();if(typeof renderMirror==='function')renderMirror();
+   stat('\u26a1 '+ok+'/'+picked.length+' rendered'+(download?' \u2014 downloaded':' \u2014 open the Launcher, they land in Media automatically'));
+  }
+  document.getElementById('syBatch').onclick=()=>batchRender(false);
+  document.getElementById('syBatchDl').onclick=()=>batchRender(true);
 
   document.getElementById('sySearch').oninput=paintGrid;
   document.getElementById('syAddCol').onclick=async()=>{
