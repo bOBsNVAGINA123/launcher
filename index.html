@@ -189,6 +189,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
     <div class="step" data-pane="review"><div class="n">5</div><div><div class="lbl">Preview & launch</div><div class="sub2" id="ss-review">see it, ship it</div></div></div>
     <div class="spacer"></div>
     <a class="navlink" href="studio.html" target="_blank">🎨 Content Studio</a>
+    <a class="navlink" href="marpipe.html" target="_blank">▦ Catalog ad grid</a>
     <a class="navlink" href="#" onclick="openTT();return false">⇪ Sync to TikTok</a>
     <a class="navlink" href="#" onclick="openDup();return false">⧉ Duplicate to another account</a>
     <button class="navlink" onclick="copyTeamLink(event)">Copy team link</button>
@@ -2305,7 +2306,8 @@ paint();
       const bt=it.blob.type||(bk==='video'?'video/mp4':'image/png');
       const f=new File([it.blob],it.name,{type:bt});
       if(S.media.some(x=>x.name===it.name))return;
-      const rec={kind:bk,src:'local',file:f,name:it.name,size:f.size,link:'',adName:it.name.replace(/\.[^.]+$/,''),target:''};
+      /* the catalog grid ships a product URL + ad name with each render — keep them */
+      const rec={kind:bk,src:'local',file:f,name:it.name,size:f.size,link:it.link||'',adName:it.adName||it.name.replace(/\.[^.]+$/,''),target:''};
       if(bk==='image')rec.preview=URL.createObjectURL(f);
       S.media.push(rec);});
     sortMedia();renderMedia();paint();

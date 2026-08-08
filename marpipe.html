@@ -91,6 +91,7 @@ footer{padding:26px 22px;font-size:10px;color:#555;letter-spacing:.08em;border-t
   <button id="nbGrid">GRID</button>
   <button id="nbBrand">BRAND</button>
  </nav>
+ <a class="btn ghost" href="index.html" style="text-decoration:none;color:var(--ink)">↗ LAUNCHER</a>
 </header>
 <div class="rule"></div>
 <div class="ticks"><span>⟋</span><span>⟋</span><span>⟋</span><span>⟋</span><span>⟋</span><span>⟋</span></div>
@@ -128,6 +129,7 @@ footer{padding:26px 22px;font-size:10px;color:#555;letter-spacing:.08em;border-t
   <div class="tchips" id="tchips"></div>
   <div class="gridbar">
    <div class="aspect" id="aspects"></div>
+   <label class="chip" style="cursor:pointer;font-weight:700;letter-spacing:.08em"><input type="checkbox" id="uspTgl" checked> USPs</label>
    <button class="btn" id="dlBtn">EXPORT (0)</button>
    <button class="btn alt" id="shipBtn">→ LAUNCHER (0)</button>
    <button class="btn ghost" id="selAllC">select all</button>
@@ -150,6 +152,7 @@ footer{padding:26px 22px;font-size:10px;color:#555;letter-spacing:.08em;border-t
    <div><label>Currency</label><input type="text" id="bCur"></div>
    <div><label>Badge word</label><input type="text" id="bBadge"></div>
    <div><label>Handle (feed-native)</label><input type="text" id="bHandle"></div>
+   <div style="grid-column:1/-1"><label>Fallback USPs (comma separated — used when a product has no description)</label><input type="text" id="bUsps"></div>
   </div>
  </div>
 </div>
@@ -162,8 +165,9 @@ footer{padding:26px 22px;font-size:10px;color:#555;letter-spacing:.08em;border-t
 const $=id=>document.getElementById(id);
 const PROX=[u=>u,u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
 let SRC=[];try{SRC=JSON.parse(localStorage.getItem('mp_src')||'[]')}catch(e){}
-let B=Object.assign({name:'OUR KIDS',c1:'#6b76e3',c2:'#6fd97a',cur:'EGP',badge:'NEW DROP',handle:'@ourkids.eg'},JSON.parse(localStorage.getItem('mp_brand')||'{}'));
+let B=Object.assign({name:'OUR KIDS',c1:'#6b76e3',c2:'#6fd97a',cur:'EGP',badge:'NEW DROP',handle:'@ourkids.eg',usps:'Free delivery over 1500 EGP, Cash on delivery, 100% original'},JSON.parse(localStorage.getItem('mp_brand')||'{}'));
 const selP=new Set(),selC=new Set(),selT=new Set();
+let USP=localStorage.getItem('mp_usp')!=='0';
 let ASPECT='1:1';const DIMS={'1:1':[1080,1080],'4:5':[1080,1350],'9:16':[1080,1920]};
 const stat=m=>{$('stat').textContent=m};const gstat=m=>{$('gstat').textContent=m};
 const saveSrc=()=>{try{localStorage.setItem('mp_src',JSON.stringify(SRC))}catch(e){try{localStorage.setItem('mp_src',JSON.stringify(SRC.map(s=>({...s,products:s.products.slice(0,80)}))))}catch(_){}}};
@@ -174,6 +178,15 @@ function hiRes(u){if(!u)return'';if(u.startsWith('//'))u='https:'+u;
  try{const url=new URL(u,'https://x');['width','height','crop','format'].forEach(k=>url.searchParams.delete(k));
   url.pathname=url.pathname.replace(SIZE_RE,'');return url.origin==='https://x'?url.pathname+url.search:url.toString()
  }catch(e){return u.replace(SIZE_RE,'')}}
+/* pull selling points out of the shopify description: <li>s first, else sentences */
+function uspFrom(html){if(!html)return[];
+ let arr=[];try{const d=new DOMParser().parseFromString(String(html),'text/html');
+  arr=[...d.querySelectorAll('li')].map(n=>n.textContent);
+  if(!arr.length)arr=(d.body.textContent||'').split(/[\n•·•]|\.\s+/);
+ }catch(e){arr=String(html).replace(/<[^>]+>/g,'\n').split('\n')}
+ return arr.map(s=>String(s).replace(/\s+/g,' ').trim().replace(/[.,،؛;]$/,''))
+  .filter(s=>s.length>=6&&s.length<=54&&!/^(shop|buy now|click)/i.test(s))
+  .slice(0,3)}
 async function jfetch(api){let last;for(const p of PROX){try{const r=await fetch(p(api));if(r.ok)return await r.json();last=new Error('HTTP '+r.status)}catch(e){last=e}}throw last||new Error('unreachable')}
 async function fetchCollection(url){
  const pm=url.match(/^(https?:\/\/[^\/]+)\/.*?products\/([\w\-\.%]+)/i);
@@ -182,7 +195,7 @@ async function fetchCollection(url){
   const price=(j.variants&&j.variants[0]&&j.variants[0].price!=null)?String(Math.round(j.variants[0].price)/100):'';
   const raw=(j.images||[]).map(im=>/^\/\//.test(im)?'https:'+im:im).filter(Boolean);
   if(!raw.length)throw new Error('product has no images');
-  return{url,handle:'p_'+handle,name:'PRODUCT · '+j.title,products:[{title:j.title,price,img:hiRes(raw[0]),fb:raw[0],img2:raw[1]?hiRes(raw[1]):''}],last:Date.now()}}
+  return{url,handle:'p_'+handle,name:'PRODUCT · '+j.title,products:[{title:j.title,price,img:hiRes(raw[0]),fb:raw[0],img2:raw[1]?hiRes(raw[1]):'',link:origin+'/products/'+handle,usps:uspFrom(j.description)}],last:Date.now()}}
  const m=url.match(/^(https?:\/\/[^\/]+)\/.*?collections\/([\w\-\.%]+)/i)||url.match(/^(https?:\/\/[^\/]+)\/?$/);
  if(!m)throw new Error('not a collection / product / drive-folder link');
  const origin=m[1],handle=m[2]||'all';let prods=[];
@@ -190,7 +203,7 @@ async function fetchCollection(url){
   let j;try{j=await jfetch(origin+'/collections/'+handle+'/products.json?limit=250&page='+page)}catch(e){if(page===1)throw e;break}
   (j.products||[]).forEach(p=>{const price=(p.variants&&p.variants[0]&&p.variants[0].price)||'';
    const raw=(p.images||[]).map(im=>im.src).filter(Boolean);if(!raw.length)return;
-   prods.push({title:p.title,price,img:hiRes(raw[0]),fb:raw[0],img2:raw[1]?hiRes(raw[1]):''})});
+   prods.push({title:p.title,price,img:hiRes(raw[0]),fb:raw[0],img2:raw[1]?hiRes(raw[1]):'',link:origin+'/products/'+p.handle,usps:uspFrom(p.body_html)})});
   if((j.products||[]).length<250)break}
  if(!prods.length)throw new Error('collection has no product images');
  return{url,handle,name:decodeURIComponent(handle).replace(/-/g,' '),products:prods,last:Date.now()}}
@@ -252,6 +265,22 @@ function imgBox(u,pos,extra){return'<div style="position:absolute;'+pos+';displa
 function brandTag(color,pos){return'<div style="position:absolute;'+(pos||'left:60px;top:56px')+';font:600 23px/1 '+BODY+';letter-spacing:.3em;text-transform:uppercase;color:'+color+'">'+E(B.name)+'</div>'}
 function priceChip(p,extra){if(!p.price)return'';return'<div style="'+(extra||'')+';font:700 34px/1 '+BODY+';background:'+B.c1+';color:'+onC(B.c1)+';border-radius:999px;padding:20px 34px;white-space:nowrap">'+fmtPrice(p)+'</div>'}
 function titleBlock(t,size,color,subColor){return'<div style="min-width:0"><div style="font:700 '+size+'px/1.08 '+DISP+';color:'+color+';max-height:'+Math.round(size*2.3)+'px;overflow:hidden">'+E(t.main)+'</div>'+((t.sub||t.variant)?'<div style="font:500 '+Math.round(size*0.52)+'px/1.3 '+BODY+';color:'+subColor+';margin-top:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+E([t.sub,t.variant].filter(Boolean).join(' · '))+'</div>':'')+'</div>'}
+/* ---- layout primitives: a flex column that survives 1:1 / 4:5 / 9:16 without magic tops ---- */
+function stack(parts,pad,gap){return'<div style="position:absolute;left:0;top:0;right:0;bottom:0;display:flex;flex-direction:column;padding:'+(pad||58)+'px;gap:'+(gap||24)+'px">'+parts.filter(Boolean).join('')+'</div>'}
+function flexImg(u,extra){return'<div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center">'+IM(u,'max-width:100%;max-height:100%;object-fit:contain;'+(extra||''))+'</div>'}
+function eyebrow(txt,color,size){return'<div style="flex-shrink:0;font:600 '+(size||22)+'px/1 '+BODY+';letter-spacing:.3em;text-transform:uppercase;color:'+color+';white-space:nowrap;overflow:hidden">'+E(txt)+'</div>'}
+function ctaPill(txt,bg,fg,size){return'<div style="display:inline-block;font:700 '+(size||26)+'px/1 '+BODY+';background:'+bg+';color:'+fg+';border-radius:999px;padding:20px 40px;white-space:nowrap">'+E(txt)+'</div>'}
+/* ---- USPs (from the product description, brand-kit line as fallback) ---- */
+function uspsOf(p){if(!USP)return[];
+ const own=(p.usps||[]).filter(Boolean);
+ return (own.length?own:String(B.usps||'').split(/[,|]/).map(s=>s.trim()).filter(Boolean)).slice(0,3)}
+function tick(c){return'<span style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:'+c+';display:flex;align-items:center;justify-content:center"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="'+onC(c)+'" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"/></svg></span>'}
+function uspRows(list,color,size,dot){if(!list.length)return'';
+ return'<div style="flex-shrink:0;display:flex;flex-direction:column;gap:14px">'+list.map(u=>'<div style="display:flex;align-items:center;gap:16px">'+tick(dot)+'<div style="font:500 '+size+'px/1.25 '+BODY+';color:'+color+';overflow:hidden;max-height:'+Math.round(size*2.6)+'px">'+E(u)+'</div></div>').join('')+'</div>'}
+function uspChips(list,bg,color,size){if(!list.length)return'';
+ return'<div style="flex-shrink:0;display:flex;flex-wrap:wrap;gap:10px">'+list.map(u=>'<div style="font:600 '+(size||22)+'px/1 '+BODY+';background:'+bg+';color:'+color+';border-radius:999px;padding:13px 22px;white-space:nowrap;overflow:hidden">'+E(u)+'</div>').join('')+'</div>'}
+function starRow(c,sz){const s='<svg width="'+(sz||44)+'" height="'+(sz||44)+'" viewBox="0 0 24 24" fill="'+c+'"><path d="M12 2.5l2.9 6.1 6.6.9-4.8 4.6 1.2 6.6L12 17.6 6.1 20.7l1.2-6.6L2.5 9.5l6.6-.9z"/></svg>';
+ return'<div style="flex-shrink:0;display:flex;gap:8px;justify-content:center">'+s+s+s+s+s+'</div>'}
 const T=[
  {id:'clean',name:'CLEAN CARD',r:function(p,W,H){const t=splitTitle(p.title);
   return bgFill('#fff')
@@ -315,9 +344,70 @@ const T=[
   +'<div style="position:absolute;left:0;top:112px;right:0;bottom:'+Math.round(H*0.215)+'px;background:#f6f5f2;display:flex;align-items:center;justify-content:center;padding:44px">'+IM(p.img,'max-width:100%;max-height:100%;object-fit:contain')+'</div>'
   +'<div style="position:absolute;left:0;bottom:0;width:100%;height:'+Math.round(H*0.215)+'px;padding:30px 42px">'
   +'<div style="display:flex;align-items:center;margin-bottom:18px">'+ic('<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>')+ic('<path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.6 0-3.1-.4-4.4-1.2L3 20l1.2-5.1A8.5 8.5 0 1 1 21 11.5z"/>')+ic('<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>')+'<div style="font:600 24px/1 '+BODY+';color:'+INK+';margin-left:4px">2,184 likes</div></div>'
-  +'<div style="font:400 26px/1.45 '+BODY+';color:'+INK+';overflow:hidden;max-height:76px"><b style="font-weight:700">'+E(B.handle)+'</b>&nbsp; '+E(t.main)+(t.variant?' — '+E(t.variant):'')+(p.price?' · <b style="font-weight:700;color:'+B.c1+'">'+fmtPrice(p)+'</b>':'')+'</div></div>'}}
+  +'<div style="font:400 26px/1.45 '+BODY+';color:'+INK+';overflow:hidden;max-height:76px"><b style="font-weight:700">'+E(B.handle)+'</b>&nbsp; '+E(t.main)+(t.variant?' — '+E(t.variant):'')+(p.price?' · <b style="font-weight:700;color:'+B.c1+'">'+fmtPrice(p)+'</b>':'')+'</div></div>'}},
+ /* ---- flex-stack formats: USP-driven, hold their shape in every aspect ---- */
+ {id:'reasons',name:'3 REASONS',r:function(p,W,H){const t=splitTitle(p.title),u=uspsOf(p);
+  return bgFill('#fff')+stack([
+   eyebrow(B.name,'#9a97a0'),
+   flexImg(p.img,'filter:drop-shadow(0 26px 34px rgba(22,21,26,.16))'),
+   '<div style="flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;gap:30px">'+titleBlock(t,44,INK,'#77747d')+priceChip(p,'flex-shrink:0')+'</div>',
+   u.length?'<div style="flex-shrink:0;border-top:2px solid #eceae6;padding-top:24px">'+uspRows(u,INK,26,B.c2)+'</div>':''
+  ],56,22)}},
+ {id:'bar',name:'OFFER BAR',r:function(p,W,H){const t=splitTitle(p.title),u=uspsOf(p),bar=Math.round(H*0.17),ik=onC(B.c1);
+  return bgFill(mixw(B.c1,10))
+  +'<div style="position:absolute;left:0;top:0;right:0;bottom:'+bar+'px;display:flex;flex-direction:column;padding:56px;gap:22px">'
+   +eyebrow(B.name,'#8b8794')+flexImg(p.img,'filter:drop-shadow(0 28px 38px rgba(22,21,26,.16))')+uspChips(u,'#fff',INK,21)+'</div>'
+  +'<div style="position:absolute;left:0;right:0;bottom:0;height:'+bar+'px;background:'+B.c1+';display:flex;align-items:center;justify-content:space-between;gap:28px;padding:0 56px">'
+   +'<div style="min-width:0"><div style="font:700 40px/1.1 '+DISP+';color:'+ik+';max-height:88px;overflow:hidden">'+E(t.main)+'</div>'+((t.sub||t.variant)?'<div style="font:500 23px/1 '+BODY+';color:'+(darkc(B.c1)?'rgba(255,255,255,.75)':'rgba(22,21,26,.6)')+';margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+E([t.sub,t.variant].filter(Boolean).join(' · '))+'</div>':'')+'</div>'
+   +(p.price?'<div style="flex-shrink:0;font:800 50px/1 '+DISP+';color:'+ik+'">'+fmtPrice(p)+'</div>':ctaPill('Shop now',ik,B.c1))+'</div>'}},
+ {id:'checklist',name:'SPLIT · USP',r:function(p,W,H){const t=splitTitle(p.title),u=uspsOf(p);const ik=onC(B.c1);const sub2=darkc(B.c1)?'rgba(255,255,255,.72)':'rgba(22,21,26,.6)';
+  return bgFill('#fff')
+  +'<div style="position:absolute;left:0;top:0;width:'+Math.round(W*0.5)+'px;height:'+H+'px;background:'+B.c1+';padding:66px 50px;display:flex;flex-direction:column;justify-content:space-between;gap:26px">'
+   +'<div style="font:600 22px/1 '+BODY+';letter-spacing:.3em;text-transform:uppercase;color:'+sub2+'">'+E(B.name)+'</div>'
+   +'<div style="min-height:0"><div style="font:700 48px/1.1 '+DISP+';color:'+ik+';max-height:212px;overflow:hidden">'+E(t.main)+'</div>'
+   +(u.length?'<div style="margin-top:28px">'+uspRows(u,ik,25,ik==='#fff'?'rgba(255,255,255,.22)':'rgba(22,21,26,.12)')+'</div>':'')
+   +(p.price?'<div style="font:800 44px/1 '+DISP+';color:'+ik+';margin-top:30px">'+fmtPrice(p)+'</div>':'')+'</div>'
+   +'<div>'+ctaPill('Shop now',ik,ik==='#fff'?B.c1:'#fff',24)+'</div></div>'
+  +imgBox(p.img,'left:'+Math.round(W*0.5+46)+'px;right:46px;top:'+Math.round(H*0.09)+'px;bottom:'+Math.round(H*0.09)+'px','filter:drop-shadow(0 26px 40px rgba(22,21,26,.14))')}},
+ {id:'tag',name:'PRICE TAG XL',r:function(p,W,H){const t=splitTitle(p.title),u=uspsOf(p);
+  return bgFill('#fff')+stack([
+   '<div style="flex-shrink:0;text-align:center"><div style="font:600 23px/1 '+BODY+';letter-spacing:.32em;text-transform:uppercase;color:#9a97a0;margin-bottom:12px">'+E(String(B.badge))+'</div>'
+   +'<div style="font:800 '+Math.round(W*(p.price?0.17:0.12))+'px/0.9 '+DISP+';color:'+B.c1+';white-space:nowrap;overflow:hidden">'+(p.price?fmtPrice(p):E(t.main.split(' ')[0]))+'</div></div>',
+   flexImg(p.img,'filter:drop-shadow(0 30px 40px rgba(22,21,26,.18))'),
+   '<div style="flex-shrink:0;text-align:center;font:700 40px/1.1 '+DISP+';color:'+INK+';max-height:92px;overflow:hidden">'+E(t.main)+'</div>',
+   u.length?'<div style="flex-shrink:0;display:flex;justify-content:center">'+uspChips(u,mixw(B.c2,18),INK,21)+'</div>':''
+  ],56,22)}},
+ {id:'stars',name:'5 STARS',r:function(p,W,H){const t=splitTitle(p.title),u=uspsOf(p);const quote=u[0]||String(B.badge);
+  return bgFill('#f7f5f0')+stack([
+   starRow(B.c1,42),
+   '<div style="flex-shrink:0;text-align:center;font:italic 700 '+Math.round(W*0.043)+'px/1.25 '+SERIF+';color:'+INK+';max-height:'+Math.round(W*0.13)+'px;overflow:hidden">“'+E(quote)+'”</div>',
+   flexImg(p.img,'filter:drop-shadow(0 26px 36px rgba(22,21,26,.14))'),
+   '<div style="flex-shrink:0;text-align:center"><div style="font:700 36px/1.1 '+DISP+';color:'+INK+';max-height:82px;overflow:hidden">'+E(t.main)+'</div>'
+   +(p.price?'<div style="font:700 30px/1 '+BODY+';color:'+B.c1+';margin-top:12px">'+fmtPrice(p)+'</div>':'')+'</div>',
+   '<div style="flex-shrink:0;text-align:center;font:600 21px/1 '+BODY+';letter-spacing:.3em;text-transform:uppercase;color:#9a97a0">'+E(B.name)+'</div>'
+  ],58,22)}},
+ {id:'bold',name:'BOLD BLOCK',r:function(p,W,H){const t=splitTitle(p.title),u=uspsOf(p);
+  return bgFill('linear-gradient(150deg,'+B.c1+','+B.c2+')')+stack([
+   eyebrow(B.name,'rgba(255,255,255,.92)'),
+   '<div style="flex:1;min-height:0;background:#fff;border-radius:34px;box-shadow:0 34px 60px rgba(22,21,26,.25);display:flex;align-items:center;justify-content:center;padding:40px">'+IM(p.img,'max-width:94%;max-height:94%;object-fit:contain')+'</div>',
+   '<div style="flex-shrink:0"><div style="font:800 50px/1.06 '+DISP+';color:#fff;max-height:112px;overflow:hidden">'+E(t.main)+'</div>'
+   +(u.length?'<div style="font:500 25px/1.4 '+BODY+';color:rgba(255,255,255,.9);margin-top:12px;max-height:72px;overflow:hidden">'+E(u.join('  ·  '))+'</div>':'')+'</div>',
+   '<div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:24px">'+(p.price?'<div style="font:800 52px/1 '+DISP+';color:#fff">'+fmtPrice(p)+'</div>':'<div></div>')+ctaPill('Shop now','#fff',B.c1)+'</div>'
+  ],56,22)}},
+ {id:'night',name:'NIGHT DEAL',r:function(p,W,H){const t=splitTitle(p.title),u=uspsOf(p);
+  return bgFill('#121116')
+  +'<div style="position:absolute;left:'+Math.round(W*0.1)+'px;right:'+Math.round(W*0.1)+'px;top:'+Math.round(H*0.14)+'px;height:'+Math.round(W*0.6)+'px;border-radius:50%;background:'+B.c1+';opacity:.35"></div>'
+  +stack([
+   eyebrow(B.badge,B.c2),
+   flexImg(p.img,'filter:drop-shadow(0 30px 50px rgba(0,0,0,.6))'),
+   '<div style="flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;gap:28px"><div style="min-width:0"><div style="font:800 46px/1.08 '+DISP+';color:#fff;max-height:102px;overflow:hidden">'+E(t.main)+'</div>'
+   +(u.length?'<div style="font:500 23px/1.35 '+BODY+';color:rgba(255,255,255,.66);margin-top:12px;max-height:64px;overflow:hidden">'+E(u.join('  ·  '))+'</div>':'')+'</div>'
+   +(p.price?'<div style="flex-shrink:0;font:800 52px/1 '+DISP+';color:'+B.c2+'">'+fmtPrice(p)+'</div>':'')+'</div>',
+   '<div style="flex-shrink:0">'+ctaPill('Shop now',B.c2,onC(B.c2),24)+'</div>'
+  ],56,22)}}
 ];
-T.forEach(t=>selT.add(t.id));
+/* start with the formats that actually pull — the rest are one tap away */
+['split','splash','checklist','reasons','bar','tag','bold'].forEach(id=>selT.add(id));
 
 /* ============ grid ============ */
 function pickedProducts(){const all=[];SRC.forEach(s=>s.products.forEach(p=>{if(selP.has(key(p)))all.push(p)}));return all.slice(0,20)} /* ponytail: 20-product grid cap — DOM stays snappy */
@@ -384,18 +474,23 @@ async function exportSel(ship){
   try{const c=await renderCombo(cb.t,cb.p);
    const name=clean(cb.p.title)+'_'+cb.t.id+'_'+ASPECT.replace(':','x')+'.png';
    if(ship){const blob=await new Promise(r=>c.toBlob(r,'image/png'));
-    await new Promise(res=>{const tx=db.transaction('inbox','readwrite');tx.objectStore('inbox').put({name,blob,t:Date.now()});tx.oncomplete=res})}
+    /* link + adName ride along so the Launcher lands each ad on its own product page */
+    const rec={name,blob,t:Date.now(),link:cb.p.link||'',adName:(clean(cb.p.title)+' · '+cb.t.name).slice(0,80)};
+    await new Promise(res=>{const tx=db.transaction('inbox','readwrite');tx.objectStore('inbox').put(rec);tx.oncomplete=res})}
    else{const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download=name;document.body.appendChild(a);a.click();a.remove();await new Promise(r=>setTimeout(r,320))}
    ok++}catch(e){}}
- gstat('✓ '+ok+'/'+keys.length+(ship?' shipped — open the Launcher, they land in Media':' downloaded'))}
+ if(ship&&ok)$('gstat').innerHTML='✓ '+ok+'/'+keys.length+' shipped · <a href="index.html" style="color:#6b76e3;font-weight:700">OPEN LAUNCHER →</a>';
+ else gstat('✓ '+ok+'/'+keys.length+(ship?' shipped':' downloaded'))}
 $('dlBtn').onclick=()=>exportSel(false);
 $('shipBtn').onclick=()=>exportSel(true);
 
 /* ============ brand ============ */
-function loadBrand(){$('bName').value=B.name;$('bC1').value=B.c1;$('bC2').value=B.c2;$('bCur').value=B.cur;$('bBadge').value=B.badge;$('bHandle').value=B.handle}
-['bName','bC1','bC2','bCur','bBadge','bHandle'].forEach(id=>$(id).oninput=()=>{
- B={name:$('bName').value,c1:$('bC1').value,c2:$('bC2').value,cur:$('bCur').value,badge:$('bBadge').value,handle:$('bHandle').value};
+function loadBrand(){$('bName').value=B.name;$('bC1').value=B.c1;$('bC2').value=B.c2;$('bCur').value=B.cur;$('bBadge').value=B.badge;$('bHandle').value=B.handle;$('bUsps').value=B.usps||''}
+['bName','bC1','bC2','bCur','bBadge','bHandle','bUsps'].forEach(id=>$(id).oninput=()=>{
+ B={name:$('bName').value,c1:$('bC1').value,c2:$('bC2').value,cur:$('bCur').value,badge:$('bBadge').value,handle:$('bHandle').value,usps:$('bUsps').value};
  localStorage.setItem('mp_brand',JSON.stringify(B));paintMatrix()});
+$('uspTgl').checked=USP;
+$('uspTgl').onchange=e=>{USP=e.target.checked;localStorage.setItem('mp_usp',USP?'1':'0');paintMatrix()};
 
 /* ============ nav ============ */
 function go(pg){['Feed','Grid','Brand'].forEach(p=>{$('pg'+p).classList.toggle('on',p===pg);$('nb'+p).classList.toggle('on',p===pg)})}
