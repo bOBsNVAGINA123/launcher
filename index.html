@@ -2315,6 +2315,23 @@ paint();
     await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').clear();t.oncomplete=res});
   }
 }catch(e){}})();
+/* import media queued in the local Content Miner (content-miner/app.py on :8765) */
+(async()=>{try{
+  const r=await fetch('http://localhost:8765/api/bridge/take');if(!r.ok)return;
+  const items=await r.json();let n=0;
+  for(const it of items){
+    if(!it.url||S.media.some(x=>x.name===it.name))continue;
+    const br=await fetch('http://localhost:8765/api/download?u='+encodeURIComponent(it.url)+'&name='+encodeURIComponent(it.name||'media'));
+    if(!br.ok)continue;
+    const blob=await br.blob();
+    const k=kindOf(it.name||'',blob.type||'')||'image';
+    const f=new File([blob],it.name||'media',{type:blob.type||(k==='video'?'video/mp4':'image/jpeg')});
+    const rec={kind:k,src:'local',file:f,name:f.name,size:f.size,link:it.link||'',adName:f.name.replace(/\.[^.]+$/,''),target:''};
+    if(k==='image')rec.preview=URL.createObjectURL(f);
+    S.media.push(rec);n++;
+  }
+  if(n){sortMedia();renderMedia();paint();log(n+' creative(s) imported from Content Miner','ok');}
+}catch(e){}})();
 /* auto-import Telegram channel material (tg.json manifest in this repo) */
 (async()=>{try{
   const r=await fetch('tg.json?'+Date.now());if(!r.ok)return;
