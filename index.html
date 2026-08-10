@@ -261,6 +261,17 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
               <option value="OUTCOME_APP_PROMOTION">App promotion</option>
             </select></div>
           </div>
+          <div class="row">
+            <div class="field"><label>Special ad category</label><select id="specialCat" onchange="paint()">
+              <option value="NONE">None (normal commerce)</option>
+              <option value="HOUSING">Housing</option>
+              <option value="CREDIT">Credit</option>
+              <option value="EMPLOYMENT">Employment</option>
+              <option value="ISSUES_ELECTIONS_POLITICS">Social issues, elections or politics</option>
+              <option value="ONLINE_GAMBLING_AND_GAMING">Online gambling &amp; gaming</option>
+            </select><div class="hint" style="margin-top:4px">Meta asks this right after the objective. A category strips age/location/detailed targeting.</div></div>
+            <div class="field"><label>Buying type</label><select id="buyType" onchange="paint()"><option value="AUCTION">Auction</option><option value="RESERVED">Reach &amp; frequency (reserved)</option></select></div>
+          </div>
           <h3 class="sec">Budget</h3>
           <div class="row">
             <div class="field"><label>Budget level</label><select id="budgetLevel" onchange="refreshAdsetConditionals();paint()">
@@ -303,12 +314,29 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
             <div class="field" style="flex:2"><label>Ad set name</label><input id="newAdsetName" placeholder="Egypt Broad" oninput="paint()"></div>
             <div class="field"><label>Country</label><input id="newAdsetCountry" value="EG" maxlength="2" oninput="paint()"></div>
           </div>
+          <h3 class="sec">Conversion location</h3>
+          <div class="row">
+            <div class="field" style="flex:2"><label>Where the conversion happens</label><select id="locSel" onchange="locChanged()"></select>
+              <div class="hint" id="locHint" style="margin-top:4px"></div></div>
+          </div>
           <div class="row">
             <div class="field"><label>Performance goal</label><select id="goalSel" onchange="goalChanged()"></select></div>
             <div class="field" id="pixelWrap"><label>Pixel</label><select id="newAdsetPixel" onchange="paint()"><option value="">Pick account first</option></select></div>
             <div class="field" id="eventWrap"><label>Conversion event</label><select id="eventSel" onchange="paint()">
               <option>PURCHASE</option><option>ADD_TO_CART</option><option>INITIATE_CHECKOUT</option><option>ADD_PAYMENT_INFO</option><option>LEAD</option><option>COMPLETE_REGISTRATION</option><option>CONTENT_VIEW</option>
             </select></div>
+          </div>
+          <div class="row" id="locPageRow" style="display:none">
+            <div class="field"><label>Facebook page (the one people message / call / follow)</label><select id="adsetPage" onchange="setPage(this.value)"><option value="">Pick account first</option></select></div>
+            <div class="field" id="phoneWrap" style="display:none"><label>Phone number (international, e.g. +201001234567)</label><input id="callNumber" placeholder="+20…" oninput="paint()"></div>
+          </div>
+          <div class="row" id="locFormRow" style="display:none">
+            <div class="field"><label>Instant form</label><select id="leadForm" onchange="paint()"><option value="">Pick a page first</option></select></div>
+            <div class="field"><label>…or paste a form ID</label><input id="leadFormManual" placeholder="e.g. 1234567890" oninput="paint()"></div>
+          </div>
+          <div class="row" id="locAppRow" style="display:none">
+            <div class="field"><label>App ID</label><input id="appId" placeholder="e.g. 1234567890" oninput="paint()"></div>
+            <div class="field" style="flex:2"><label>Store URL</label><input id="appStoreUrl" placeholder="https://apps.apple.com/… or https://play.google.com/…" oninput="paint()"></div>
           </div>
           <div class="row">
             <div class="field"><label>Age min</label><input id="ageMin" type="number" value="18" min="13" max="65"></div>
@@ -339,7 +367,27 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
               <option value="1c">1-day click only</option>
             </select></div>
           </div>
-          <div class="hint">Placements: Advantage+ (all). Targeting stays broad — the pixel does the work.</div>
+          <h3 class="sec">Schedule</h3>
+          <div class="row">
+            <div class="field"><label>Start (optional — blank = now)</label><input id="startTime" type="datetime-local" onchange="paint()"></div>
+            <div class="field"><label>End (optional — required for lifetime budgets)</label><input id="endTime" type="datetime-local" onchange="paint()"></div>
+          </div>
+          <h3 class="sec">Placements</h3>
+          <div class="row">
+            <div class="field"><label>Placement mode</label><select id="placeMode" onchange="document.getElementById('placeManual').style.display=this.value==='manual'?'flex':'none';paint()">
+              <option value="auto">Advantage+ placements (all — Meta default)</option>
+              <option value="manual">Manual placements</option>
+            </select></div>
+          </div>
+          <div class="row" id="placeManual" style="display:none">
+            <div class="field"><label>Platforms</label><div class="ckl" id="platCk">
+              <label><input type="checkbox" value="facebook" checked onchange="paint()"> Facebook</label>
+              <label><input type="checkbox" value="instagram" checked onchange="paint()"> Instagram</label>
+              <label><input type="checkbox" value="messenger" onchange="paint()"> Messenger</label>
+              <label><input type="checkbox" value="audience_network" onchange="paint()"> Audience Network</label>
+            </div></div>
+          </div>
+          <div class="hint">Targeting stays broad — the pixel does the work.</div>
           <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
             <div id="extraAdsetsWrap"></div>
             <button class="btn" onclick="addExtraAdset()">+ Add another ad set (same targeting, own creatives)</button>
@@ -357,7 +405,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
       <div class="card">
         <div class="seg"><button class="on" id="fmtSingle" onclick="setFormat('single')">One ad per file</button><button id="fmtCarousel" onclick="setFormat('carousel')">Carousel</button><button id="fmtCollection" onclick="setFormat('collection')">Collection / Storefront</button></div>
         <div class="hint" id="fmtHint" style="margin-top:6px"></div>
-        <div class="field"><label>Facebook page</label><select id="pageSel" onchange="S.page=this.value;paint()"><option value="">Pick account first</option></select></div>
+        <div class="field"><label>Facebook page</label><select id="pageSel" onchange="setPage(this.value)"><option value="">Pick account first</option></select></div>
 
         <h3 class="sec">Primary text <span id="bodyCount" class="mono" style="color:var(--dim);font-weight:400"></span></h3>
         <div class="seg"><button class="on" id="tabBodyExist" onclick="copyMode('body','exist')">Reuse proven</button><button id="tabBodyNew" onclick="copyMode('body','new')">Write new</button></div>
@@ -373,10 +421,10 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
           <div class="field"><label>Description (optional)</label><input id="descInput" placeholder="Shows under the headline" oninput="S.desc=this.value;paint()"></div>
         </div>
         <div class="row">
-          <div class="field" style="flex:2"><label>Link URL (default for every ad)</label><input id="linkUrl" placeholder="https://goplaymore.com/" oninput="S.link=this.value.trim();saveLink();renderMedia();paint()"><button class="btn" style="margin-top:6px;font-size:12px;padding:5px 10px" onclick="applyLinkToAll()" title="Copy this link into every card's Custom link box">↧ Use this link on every card</button></div>
+          <div class="field" style="flex:2" id="linkField"><label id="linkLbl">Link URL (default for every ad)</label><input id="linkUrl" placeholder="https://goplaymore.com/" oninput="S.link=this.value.trim();saveLink();renderMedia();paint()"><button class="btn" style="margin-top:6px;font-size:12px;padding:5px 10px" onclick="applyLinkToAll()" title="Copy this link into every card's Custom link box">↧ Use this link on every card</button></div>
           <div class="field"><label>Button (CTA)</label><select id="ctaSel" onchange="S.cta=this.value;paint()">
             <option>SHOP_NOW</option><option>BUY_NOW</option><option>ORDER_NOW</option><option>LEARN_MORE</option><option>SIGN_UP</option><option>GET_OFFER</option><option>SUBSCRIBE</option><option>CONTACT_US</option><option>BOOK_NOW</option><option>DOWNLOAD</option>
-          </select></div>
+          </select><div class="hint" id="ctaHint" style="margin-top:4px"></div></div>
         </div>
         <div class="hint" style="margin-top:-6px;margin-bottom:6px">Need a different link on one specific ad? Every media card in step 1 has its own <b>Custom link</b> box — fill it there and it overrides this one for that ad only.</div>
 
@@ -551,15 +599,57 @@ const S={
 const DEFAULT_GID='150573380015-31bv0qk6qa5t3ho5npa8kpfkb68cpiu7.apps.googleusercontent.com';
 const cfg={meta:'',appId:'1765090894530277',sbUrl:'',sbKey:'',gClientId:DEFAULT_GID};
 
-/* Objective -> performance goals (label, value, needsPixel) */
-const GOALS={
-  OUTCOME_SALES:[['Maximize conversions (Meta default)','OFFSITE_CONVERSIONS',1],['Maximize conversion value — ROAS','VALUE',1],['Landing page views (NOT purchases!)','LANDING_PAGE_VIEWS',1],['Link clicks (NOT purchases!)','LINK_CLICKS',0],['Impressions','IMPRESSIONS',0],['Reach','REACH',0]],
-  OUTCOME_TRAFFIC:[['Link clicks','LINK_CLICKS',0],['Landing page views','LANDING_PAGE_VIEWS',1],['Impressions','IMPRESSIONS',0],['Reach','REACH',0],['Conversations','CONVERSATIONS',0]],
-  OUTCOME_ENGAGEMENT:[['ThruPlay','THRUPLAY',0],['Post engagement','POST_ENGAGEMENT',0],['Video views','VIDEO_VIEWS',0],['Page likes','PAGE_LIKES',0],['Link clicks','LINK_CLICKS',0],['Conversions','OFFSITE_CONVERSIONS',1]],
-  OUTCOME_LEADS:[['Conversions','OFFSITE_CONVERSIONS',1],['Landing page views','LANDING_PAGE_VIEWS',1],['Link clicks','LINK_CLICKS',0],['Conversion value (ROAS)','VALUE',1]],
-  OUTCOME_AWARENESS:[['Reach','REACH',0],['Impressions','IMPRESSIONS',0],['ThruPlay','THRUPLAY',0],['2-sec video views','TWO_SECOND_CONTINUOUS_VIDEO_VIEWS',0]],
-  OUTCOME_APP_PROMOTION:[['App installs','APP_INSTALLS',0],['Link clicks','LINK_CLICKS',0]]
+/* ===== Meta's real create flow: objective → conversion location → performance goal =====
+   Each location carries: dt = destination_type sent on the ad set, need = extra fields it
+   demands (pixel / page / phone / form / app), goals = [label, optimization_goal, needsPixel],
+   ctas = the button list Meta allows there, msg = messaging app for click-to-message creatives. */
+const WEB_SALES=[['Maximize conversions (Meta default)','OFFSITE_CONVERSIONS',1],['Maximize conversion value — ROAS','VALUE',1],['Landing page views (NOT purchases!)','LANDING_PAGE_VIEWS',1],['Link clicks (NOT purchases!)','LINK_CLICKS',0],['Impressions','IMPRESSIONS',0],['Reach','REACH',0]];
+const MSG_GOALS=[['Maximize conversations','CONVERSATIONS',0],['Maximize link clicks','LINK_CLICKS',0],['Impressions','IMPRESSIONS',0],['Reach','REACH',0]];
+const CTA_WEB=['SHOP_NOW','BUY_NOW','ORDER_NOW','LEARN_MORE','SIGN_UP','GET_OFFER','SUBSCRIBE','CONTACT_US','BOOK_NOW','DOWNLOAD'];
+const CTA_MSG=['MESSAGE_PAGE','LEARN_MORE','SHOP_NOW','GET_QUOTE','BOOK_NOW'];
+const CTA_WA=['WHATSAPP_MESSAGE','LEARN_MORE','SHOP_NOW'];
+const CTA_CALL=['CALL_NOW','LEARN_MORE'];
+const CTA_FORM=['SIGN_UP','LEARN_MORE','GET_QUOTE','APPLY_NOW','SUBSCRIBE','DOWNLOAD','BOOK_NOW'];
+const CTA_APP=['INSTALL_MOBILE_APP','USE_APP','PLAY_GAME','DOWNLOAD'];
+const CTA_ENG=['LIKE_PAGE','LEARN_MORE','WATCH_MORE','EVENT_RSVP','FOLLOW_PAGE'];
+
+const L_MESSENGER={k:'MESSENGER',label:'Messaging apps — Messenger',dt:'MESSENGER',need:['page'],msg:'MESSENGER',ctas:CTA_MSG,goals:MSG_GOALS};
+const L_WHATSAPP ={k:'WHATSAPP', label:'Messaging apps — WhatsApp', dt:'WHATSAPP', need:['page'],msg:'WHATSAPP', ctas:CTA_WA, goals:MSG_GOALS};
+const L_IGDIRECT ={k:'INSTAGRAM_DIRECT',label:'Messaging apps — Instagram',dt:'INSTAGRAM_DIRECT',need:['page'],msg:'INSTAGRAM_DIRECT',ctas:CTA_MSG,goals:MSG_GOALS};
+const L_CALLS    ={k:'PHONE_CALL',label:'Calls',dt:'PHONE_CALL',need:['page','phone'],ctas:CTA_CALL,goals:[['Maximize calls','QUALITY_CALL',0],['Link clicks','LINK_CLICKS',0]]};
+const L_APP      ={k:'APP',label:'App',dt:'APP',need:['app'],ctas:CTA_APP,goals:[['App installs','APP_INSTALLS',0],['App events','OFFSITE_CONVERSIONS',0],['Link clicks','LINK_CLICKS',0],['Conversion value (ROAS)','VALUE',0]]};
+
+const PLAN={
+  OUTCOME_SALES:[
+    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:['pixel'],ctas:CTA_WEB,goals:WEB_SALES},
+    L_MESSENGER,L_WHATSAPP,L_IGDIRECT,L_CALLS,L_APP
+  ],
+  OUTCOME_TRAFFIC:[
+    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:[],ctas:CTA_WEB,goals:[['Link clicks','LINK_CLICKS',0],['Landing page views','LANDING_PAGE_VIEWS',1],['Impressions','IMPRESSIONS',0],['Reach','REACH',0]]},
+    L_MESSENGER,L_WHATSAPP,L_IGDIRECT,L_CALLS,L_APP,
+    {k:'INSTAGRAM_PROFILE',label:'Instagram profile',dt:'INSTAGRAM_PROFILE',need:['page'],ctas:['LEARN_MORE','SHOP_NOW'],goals:[['Link clicks','LINK_CLICKS',0],['Landing page views','LANDING_PAGE_VIEWS',0]]},
+    {k:'FACEBOOK_PAGE',label:'Facebook page',dt:'ON_PAGE',need:['page'],ctas:['LEARN_MORE','SHOP_NOW'],goals:[['Link clicks','LINK_CLICKS',0]]}
+  ],
+  OUTCOME_ENGAGEMENT:[
+    {k:'ON_AD',label:'On your ad (video views / post engagement)',dt:'ON_AD',need:[],ctas:CTA_ENG,goals:[['ThruPlay','THRUPLAY',0],['2-sec continuous video views','TWO_SECOND_CONTINUOUS_VIDEO_VIEWS',0],['Post engagement','POST_ENGAGEMENT',0],['Impressions','IMPRESSIONS',0],['Reach','REACH',0]]},
+    L_MESSENGER,L_WHATSAPP,L_IGDIRECT,
+    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:['pixel'],ctas:CTA_WEB,goals:[['Conversions','OFFSITE_CONVERSIONS',1],['Landing page views','LANDING_PAGE_VIEWS',1],['Link clicks','LINK_CLICKS',0]]},
+    {k:'FACEBOOK_PAGE',label:'Facebook page (likes)',dt:'ON_PAGE',need:['page'],ctas:['LIKE_PAGE'],goals:[['Page likes','PAGE_LIKES',0]]},
+    {k:'ON_EVENT',label:'Event',dt:'ON_EVENT',need:['page'],ctas:['EVENT_RSVP','LEARN_MORE'],goals:[['Event responses','EVENT_RESPONSES',0],['Post engagement','POST_ENGAGEMENT',0]]},
+    L_CALLS,L_APP
+  ],
+  OUTCOME_LEADS:[
+    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:['pixel'],ctas:CTA_WEB,goals:[['Conversions','OFFSITE_CONVERSIONS',1],['Conversion value (ROAS)','VALUE',1],['Landing page views','LANDING_PAGE_VIEWS',1],['Link clicks','LINK_CLICKS',0]]},
+    {k:'ON_AD',label:'Instant forms',dt:'ON_AD',need:['page','form'],ctas:CTA_FORM,goals:[['Maximize leads','LEAD_GENERATION',0],['Maximize conversion leads','QUALITY_LEAD',0]]},
+    L_MESSENGER,L_WHATSAPP,L_IGDIRECT,L_CALLS,L_APP
+  ],
+  OUTCOME_AWARENESS:[
+    {k:'ON_AD',label:'On your ad',dt:'',need:[],ctas:CTA_ENG,goals:[['Reach','REACH',0],['Impressions','IMPRESSIONS',0],['Ad recall lift','AD_RECALL_LIFT',0],['ThruPlay','THRUPLAY',0],['2-sec continuous video views','TWO_SECOND_CONTINUOUS_VIDEO_VIEWS',0]]},
+    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:[],ctas:CTA_WEB,goals:[['Reach','REACH',0],['Impressions','IMPRESSIONS',0],['Link clicks','LINK_CLICKS',0]]}
+  ],
+  OUTCOME_APP_PROMOTION:[ L_APP ]
 };
+function locsFor(obj){return PLAN[obj]||PLAN.OUTCOME_SALES}
 
 /* ============================ SETTINGS ============================ */
 function loadCfg(){try{Object.assign(cfg,JSON.parse(localStorage.getItem('launcher_cfg')||'{}'))}catch(e){}}
@@ -1357,9 +1447,10 @@ async function loadPages(){
     S.pages=pages;
     S.pageTok={};
     try{const jt=await gget('me/accounts?fields=id,name,access_token&limit=100');(jt.data||[]).forEach(p=>{if(p.access_token)S.pageTok[p.id]=p.access_token})}catch(e){}
-    const sel=document.getElementById('pageSel');
-    sel.innerHTML=pages.length?pages.map(p=>`<option value="${p.id}">${esc(p.name||p.id)}</option>`).join(''):'<option value="">No page found</option>';
-    if(pages.length){S.page=pages[0].id;paint()}
+    const opts=pages.length?pages.map(p=>`<option value="${p.id}">${esc(p.name||p.id)}</option>`).join(''):'<option value="">No page found</option>';
+    document.getElementById('pageSel').innerHTML=opts;
+    const ap=document.getElementById('adsetPage'); if(ap) ap.innerHTML=opts;
+    if(pages.length) setPage(pages[0].id);
   }catch(e){log('Pages: '+e.message,'err')}
 }
 async function loadPixels(){
@@ -1386,7 +1477,7 @@ async function pickCampaign(c,el){
   S.camp=c.id;S.campName=c.name;S.newCamp=false;S.selAdsets=[];
   S.campMeta={objective:c.objective,cbo:!!(c.daily_budget||c.lifetime_budget),bid_strategy:c.bid_strategy||'LOWEST_COST_WITHOUT_CAP'};
   document.getElementById('campInfo').textContent=`Selected: ${c.name} · ${S.campMeta.cbo?'CBO (budget lives on the campaign — new audiences get no budget)':'ABO (each audience carries its own budget)'} · ${S.campMeta.bid_strategy}`;
-  refreshGoalOptions(); refreshAdsetConditionals();
+  refreshLocations(); refreshAdsetConditionals();
   paint(); await loadAdsets(c.id);
 }
 async function loadAdsets(cid){
@@ -1445,9 +1536,9 @@ function destMode(m){
     document.getElementById('adsetList').innerHTML='<div class="hint">New campaign starts empty — define the audience below.</div>';
     if(!S.newAdset) toggleNewAdset();
   }
-  refreshGoalOptions(); refreshAdsetConditionals(); paint();
+  refreshLocations(); refreshAdsetConditionals(); paint();
 }
-function objChanged(){refreshGoalOptions();refreshAdsetConditionals();paint()}
+function objChanged(){refreshLocations();refreshAdsetConditionals();paint()}
 function bidChanged(){
   const v=document.getElementById('bidSel').value;
   document.getElementById('bidGoalWrap').style.display=(v==='cost_cap'||v==='bid_cap')?'block':'none';
@@ -1466,10 +1557,77 @@ function activeCBO(){
   if(S.campMode==='exist'&&S.campMeta) return S.campMeta.cbo;
   return document.getElementById('budgetLevel').value==='CBO';
 }
+/* ---- conversion location: the step Meta puts between objective and performance goal ---- */
+function curLoc(){
+  const list=locsFor(activeObjective());
+  const sel=document.getElementById('locSel');
+  return list.find(l=>l.k===(sel&&sel.value))||list[0];
+}
+function locNeeds(what){const L=curLoc();return !!(L&&L.need&&L.need.includes(what))}
+/* locations where Meta builds the destination itself — no website link to enter */
+function ownDest(){const L=curLoc()||{};return !!(L.msg||['PHONE_CALL','INSTAGRAM_PROFILE','FACEBOOK_PAGE','ON_EVENT'].includes(L.k)||locNeeds('form'))}
+function refreshLocations(){
+  const sel=document.getElementById('locSel'); if(!sel) return;
+  const obj=activeObjective(), list=locsFor(obj);
+  const keep=(obj===S.lastObj)?sel.value:'';   /* Meta resets the location when the objective changes */
+  S.lastObj=obj;
+  sel.innerHTML=list.map(l=>`<option value="${l.k}">${l.label}</option>`).join('');
+  if(list.some(l=>l.k===keep)) sel.value=keep;
+  locChanged();
+}
+function locChanged(){
+  const L=curLoc();
+  document.getElementById('locHint').textContent=
+    L.msg?'Click-to-message ad: the button opens a chat, no website link needed.'
+    :L.k==='PHONE_CALL'?'Call ad: the button dials the number below.'
+    :L.k==='ON_AD'&&activeObjective()==='OUTCOME_LEADS'?'Instant form: the lead is filled in on Facebook, not on your site.'
+    :L.k==='WEBSITE'?'Traffic and conversions land on your site — the pixel measures them.'
+    :L.k==='APP'?'The ad sends people to your app / store listing.':'';
+  document.getElementById('locPageRow').style.display=(locNeeds('page'))?'flex':'none';
+  document.getElementById('phoneWrap').style.display=locNeeds('phone')?'block':'none';
+  document.getElementById('locFormRow').style.display=locNeeds('form')?'flex':'none';
+  document.getElementById('locAppRow').style.display=locNeeds('app')?'flex':'none';
+  const lf=document.getElementById('linkField');
+  if(lf) lf.style.display=ownDest()?'none':'block';
+  const ll=document.getElementById('linkLbl');
+  if(ll) ll.textContent=L.k==='APP'?'App / store link (default for every ad)':'Link URL (default for every ad)';
+  if(locNeeds('form')) loadLeadForms();
+  refreshGoalOptions(); refreshCtaOptions();
+}
+function refreshCtaOptions(){
+  const L=curLoc(), sel=document.getElementById('ctaSel'); if(!sel) return;
+  const list=(L&&L.ctas&&L.ctas.length)?L.ctas:CTA_WEB;
+  const keep=sel.value;
+  sel.innerHTML=list.map(c=>`<option value="${c}">${c.replace(/_/g,' ')}</option>`).join('');
+  sel.value=list.includes(keep)?keep:list[0];
+  S.cta=sel.value;
+  document.getElementById('ctaHint').textContent=L&&L.msg?'Meta only allows message buttons for this conversion location.':'';
+}
+function setPage(v){
+  S.page=v;
+  ['pageSel','adsetPage'].forEach(id=>{const el=document.getElementById(id);if(el&&el.value!==v)el.value=v});
+  if(locNeeds('form')) loadLeadForms();
+  paint();
+}
+async function loadLeadForms(){
+  const sel=document.getElementById('leadForm'); if(!sel||!S.page) return;
+  sel.innerHTML='<option value="">Loading…</option>';
+  try{
+    const j=await gget(`${S.page}/leadgen_forms?fields=id,name,status&limit=100`);
+    const forms=(j.data||[]).filter(f=>f.status!=='ARCHIVED');
+    sel.innerHTML=forms.length?forms.map(f=>`<option value="${f.id}">${esc(f.name||f.id)}</option>`).join('')
+      :'<option value="">No forms on this page — paste an ID</option>';
+  }catch(e){sel.innerHTML='<option value="">Could not read forms — paste an ID</option>';log('Lead forms: '+e.message,'err')}
+  paint();
+}
+function leadFormId(){return val('leadFormManual')||val('leadForm')}
 function refreshGoalOptions(){
   const g=document.getElementById('goalSel');
-  const list=GOALS[activeObjective()]||GOALS.OUTCOME_SALES;
+  const L=curLoc();
+  const list=(L&&L.goals)||locsFor('OUTCOME_SALES')[0].goals;
+  const keep=g.value;
   g.innerHTML=list.map(x=>`<option value="${x[1]}" data-px="${x[2]}">${x[0]}</option>`).join('');
+  if(list.some(x=>x[1]===keep)) g.value=keep;
   goalChanged();
 }
 function goalChanged(){
@@ -1510,7 +1668,7 @@ function toggleNewAdset(){
   document.getElementById('newAdsetBox').style.display=S.newAdset?'block':'none';
   if(S.newAdset)renderExtraAdsets();
   document.getElementById('newAdsetToggle').textContent=S.newAdset?'− Remove new ad set':'+ Create new ad set';
-  if(S.newAdset) refreshGoalOptions();
+  if(S.newAdset) refreshLocations();
   refreshAdsetConditionals(); paint();
 }
 
@@ -1611,18 +1769,22 @@ function validate(){
       if(bs==='LOWEST_COST_WITH_MIN_ROAS'&&(S.campMeta.cbo||val('exBidAmt'))&&!val('newAdsetPixel')) issues.push('ROAS-goal campaign needs a pixel (step 3)');
     }
   }
-  const effLink=S.link||((S.media.find(m=>m.kind!=='existing'&&m.link)||{}).link||'');
-  const allCustom=S.media.length>0&&S.media.every(m=>m.kind==='existing'||m.link);
+  const needLink=!ownDest();
+  const effLink=needLink?(S.link||((S.media.find(m=>m.kind!=='existing'&&m.link)||{}).link||'')):'';
+  const allCustom=!needLink||(S.media.length>0&&S.media.every(m=>m.kind==='existing'||m.link));
+  if(locNeeds('phone')&&!val('callNumber')) issues.push('Call ads need a phone number (step 3)');
+  if(locNeeds('form')&&!leadFormId()) issues.push('Instant-form ads need a form — pick one or paste its ID (step 3)');
+  if(locNeeds('app')&&(!val('appId')||!val('appStoreUrl'))) issues.push('App ads need the app ID and store URL (step 3)');
   /* every ad may carry its own primary text — step 4 is only required when one of them doesn't */
   const allOwnBody=S.media.length>0&&S.media.every(m=>m.kind==='existing'||(m.body&&m.body.trim()));
   const bodyOk=!!S.body||allOwnBody;
-  const adOk=!!(S.page&&bodyOk&&(S.link||allCustom));
+  const adOk=!!(S.page&&bodyOk&&(!needLink||S.link||allCustom));
   lights.ad=adOk;
   if(!S.page) issues.push('Pick the Facebook page (step 4)');
   if(!bodyOk) issues.push('Pick or write primary text (step 4) — or give every ad its own copy');
-  if(!S.link&&!allCustom) issues.push('Set the link URL (step 4)');
+  if(needLink&&!S.link&&!allCustom) issues.push('Set the link URL (step 4)');
   if(effLink&&!/^https?:\/\//i.test(effLink)) issues.push('Link must start with https:// (step 4)');
-  S.media.forEach(m=>{if(m.link&&!/^https?:\/\//i.test(m.link)) issues.push('Custom link on "'+m.name+'" must start with https://')});
+  if(needLink) S.media.forEach(m=>{if(m.link&&!/^https?:\/\//i.test(m.link)) issues.push('Custom link on "'+m.name+'" must start with https://')});
   if(S.format==='carousel'&&S.media.some(m=>m.kind==='existing')) issues.push('Carousel cannot include existing ads/posts — switch to One ad per file');
   if(S.format==='carousel'&&S.media.length<2) issues.push('Carousel needs at least 2 files');
   if(S.format==='carousel'&&S.media.length>10) issues.push('Carousel max is 10 cards — remove '+(S.media.length-10));
@@ -1653,11 +1815,12 @@ function paint(){
     ['Media', S.media.length? `${S.media.length} files — ${vids} video, ${imgs} photo${customLinks?' · '+customLinks+' custom link'+(customLinks>1?'s':''):''}`:'', v.lights.media],
     ['Account', S.acctName||'', !!S.acct],
     ['Campaign', campLine, v.lights.camp],
+    ['Conversion', (curLoc()||{}).label||'', true],
     ['Ad sets', asNames.join(', '), v.lights.adsets],
     ['Page', pg?(pg.name||pg.id):'', !!S.page],
     ['Text', S.body? S.body.slice(0,60).replace(/\n/g,' ')+(S.body.length>60?'…':''):'', !!S.body],
     ['Headline', S.title||'', true],
-    ['Link', S.link||(S.media.some(m=>m.link)?'custom per card':''), !!(S.link||(S.media.length&&S.media.every(m=>m.kind==='existing'||m.link)))],
+    ['Link', ownDest()?(destLink()||'(needs the page)'):(S.link||(S.media.some(m=>m.link)?'custom per card':'')), ownDest()?!!destLink():!!(S.link||(S.media.length&&S.media.every(m=>m.kind==='existing'||m.link)))],
     ['Will create', S.media.length&&asNames.length? nAds+' ad'+(nAds>1?'s':'')+' ('+(S.format==='carousel'?'1 carousel':S.format==='collection'?'1 storefront collection per file':'1 per file')+' × '+asNames.length+' audience'+(asNames.length>1?'s':'')+')':'', S.media.length>0&&asNames.length>0]
   ];
   document.getElementById('checklist').innerHTML=rows.map(([k,vv,set])=>
@@ -1907,8 +2070,23 @@ async function prepareMedia(useOverlay,_retry){
 }
 
 /* ============================ CREATIVE SPECS ============================ */
-function linkFor(m){return (m&&m.link)||S.link||((S.media.find(x=>x.kind!=='existing'&&x.link)||{}).link||'')}
-function ctaObj(m){return {type:S.cta,value:{link:linkFor(m)}}}
+/* the conversion location decides where the button actually goes */
+function destLink(){
+  const L=curLoc(); if(!L) return '';
+  if(L.msg==='WHATSAPP') return 'https://api.whatsapp.com/send';
+  if(L.msg==='MESSENGER') return S.page?('https://m.me/'+S.page):'';
+  if(L.msg==='INSTAGRAM_DIRECT'||L.k==='INSTAGRAM_PROFILE'||L.k==='FACEBOOK_PAGE'||L.k==='ON_EVENT'||locNeeds('form')) return S.page?('https://www.facebook.com/'+S.page):'';
+  if(L.k==='PHONE_CALL') return 'tel:'+(val('callNumber')||'');
+  return '';
+}
+function linkFor(m){return destLink()||(m&&m.link)||S.link||((S.media.find(x=>x.kind!=='existing'&&x.link)||{}).link||'')}
+function ctaObj(m){
+  const L=curLoc()||{};
+  if(L.msg) return {type:S.cta,value:{app_destination:L.msg,link:linkFor(m)}};
+  if(L.k==='PHONE_CALL') return {type:S.cta,value:{link:linkFor(m)}};
+  if(locNeeds('form')&&leadFormId()) return {type:S.cta,value:{lead_gen_form_id:leadFormId(),link:linkFor(m)}};
+  return {type:S.cta,value:{link:linkFor(m)}};
+}
 function copyFor(m){return {
   body:((m&&m.body&&m.body.trim())||S.body||''),
   title:((m&&m.title&&m.title.trim())||S.title||''),
@@ -2018,7 +2196,8 @@ async function launch(){
       campName=val('newCampName');
       bidMode=val('bidSel');
       if(bidMode==='highest_value') bidMode=val('roasGoalAmt')?'min_roas':'volume';
-      const payload={name:campName,objective:val('objSel'),status:'PAUSED',special_ad_categories:'[]',buying_type:'AUCTION'};
+      const sc=val('specialCat');
+      const payload={name:campName,objective:val('objSel'),status:'PAUSED',special_ad_categories:JSON.stringify(sc&&sc!=='NONE'?[sc]:[]),buying_type:val('buyType')||'AUCTION'};
       if(cbo){
         if(val('budgetType')==='daily') payload.daily_budget=minor(val('budgetAmt'));
         else payload.lifetime_budget=minor(val('budgetAmt'));
@@ -2051,14 +2230,31 @@ async function launch(){
       const excA=[...document.querySelectorAll('#excAud input:checked')].map(o=>o.value);
       if(incA.length)targeting.custom_audiences=incA.map(id=>({id}));
       if(excA.length)targeting.excluded_custom_audiences=excA.map(id=>({id}));
+      if(val('placeMode')==='manual'){
+        const plats=[...document.querySelectorAll('#platCk input:checked')].map(o=>o.value);
+        if(plats.length) targeting.publisher_platforms=plats;
+      }
       const pl={name:nm,campaign_id:campId,status:'PAUSED',billing_event:'IMPRESSIONS',optimization_goal:goal,targeting:JSON.stringify(targeting)};
+      const L=curLoc();
+      if(L&&L.dt) pl.destination_type=L.dt;
+      const st=val('startTime'), et=val('endTime');
+      if(st) pl.start_time=new Date(st).toISOString();
+      if(et) pl.end_time=new Date(et).toISOString();
       const AT={'7c1v':[{event_type:'CLICK_THROUGH',window_days:7},{event_type:'VIEW_THROUGH',window_days:1}],'7c':[{event_type:'CLICK_THROUGH',window_days:7}],'1c1v':[{event_type:'CLICK_THROUGH',window_days:1},{event_type:'VIEW_THROUGH',window_days:1}],'1c':[{event_type:'CLICK_THROUGH',window_days:1}]};
       const at=val('attrSel'); if(at&&AT[at]) pl.attribution_spec=JSON.stringify(AT[at]);
       if(cbo){
         if(val('minSpend'))pl.daily_min_spend_target=minor(val('minSpend'));
         if(val('maxSpend'))pl.daily_spend_cap=minor(val('maxSpend'));
       }
-      if(goalNeedsPixel()&&px){
+      /* promoted_object follows the conversion location, exactly like Ads Manager */
+      if(locNeeds('app')){
+        pl.promoted_object=JSON.stringify({application_id:val('appId'),object_store_url:val('appStoreUrl')});
+      } else if(locNeeds('page')){
+        const po={page_id:S.page};
+        if(locNeeds('form')&&leadFormId()) po.lead_gen_form_id=leadFormId();
+        if(goalNeedsPixel()&&px){po.pixel_id=px;if(goal!=='LANDING_PAGE_VIEWS')po.custom_event_type=goal==='VALUE'?'PURCHASE':val('eventSel')}
+        pl.promoted_object=JSON.stringify(po);
+      } else if(goalNeedsPixel()&&px){
         const po={pixel_id:px};
         if(goal!=='LANDING_PAGE_VIEWS') po.custom_event_type=goal==='VALUE'?'PURCHASE':val('eventSel');
         /* collection ads: bind the catalog so the product grid delivers */
@@ -2280,7 +2476,7 @@ async function whoAmI(){
 captureToken();
 loadCfg();
 if(cfg.lastLink&&!S.link){S.link=cfg.lastLink;const _le=document.getElementById('linkUrl');if(_le&&!_le.value)_le.value=S.link;}
-refreshGoalOptions();
+refreshLocations();
 gResume();
 gWarm();
 toggleNewAdset(); /* create-ad-set box open by default */
