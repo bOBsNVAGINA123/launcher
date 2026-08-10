@@ -253,12 +253,12 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
           <div class="row">
             <div class="field" style="flex:2"><label>Campaign name</label><input id="newCampName" placeholder="Playmore | Broad | Jul 26"></div>
             <div class="field"><label>Goal (objective)</label><select id="objSel" onchange="objChanged()">
-              <option value="OUTCOME_SALES">Sales</option>
+              <option value="OUTCOME_AWARENESS">Awareness</option>
               <option value="OUTCOME_TRAFFIC">Traffic</option>
               <option value="OUTCOME_ENGAGEMENT">Engagement</option>
               <option value="OUTCOME_LEADS">Leads</option>
-              <option value="OUTCOME_AWARENESS">Awareness</option>
               <option value="OUTCOME_APP_PROMOTION">App promotion</option>
+              <option value="OUTCOME_SALES" selected>Sales</option>
             </select></div>
           </div>
           <div class="row">
@@ -325,6 +325,13 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
             <div class="field" id="eventWrap"><label>Conversion event</label><select id="eventSel" onchange="paint()">
               <option>PURCHASE</option><option>ADD_TO_CART</option><option>INITIATE_CHECKOUT</option><option>ADD_PAYMENT_INFO</option><option>LEAD</option><option>COMPLETE_REGISTRATION</option><option>CONTENT_VIEW</option>
             </select></div>
+          </div>
+          <div class="row" id="msgAppsRow" style="display:none">
+            <div class="field"><label>Messaging app (Meta calls this the message destination)</label><select id="msgApp" onchange="locChanged()">
+              <option value="MESSENGER">Messenger</option>
+              <option value="INSTAGRAM_DIRECT">Instagram</option>
+              <option value="WHATSAPP">WhatsApp</option>
+            </select><div class="hint" style="margin-top:4px">Ads Manager also has "Automatic destination" (Meta picks the app). The Marketing API has no enum for it — pick one app here.</div></div>
           </div>
           <div class="row" id="locPageRow" style="display:none">
             <div class="field"><label>Facebook page (the one people message / call / follow)</label><select id="adsetPage" onchange="setPage(this.value)"><option value="">Pick account first</option></select></div>
@@ -599,12 +606,41 @@ const S={
 const DEFAULT_GID='150573380015-31bv0qk6qa5t3ho5npa8kpfkb68cpiu7.apps.googleusercontent.com';
 const cfg={meta:'',appId:'1765090894530277',sbUrl:'',sbKey:'',gClientId:DEFAULT_GID};
 
-/* ===== Meta's real create flow: objective → conversion location → performance goal =====
-   Each location carries: dt = destination_type sent on the ad set, need = extra fields it
-   demands (pixel / page / phone / form / app), goals = [label, optimization_goal, needsPixel],
-   ctas = the button list Meta allows there, msg = messaging app for click-to-message creatives. */
-const WEB_SALES=[['Maximize conversions (Meta default)','OFFSITE_CONVERSIONS',1],['Maximize conversion value — ROAS','VALUE',1],['Landing page views (NOT purchases!)','LANDING_PAGE_VIEWS',1],['Link clicks (NOT purchases!)','LINK_CLICKS',0],['Impressions','IMPRESSIONS',0],['Reach','REACH',0]];
-const MSG_GOALS=[['Maximize conversations','CONVERSATIONS',0],['Maximize link clicks','LINK_CLICKS',0],['Impressions','IMPRESSIONS',0],['Reach','REACH',0]];
+/* ===== VERIFIED 2026-08-10 against the live Ads Manager create flow + Marketing API
+   on act_336343742536460 (Ourkids EGP). Objective order and every conversion-location
+   list below was read out of Meta's own create flow; every goal list is the account's
+   valid_optimization_goals, returned by the API when a campaign of that objective was
+   actually created. Do not "improve" these from memory — re-probe instead. */
+const OBJECTIVES=[
+  ['OUTCOME_AWARENESS','Awareness'],
+  ['OUTCOME_TRAFFIC','Traffic'],
+  ['OUTCOME_ENGAGEMENT','Engagement'],
+  ['OUTCOME_LEADS','Leads'],
+  ['OUTCOME_APP_PROMOTION','App promotion'],
+  ['OUTCOME_SALES','Sales']
+];
+/* account's real valid_optimization_goals, straight from the create responses */
+const VALID_GOALS={
+  OUTCOME_AWARENESS:['AD_RECALL_LIFT','IMPRESSIONS','REACH','THRUPLAY','TWO_SECOND_CONTINUOUS_VIDEO_VIEWS'],
+  OUTCOME_TRAFFIC:['CONVERSATIONS','IMPRESSIONS','LANDING_PAGE_VIEWS','LINK_CLICKS','OFFSITE_CONVERSIONS','POST_ENGAGEMENT','PROFILE_AND_PAGE_ENGAGEMENT','PROFILE_VISIT','QUALITY_CALL','REACH','REMINDERS_SET','THRUPLAY','VISIT_INSTAGRAM_PROFILE'],
+  OUTCOME_ENGAGEMENT:['CONVERSATIONS','EVENT_RESPONSES','IMPRESSIONS','LANDING_PAGE_VIEWS','LINK_CLICKS','MESSAGING_PURCHASE_CONVERSION','OFFSITE_CONVERSIONS','PAGE_LIKES','POST_ENGAGEMENT','PROFILE_AND_PAGE_ENGAGEMENT','QUALITY_CALL','REACH','THRUPLAY','TWO_SECOND_CONTINUOUS_VIDEO_VIEWS','VIDEO_VIEWS'],
+  OUTCOME_LEADS:['CONVERSATIONS','IMPRESSIONS','LANDING_PAGE_VIEWS','LEAD_GENERATION','LINK_CLICKS','OFFSITE_CONVERSIONS','QUALITY_CALL','QUALITY_LEAD','REACH','VALUE'],
+  OUTCOME_SALES:['CONVERSATIONS','IMPRESSIONS','LANDING_PAGE_VIEWS','LINK_CLICKS','MESSAGING_PURCHASE_CONVERSION','OFFSITE_CONVERSIONS','POST_ENGAGEMENT','REACH','VALUE'],
+  OUTCOME_APP_PROMOTION:['APP_INSTALLS','IMPRESSIONS','IN_APP_VALUE','LINK_CLICKS','OFFSITE_CONVERSIONS','REACH','VALUE','VIDEO_VIEWS']
+};
+const GOAL_LABEL={
+  OFFSITE_CONVERSIONS:'Maximize number of conversions',VALUE:'Maximize value of conversions (ROAS)',
+  LANDING_PAGE_VIEWS:'Maximize landing page views',LINK_CLICKS:'Maximize link clicks',
+  IMPRESSIONS:'Maximize impressions',REACH:'Maximize reach',POST_ENGAGEMENT:'Maximize post engagement',
+  CONVERSATIONS:'Maximize number of conversations',MESSAGING_PURCHASE_CONVERSION:'Maximize messaging purchases',
+  LEAD_GENERATION:'Maximize number of leads',QUALITY_LEAD:'Maximize number of conversion leads',
+  QUALITY_CALL:'Maximize number of calls',PAGE_LIKES:'Maximize Page likes',EVENT_RESPONSES:'Maximize event responses',
+  THRUPLAY:'Maximize ThruPlays',TWO_SECOND_CONTINUOUS_VIDEO_VIEWS:'Maximize 2-second continuous video plays',
+  VIDEO_VIEWS:'Maximize video views',AD_RECALL_LIFT:'Maximize ad recall lift',
+  PROFILE_VISIT:'Maximize profile visits',VISIT_INSTAGRAM_PROFILE:'Maximize Instagram profile visits',
+  PROFILE_AND_PAGE_ENGAGEMENT:'Maximize profile and Page engagement',
+  APP_INSTALLS:'Maximize app installs',IN_APP_VALUE:'Maximize in-app value'
+};
 const CTA_WEB=['SHOP_NOW','BUY_NOW','ORDER_NOW','LEARN_MORE','SIGN_UP','GET_OFFER','SUBSCRIBE','CONTACT_US','BOOK_NOW','DOWNLOAD'];
 const CTA_MSG=['MESSAGE_PAGE','LEARN_MORE','SHOP_NOW','GET_QUOTE','BOOK_NOW'];
 const CTA_WA=['WHATSAPP_MESSAGE','LEARN_MORE','SHOP_NOW'];
@@ -613,43 +649,62 @@ const CTA_FORM=['SIGN_UP','LEARN_MORE','GET_QUOTE','APPLY_NOW','SUBSCRIBE','DOWN
 const CTA_APP=['INSTALL_MOBILE_APP','USE_APP','PLAY_GAME','DOWNLOAD'];
 const CTA_ENG=['LIKE_PAGE','LEARN_MORE','WATCH_MORE','EVENT_RSVP','FOLLOW_PAGE'];
 
-const L_MESSENGER={k:'MESSENGER',label:'Messaging apps — Messenger',dt:'MESSENGER',need:['page'],msg:'MESSENGER',ctas:CTA_MSG,goals:MSG_GOALS};
-const L_WHATSAPP ={k:'WHATSAPP', label:'Messaging apps — WhatsApp', dt:'WHATSAPP', need:['page'],msg:'WHATSAPP', ctas:CTA_WA, goals:MSG_GOALS};
-const L_IGDIRECT ={k:'INSTAGRAM_DIRECT',label:'Messaging apps — Instagram',dt:'INSTAGRAM_DIRECT',need:['page'],msg:'INSTAGRAM_DIRECT',ctas:CTA_MSG,goals:MSG_GOALS};
-const L_CALLS    ={k:'PHONE_CALL',label:'Calls',dt:'PHONE_CALL',need:['page','phone'],ctas:CTA_CALL,goals:[['Maximize calls','QUALITY_CALL',0],['Link clicks','LINK_CLICKS',0]]};
-const L_APP      ={k:'APP',label:'App',dt:'APP',need:['app'],ctas:CTA_APP,goals:[['App installs','APP_INSTALLS',0],['App events','OFFSITE_CONVERSIONS',0],['Link clicks','LINK_CLICKS',0],['Conversion value (ROAS)','VALUE',0]]};
+/* need: pixel | page | phone | form | app · apps:1 = show the Messenger/Instagram/WhatsApp picker
+   (Meta's "Message destinations" is ONE location; the app choice sits under it) */
+const L_MSGDEST=(goals)=>({k:'MSG',label:'Message destinations',need:['page'],apps:1,ctas:CTA_MSG,goals});
+const L_CALLS  =(goals)=>({k:'PHONE_CALL',label:'Calls',dt:'PHONE_CALL',need:['page','phone'],ctas:CTA_CALL,goals});
 
 const PLAN={
-  OUTCOME_SALES:[
-    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:['pixel'],ctas:CTA_WEB,goals:WEB_SALES},
-    L_MESSENGER,L_WHATSAPP,L_IGDIRECT,L_CALLS,L_APP
+  /* Awareness has NO conversion-location step in Ads Manager — goals only. */
+  OUTCOME_AWARENESS:[
+    {k:'NONE',label:'—  (Awareness has no conversion location)',dt:'',need:[],ctas:CTA_ENG,
+     goals:['REACH','IMPRESSIONS','AD_RECALL_LIFT','THRUPLAY','TWO_SECOND_CONTINUOUS_VIDEO_VIEWS']}
   ],
   OUTCOME_TRAFFIC:[
-    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:[],ctas:CTA_WEB,goals:[['Link clicks','LINK_CLICKS',0],['Landing page views','LANDING_PAGE_VIEWS',1],['Impressions','IMPRESSIONS',0],['Reach','REACH',0]]},
-    L_MESSENGER,L_WHATSAPP,L_IGDIRECT,L_CALLS,L_APP,
-    {k:'INSTAGRAM_PROFILE',label:'Instagram profile',dt:'INSTAGRAM_PROFILE',need:['page'],ctas:['LEARN_MORE','SHOP_NOW'],goals:[['Link clicks','LINK_CLICKS',0],['Landing page views','LANDING_PAGE_VIEWS',0]]},
-    {k:'FACEBOOK_PAGE',label:'Facebook page',dt:'ON_PAGE',need:['page'],ctas:['LEARN_MORE','SHOP_NOW'],goals:[['Link clicks','LINK_CLICKS',0]]}
+    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:[],ctas:CTA_WEB,goals:['LINK_CLICKS','LANDING_PAGE_VIEWS','IMPRESSIONS','REACH']},
+    L_MSGDEST(['CONVERSATIONS','LINK_CLICKS']),
+    {k:'INSTAGRAM_PROFILE',label:'Instagram or Facebook — Instagram profile',dt:'INSTAGRAM_PROFILE',need:['page'],ctas:['LEARN_MORE','SHOP_NOW'],goals:['VISIT_INSTAGRAM_PROFILE','PROFILE_VISIT']},
+    {k:'FACEBOOK_PAGE',label:'Instagram or Facebook — Facebook Page',dt:'FACEBOOK_PAGE',need:['page'],ctas:['LEARN_MORE','SHOP_NOW'],goals:['PROFILE_VISIT']},
+    {k:'IG_AND_FB',label:'Instagram or Facebook — both',dt:'INSTAGRAM_PROFILE_AND_FACEBOOK_PAGE',need:['page'],ctas:['LEARN_MORE','SHOP_NOW'],goals:['PROFILE_AND_PAGE_ENGAGEMENT']},
+    L_CALLS(['QUALITY_CALL']),
+    {k:'APP',label:'App',dt:'APP',need:['app'],ctas:CTA_APP,goals:['LINK_CLICKS']}
   ],
   OUTCOME_ENGAGEMENT:[
-    {k:'ON_AD',label:'On your ad (video views / post engagement)',dt:'ON_AD',need:[],ctas:CTA_ENG,goals:[['ThruPlay','THRUPLAY',0],['2-sec continuous video views','TWO_SECOND_CONTINUOUS_VIDEO_VIEWS',0],['Post engagement','POST_ENGAGEMENT',0],['Impressions','IMPRESSIONS',0],['Reach','REACH',0]]},
-    L_MESSENGER,L_WHATSAPP,L_IGDIRECT,
-    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:['pixel'],ctas:CTA_WEB,goals:[['Conversions','OFFSITE_CONVERSIONS',1],['Landing page views','LANDING_PAGE_VIEWS',1],['Link clicks','LINK_CLICKS',0]]},
-    {k:'FACEBOOK_PAGE',label:'Facebook page (likes)',dt:'ON_PAGE',need:['page'],ctas:['LIKE_PAGE'],goals:[['Page likes','PAGE_LIKES',0]]},
-    {k:'ON_EVENT',label:'Event',dt:'ON_EVENT',need:['page'],ctas:['EVENT_RSVP','LEARN_MORE'],goals:[['Event responses','EVENT_RESPONSES',0],['Post engagement','POST_ENGAGEMENT',0]]},
-    L_CALLS,L_APP
+    {k:'ON_AD',label:'On your ad (video views / post engagement)',dt:'ON_AD',need:[],ctas:CTA_ENG,goals:['THRUPLAY','TWO_SECOND_CONTINUOUS_VIDEO_VIEWS','VIDEO_VIEWS','POST_ENGAGEMENT','IMPRESSIONS','REACH']},
+    L_MSGDEST(['CONVERSATIONS','MESSAGING_PURCHASE_CONVERSION']),
+    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:['pixel'],ctas:CTA_WEB,goals:['OFFSITE_CONVERSIONS','LANDING_PAGE_VIEWS','LINK_CLICKS']},
+    {k:'FACEBOOK_PAGE',label:'Facebook Page (likes)',dt:'FACEBOOK_PAGE',need:['page'],ctas:['LIKE_PAGE'],goals:['PAGE_LIKES']},
+    {k:'IG_AND_FB',label:'Instagram or Facebook (profile engagement)',dt:'INSTAGRAM_PROFILE_AND_FACEBOOK_PAGE',need:['page'],ctas:['LEARN_MORE'],goals:['PROFILE_AND_PAGE_ENGAGEMENT']},
+    {k:'ON_EVENT',label:'Event',dt:'ON_EVENT',need:['page'],ctas:['EVENT_RSVP','LEARN_MORE'],goals:['EVENT_RESPONSES','POST_ENGAGEMENT']},
+    L_CALLS(['QUALITY_CALL'])
   ],
   OUTCOME_LEADS:[
-    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:['pixel'],ctas:CTA_WEB,goals:[['Conversions','OFFSITE_CONVERSIONS',1],['Conversion value (ROAS)','VALUE',1],['Landing page views','LANDING_PAGE_VIEWS',1],['Link clicks','LINK_CLICKS',0]]},
-    {k:'ON_AD',label:'Instant forms',dt:'ON_AD',need:['page','form'],ctas:CTA_FORM,goals:[['Maximize leads','LEAD_GENERATION',0],['Maximize conversion leads','QUALITY_LEAD',0]]},
-    L_MESSENGER,L_WHATSAPP,L_IGDIRECT,L_CALLS,L_APP
+    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:['pixel'],ctas:CTA_WEB,goals:['OFFSITE_CONVERSIONS','VALUE','LANDING_PAGE_VIEWS','LINK_CLICKS','IMPRESSIONS','REACH']},
+    {k:'ON_AD',label:'Instant forms',dt:'ON_AD',need:['page','form'],ctas:CTA_FORM,goals:['LEAD_GENERATION','QUALITY_LEAD']},
+    {k:'LEAD_FORM_MESSENGER',label:'Instant forms and Messenger',dt:'LEAD_FORM_MESSENGER',need:['page','form'],ctas:CTA_FORM,goals:['LEAD_GENERATION']},
+    {k:'MESSENGER',label:'Messenger',dt:'MESSENGER',need:['page'],msg:'MESSENGER',ctas:CTA_MSG,goals:['CONVERSATIONS']},
+    {k:'INSTAGRAM_DIRECT',label:'Instagram',dt:'INSTAGRAM_DIRECT',need:['page'],msg:'INSTAGRAM_DIRECT',ctas:CTA_MSG,goals:['CONVERSATIONS']},
+    {k:'WHATSAPP',label:'WhatsApp',dt:'WHATSAPP',need:['page'],msg:'WHATSAPP',ctas:CTA_WA,goals:['CONVERSATIONS']},
+    L_CALLS(['QUALITY_CALL'])
   ],
-  OUTCOME_AWARENESS:[
-    {k:'ON_AD',label:'On your ad',dt:'',need:[],ctas:CTA_ENG,goals:[['Reach','REACH',0],['Impressions','IMPRESSIONS',0],['Ad recall lift','AD_RECALL_LIFT',0],['ThruPlay','THRUPLAY',0],['2-sec continuous video views','TWO_SECOND_CONTINUOUS_VIDEO_VIEWS',0]]},
-    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:[],ctas:CTA_WEB,goals:[['Reach','REACH',0],['Impressions','IMPRESSIONS',0],['Link clicks','LINK_CLICKS',0]]}
+  OUTCOME_APP_PROMOTION:[
+    {k:'APP',label:'App',dt:'APP',need:['app'],ctas:CTA_APP,goals:['APP_INSTALLS','OFFSITE_CONVERSIONS','VALUE','IN_APP_VALUE','LINK_CLICKS','IMPRESSIONS','REACH','VIDEO_VIEWS']}
   ],
-  OUTCOME_APP_PROMOTION:[ L_APP ]
+  OUTCOME_SALES:[
+    {k:'WEBSITE',label:'Website',dt:'WEBSITE',need:['pixel'],ctas:CTA_WEB,goals:['OFFSITE_CONVERSIONS','VALUE','LANDING_PAGE_VIEWS','LINK_CLICKS','POST_ENGAGEMENT','IMPRESSIONS','REACH']},
+    L_MSGDEST(['CONVERSATIONS','MESSAGING_PURCHASE_CONVERSION']),
+    {k:'APP',label:'App',dt:'APP',need:['app'],ctas:CTA_APP,goals:['OFFSITE_CONVERSIONS','VALUE','LINK_CLICKS']}
+  ]
 };
+/* Locations Ads Manager also offers that the Marketing API can't express as a single
+   destination_type — build these in Ads Manager, not here:
+   Sales/Leads "Website and app", "Website and in-store", "Website, app and in-store",
+   "Website and calls", "Website and instant forms" (multi-destination promoted_object),
+   and "Instagram live video". Sales also lists Calls in the UI, but this account's
+   valid_optimization_goals for OUTCOME_SALES has no QUALITY_CALL, so the API rejects it. */
+const NEED_PAGE_GOALS=['CONVERSATIONS','MESSAGING_PURCHASE_CONVERSION','LEAD_GENERATION','QUALITY_LEAD','QUALITY_CALL','PAGE_LIKES','EVENT_RESPONSES','PROFILE_VISIT','VISIT_INSTAGRAM_PROFILE','PROFILE_AND_PAGE_ENGAGEMENT'];
 function locsFor(obj){return PLAN[obj]||PLAN.OUTCOME_SALES}
+function goalLabel(g){return GOAL_LABEL[g]||g}
 
 /* ============================ SETTINGS ============================ */
 function loadCfg(){try{Object.assign(cfg,JSON.parse(localStorage.getItem('launcher_cfg')||'{}'))}catch(e){}}
@@ -1564,8 +1619,11 @@ function curLoc(){
   return list.find(l=>l.k===(sel&&sel.value))||list[0];
 }
 function locNeeds(what){const L=curLoc();return !!(L&&L.need&&L.need.includes(what))}
+/* the messaging app actually chosen: fixed for single-app locations, picked for "Message destinations" */
+function msgApp(){const L=curLoc()||{};return L.msg||(L.apps?val('msgApp'):'')}
 /* locations where Meta builds the destination itself — no website link to enter */
-function ownDest(){const L=curLoc()||{};return !!(L.msg||['PHONE_CALL','INSTAGRAM_PROFILE','FACEBOOK_PAGE','ON_EVENT'].includes(L.k)||locNeeds('form'))}
+function ownDest(){const L=curLoc()||{};return !!(msgApp()||['PHONE_CALL','INSTAGRAM_PROFILE','FACEBOOK_PAGE','IG_AND_FB','ON_EVENT'].includes(L.k)||locNeeds('form'))}
+function destType(){const L=curLoc()||{};return msgApp()||L.dt||''}
 function refreshLocations(){
   const sel=document.getElementById('locSel'); if(!sel) return;
   const obj=activeObjective(), list=locsFor(obj);
@@ -1576,14 +1634,17 @@ function refreshLocations(){
   locChanged();
 }
 function locChanged(){
-  const L=curLoc();
+  const L=curLoc(), app=msgApp();
   document.getElementById('locHint').textContent=
-    L.msg?'Click-to-message ad: the button opens a chat, no website link needed.'
+    app?'Click-to-message ad: the button opens a chat, no website link needed.'
     :L.k==='PHONE_CALL'?'Call ad: the button dials the number below.'
-    :L.k==='ON_AD'&&activeObjective()==='OUTCOME_LEADS'?'Instant form: the lead is filled in on Facebook, not on your site.'
+    :locNeeds('form')?'Instant form: the lead is filled in on Facebook, not on your site. The Page must have accepted the Lead Gen Terms (facebook.com/legal/leadgen/tos) or Meta rejects the ad set.'
     :L.k==='WEBSITE'?'Traffic and conversions land on your site — the pixel measures them.'
-    :L.k==='APP'?'The ad sends people to your app / store listing.':'';
-  document.getElementById('locPageRow').style.display=(locNeeds('page'))?'flex':'none';
+    :L.k==='APP'?'The ad sends people to your app / store listing.'
+    :L.k==='NONE'?'Meta has no conversion location for Awareness — only a performance goal.':'';
+  if(app==='WHATSAPP') document.getElementById('locHint').textContent+=' WhatsApp also needs the Page linked to a WhatsApp Business account, or Meta rejects the ad set.';
+  document.getElementById('msgAppsRow').style.display=L.apps?'flex':'none';
+  document.getElementById('locPageRow').style.display=locNeeds('page')?'flex':'none';
   document.getElementById('phoneWrap').style.display=locNeeds('phone')?'block':'none';
   document.getElementById('locFormRow').style.display=locNeeds('form')?'flex':'none';
   document.getElementById('locAppRow').style.display=locNeeds('app')?'flex':'none';
@@ -1595,13 +1656,13 @@ function locChanged(){
   refreshGoalOptions(); refreshCtaOptions();
 }
 function refreshCtaOptions(){
-  const L=curLoc(), sel=document.getElementById('ctaSel'); if(!sel) return;
-  const list=(L&&L.ctas&&L.ctas.length)?L.ctas:CTA_WEB;
+  const L=curLoc()||{}, sel=document.getElementById('ctaSel'); if(!sel) return;
+  const list=msgApp()==='WHATSAPP'?CTA_WA:((L.ctas&&L.ctas.length)?L.ctas:CTA_WEB);
   const keep=sel.value;
   sel.innerHTML=list.map(c=>`<option value="${c}">${c.replace(/_/g,' ')}</option>`).join('');
   sel.value=list.includes(keep)?keep:list[0];
   S.cta=sel.value;
-  document.getElementById('ctaHint').textContent=L&&L.msg?'Meta only allows message buttons for this conversion location.':'';
+  document.getElementById('ctaHint').textContent=msgApp()?'Meta only allows message buttons for this conversion location.':'';
 }
 function setPage(v){
   S.page=v;
@@ -1624,10 +1685,13 @@ function leadFormId(){return val('leadFormManual')||val('leadForm')}
 function refreshGoalOptions(){
   const g=document.getElementById('goalSel');
   const L=curLoc();
-  const list=(L&&L.goals)||locsFor('OUTCOME_SALES')[0].goals;
+  const valid=VALID_GOALS[activeObjective()]||[];
+  /* a goal must be offered by the location AND be in the account's real valid list */
+  const list=((L&&L.goals)||[]).filter(x=>!valid.length||valid.includes(x));
   const keep=g.value;
-  g.innerHTML=list.map(x=>`<option value="${x[1]}" data-px="${x[2]}">${x[0]}</option>`).join('');
-  if(list.some(x=>x[1]===keep)) g.value=keep;
+  const px=locNeeds('pixel')?['OFFSITE_CONVERSIONS','VALUE','LANDING_PAGE_VIEWS']:[];
+  g.innerHTML=list.map(x=>`<option value="${x}" data-px="${px.includes(x)?1:0}">${goalLabel(x)}</option>`).join('');
+  if(list.includes(keep)) g.value=keep;
   goalChanged();
 }
 function goalChanged(){
@@ -1751,6 +1815,10 @@ function validate(){
     if((bid==='cost_cap'||bid==='bid_cap')&&!val('bidGoalAmt')) issues.push('Set the cost / bid goal amount (step 2)');
     if(bid==='min_roas'&&!val('roasGoalAmt')) issues.push('Set the ROAS floor (step 2)');
     if(bid==='min_roas'&&S.newAdset&&newAdsetGoal()!=='VALUE') issues.push('ROAS goal requires performance goal = Conversion value (step 3)');
+  }
+  if(S.campMode==='exist'&&S.campMeta&&S.campMeta.cbo&&S.newAdset&&val('newAdsetName')&&S.adsets.length){
+    const g0=(S.adsets.find(a=>a.optimization_goal)||{}).optimization_goal;
+    if(g0&&g0!==newAdsetGoal()) issues.push('CBO campaign: every ad set must share one performance goal — this one uses '+goalLabel(g0)+'. Meta rejects mixed goals under a campaign budget.');
   }
   const hasTargets=S.selAdsets.length>0||(S.newAdset&&val('newAdsetName'));
   lights.adsets=hasTargets;
@@ -2073,16 +2141,17 @@ async function prepareMedia(useOverlay,_retry){
 /* the conversion location decides where the button actually goes */
 function destLink(){
   const L=curLoc(); if(!L) return '';
-  if(L.msg==='WHATSAPP') return 'https://api.whatsapp.com/send';
-  if(L.msg==='MESSENGER') return S.page?('https://m.me/'+S.page):'';
-  if(L.msg==='INSTAGRAM_DIRECT'||L.k==='INSTAGRAM_PROFILE'||L.k==='FACEBOOK_PAGE'||L.k==='ON_EVENT'||locNeeds('form')) return S.page?('https://www.facebook.com/'+S.page):'';
+  const app=msgApp();
+  if(app==='WHATSAPP') return 'https://api.whatsapp.com/send';
+  if(app==='MESSENGER') return S.page?('https://m.me/'+S.page):'';
+  if(app==='INSTAGRAM_DIRECT'||['INSTAGRAM_PROFILE','FACEBOOK_PAGE','IG_AND_FB','ON_EVENT'].includes(L.k)||locNeeds('form')) return S.page?('https://www.facebook.com/'+S.page):'';
   if(L.k==='PHONE_CALL') return 'tel:'+(val('callNumber')||'');
   return '';
 }
 function linkFor(m){return destLink()||(m&&m.link)||S.link||((S.media.find(x=>x.kind!=='existing'&&x.link)||{}).link||'')}
 function ctaObj(m){
-  const L=curLoc()||{};
-  if(L.msg) return {type:S.cta,value:{app_destination:L.msg,link:linkFor(m)}};
+  const L=curLoc()||{}, app=msgApp();
+  if(app) return {type:S.cta,value:{app_destination:app,link:linkFor(m)}};
   if(L.k==='PHONE_CALL') return {type:S.cta,value:{link:linkFor(m)}};
   if(locNeeds('form')&&leadFormId()) return {type:S.cta,value:{lead_gen_form_id:leadFormId(),link:linkFor(m)}};
   return {type:S.cta,value:{link:linkFor(m)}};
@@ -2235,8 +2304,8 @@ async function launch(){
         if(plats.length) targeting.publisher_platforms=plats;
       }
       const pl={name:nm,campaign_id:campId,status:'PAUSED',billing_event:'IMPRESSIONS',optimization_goal:goal,targeting:JSON.stringify(targeting)};
-      const L=curLoc();
-      if(L&&L.dt) pl.destination_type=L.dt;
+      const dtv=destType();
+      if(dtv) pl.destination_type=dtv;
       const st=val('startTime'), et=val('endTime');
       if(st) pl.start_time=new Date(st).toISOString();
       if(et) pl.end_time=new Date(et).toISOString();
@@ -2249,7 +2318,7 @@ async function launch(){
       /* promoted_object follows the conversion location, exactly like Ads Manager */
       if(locNeeds('app')){
         pl.promoted_object=JSON.stringify({application_id:val('appId'),object_store_url:val('appStoreUrl')});
-      } else if(locNeeds('page')){
+      } else if(locNeeds('page')||NEED_PAGE_GOALS.includes(goal)){
         const po={page_id:S.page};
         if(locNeeds('form')&&leadFormId()) po.lead_gen_form_id=leadFormId();
         if(goalNeedsPixel()&&px){po.pixel_id=px;if(goal!=='LANDING_PAGE_VIEWS')po.custom_event_type=goal==='VALUE'?'PURCHASE':val('eventSel')}
