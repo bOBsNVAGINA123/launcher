@@ -209,6 +209,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
       <input type="file" id="fileInput" accept="video/*,image/*" multiple style="display:none">
       <div style="margin-top:10px;display:flex;gap:8px">
         <button class="btn" onclick="openCS()">✂ Edit videos — trim · music · speed · merge</button>
+        <button class="btn" id="clearAllBtn" style="display:none" onclick="clearAllMedia()">🗑 Remove all files</button>
         <span class="hint" style="align-self:center">or hit ✎ on any file below</span>
       </div>
 
@@ -936,8 +937,38 @@ function applyLinkToAll(){
   S.media.forEach(m=>{if(m.kind!=='existing')m.link=S.link});
   renderMedia();paint();
 }
+async function clearAllMedia(){
+  const n=S.media.length;
+  if(!n) return;
+  const nf=(cfg.driveFolders||[]).length;
+  if(!confirm('Remove all '+n+' file'+(n>1?'s':'')+' from this launch?'
+    +(nf?'\n\nThis also forgets '+nf+' saved Drive folder'+(nf>1?'s':'')+' — otherwise they re-import themselves on the next refresh.':'')
+    +'\n\nNothing is deleted from Drive or from Meta.')) return;
+  /* Two things re-add files on every load: saved Drive folders (importDrive(true))
+     and the Telegram manifest (tg.json). Clear the first, remember the second as
+     dismissed — otherwise "remove all" lasts exactly until the next refresh. */
+  cfg.driveFolders=[];
+  const skip=new Set(cfg.tgSkip||[]);
+  S.media.forEach(m=>{if(m.url)skip.add(m.url)});
+  cfg.tgSkip=[...skip].slice(-2000);
+  try{localStorage.setItem('launcher_cfg',JSON.stringify(cfg))}catch(e){}
+  const dl=document.getElementById('driveLinks'); if(dl) dl.value='';
+  S.media.forEach(m=>{if(m.vurl)URL.revokeObjectURL(m.vurl);if(m.preview&&m.preview.startsWith('blob:'))URL.revokeObjectURL(m.preview)});
+  S.media=[];
+  /* also empty the auto-saved library, or they all come back on refresh.
+     Use the persistence patch's OWN connection (__pxSafeOpen) — a second
+     connection to launcher_lib gets starved and the clear silently no-ops.
+     The "Reuse exported content" archive (launcher_arch) is left alone. */
+  try{
+    const db=await window.__pxSafeOpen('launcher_lib','media');
+    await new Promise(res=>{const t=db.transaction('media','readwrite');t.objectStore('media').clear();t.oncomplete=res;t.onerror=res;t.onabort=res});
+  }catch(e){log('Saved library not cleared: '+e.message,'err')}
+  renderMedia(); paint();
+  log(n+' file(s) removed from the launch','ok');
+}
 function renderMedia(){
   const g=document.getElementById('mediaGrid'); g.innerHTML='';
+  const cb=document.getElementById('clearAllBtn'); if(cb) cb.style.display=S.media.length?'inline-block':'none';
   S.media.forEach((m,i)=>{
     if(!m.uiId)m.uiId=++UIID;
     const d=document.createElement('div');
@@ -2602,7 +2633,7 @@ paint();
   const r=await fetch('tg.json?'+Date.now());if(!r.ok)return;
   const j=await r.json();let n=0;
   (j.items||[]).forEach(it=>{
-    if(!it.url||S.media.some(x=>x.url===it.url))return;
+    if(!it.url||(cfg.tgSkip||[]).includes(it.url)||S.media.some(x=>x.url===it.url))return;
     const k=it.kind||kindOf(it.name||it.url,'');if(!k)return;
     S.media.push({kind:k,src:'drive',url:it.url,name:it.name||('telegram_'+(n+1)),link:'',adName:(it.name||'telegram').replace(/\.[^.]+$/,''),preview:k==='image'?it.url:'',target:''});n++;
   });
