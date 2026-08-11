@@ -594,7 +594,10 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
 <script>
 /* ============================ STATE ============================ */
 const GRAPH='https://graph.facebook.com/v21.0';
-const PROXIES=[u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u), u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u), u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
+/* our own edge fetcher first (api/drive.js) — it streams, so big Drive videos work
+   without a Google session. On GitHub Pages there is no /api, it 404s in a few ms
+   and the free proxies below still get their turn. */
+const PROXIES=[u=>'/api/drive?url='+encodeURIComponent(u), u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u), u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u), u=>'https://corsproxy.io/?url='+encodeURIComponent(u)];
 const S={
   media:[],                 // {kind, src, file?, url?, name, size?, id?, hash?, thumb?, link?, state?}
   accounts:[], acct:null, acctName:'', currency:'EGP',
