@@ -768,9 +768,13 @@ function explainError(e){
     why:'Meta rejected the budget — it\'s under the minimum for this optimization goal and currency.',
     fix:'Raise the budget amount (step 2 or 3) and launch again. For conversions in EGP the daily minimum is typically around 100+ EGP per ad set.'
   };
-  if(/fetch|network/i.test(m)) return {
-    why:'Network hiccup talking to Meta — nothing was half-created beyond what the log shows.',
+  if(/^META_NET/.test(m)) return {
+    why:'Could not reach Meta (graph.facebook.com) — nothing was half-created beyond what the log shows.',
     fix:'Check your internet and hit Launch again. Already-uploaded media is remembered and won\'t re-upload.'
+  };
+  if(/fetch|network/i.test(m)) return {
+    why:'A download failed before Meta was ever called — this is almost always the media file, not your internet.<br><span class="mono" style="font-size:12px">'+esc(m)+'</span>',
+    fix:'Open <b>Activity log</b> (bottom of the right panel) — the last red line names the exact file and step.<br>For a Drive video the usual cause is sharing: open the file in Drive → Share → <b>Anyone with the link</b>. Then hit Launch again.'
   };
   return {
     why:esc(m),
@@ -780,7 +784,8 @@ function explainError(e){
 async function gget(path){
   if(!cfg.meta){openSettings();throw new Error('Your Facebook session expired — hit Continue with Facebook, everything you filled in stays')}
   const sep=path.includes('?')?'&':'?';
-  const r=await fetch(`${GRAPH}/${path}${sep}access_token=${cfg.meta}`);
+  let r; try{ r=await fetch(`${GRAPH}/${path}${sep}access_token=${cfg.meta}`) }
+  catch(e){ throw new Error('META_NET: could not reach graph.facebook.com ('+e.message+')') }
   const j=await r.json();
   if(j.error){
     if(j.error.code===190){cfg.meta='';log('Login expired — hit Continue with Facebook','err');openSettings()}
@@ -791,7 +796,8 @@ async function gget(path){
 async function gpost(path,payload){
   if(!cfg.meta){openSettings();throw new Error('Your Facebook session expired — hit Continue with Facebook, everything you filled in stays')}
   const body=new URLSearchParams({...payload,access_token:cfg.meta});
-  const r=await fetch(`${GRAPH}/${path}`,{method:'POST',body});
+  let r; try{ r=await fetch(`${GRAPH}/${path}`,{method:'POST',body}) }
+  catch(e){ throw new Error('META_NET: could not reach graph.facebook.com ('+e.message+')') }
   const j=await r.json();
   if(j.error) throw metaErr(j);
   return j;
