@@ -2027,10 +2027,13 @@ function upcSet(m,val){UPC[S.acct]=UPC[S.acct]||{};UPC[S.acct][upcKey(m)]=Object
 function driveNeedsGoogle(){return !gValid() && S.media.some(m=>m.driveId && !m.file && !m.id)}
 async function tryGoogle(what){
   if(!driveNeedsGoogle()) return;
-  let ok=false;
-  try{ ok=await gAuth() }catch(e){}
-  if(ok){log('Google session renewed automatically','ok');return}
-  log('No Google session — using the public Drive route. If a file is not shared as "Anyone with the link" it will fail on its own and '+what+' will tell you which.','busy');
+  /* Deliberately does NOT pop the Google window. On any domain that isn't in the
+     OAuth client's Authorized JavaScript origins, that popup can only ever return
+     "Access blocked: origin_mismatch", which stops teammates dead for no reason.
+     Drive files shared as "Anyone with the link" need no Google session at all, so
+     go straight to the public route. A genuinely private file fails on its own with
+     a message pointing at the "Sign in with Google" button. */
+  log('Using the public Drive route (no Google sign-in needed). A file that is not shared as "Anyone with the link" will fail on its own and '+what+' will name it.','busy');
 }
 function requireGoogle(){
   if(!driveNeedsGoogle()) return false;
