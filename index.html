@@ -2025,6 +2025,13 @@ function upcSet(m,val){UPC[S.acct]=UPC[S.acct]||{};UPC[S.acct][upcKey(m)]=Object
 
 /* Drive videos need a Google token — without it Meta gets Drive's HTML page, not the video. */
 function driveNeedsGoogle(){return !gValid() && S.media.some(m=>m.driveId && !m.file && !m.id)}
+async function tryGoogle(what){
+  if(!driveNeedsGoogle()) return;
+  let ok=false;
+  try{ ok=await gAuth() }catch(e){}
+  if(ok){log('Google session renewed automatically','ok');return}
+  log('No Google session — using the public Drive route. If a file is not shared as "Anyone with the link" it will fail on its own and '+what+' will tell you which.','busy');
+}
 function requireGoogle(){
   if(!driveNeedsGoogle()) return false;
   gSignIn();
@@ -2233,11 +2240,7 @@ function builtSpecs(){
 
 /* ============================ PREVIEW (ALL OF THEM) ============================ */
 async function prepareAndPreview(){
-  if(driveNeedsGoogle()){
-    const ok=await gAuth();
-    if(!ok){log('Google access needed for your Drive videos — hit "Sign in with Google" once, then Prepare.','err');return}
-    log('Google session renewed automatically','ok');
-  }
+  await tryGoogle('Prepare');
   const btn=document.getElementById('prepBtn');
   btn.disabled=true; btn.textContent='Preparing…';
   const prog=document.getElementById('pvProg');
@@ -2285,11 +2288,7 @@ async function prepareAndPreview(){
 /* ============================ LAUNCH ============================ */
 function minor(x){return Math.round(parseFloat(x)*100)}
 async function launch(){
-  if(driveNeedsGoogle()){
-    const ok=await gAuth();
-    if(!ok){log('Google access needed for your Drive videos — hit "Sign in with Google" once, then Launch.','err');return}
-    log('Google session renewed automatically','ok');
-  }
+  await tryGoogle('Launch');
   S.launching=true;paint();
   const status=document.getElementById('launchStatus').value;
   loOpen('Launching…','Each step below reports live progress. Don’t close the tab.');
