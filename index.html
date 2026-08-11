@@ -1249,7 +1249,7 @@ async function importDrive(auto){
   const t0=performance.now();
   pw.style.display='block';pb.style.width='2%';
   st.textContent=auto?'Auto-checking saved Drive folders…':'Reading Drive…';
-  let added=0, failed=0, folders=0;
+  let added=0, failed=0, folders=0, dupes=0;
   const lines=raw.split(/\s+/).filter(Boolean);
   for(let li=0;li<lines.length;li++){
     const line=lines[li];
@@ -1315,6 +1315,7 @@ async function importDrive(auto){
     const im=line.match(/(?:file\/d\/|[?&]id=)([A-Za-z0-9_-]{15,})/);
     if(im){
       const id=im[1];
+      if(S.media.some(x=>x.driveId===id)) dupes++;
       if(!S.media.some(x=>x.driveId===id)){
         S.media.push({kind:'video',src:gTok?'gdrive':'drive',driveId:id,url:driveDirect(id),name:'drive-file-'+id.slice(0,6)+'.mp4',link:'',adName:'drive-'+id.slice(0,6)});
         added++;
@@ -1325,7 +1326,12 @@ async function importDrive(auto){
   pb.style.width='100%';
   sortMedia(); renderMedia(); paint();
   const secs=((performance.now()-t0)/1000).toFixed(1);
-  st.textContent=added? '✓ '+added+' file(s) imported.'+(failed?' Some failed — check the activity log.':'') : (auto?'✓ No new files in saved folders.':(failed?'Import failed — share the folder as Anyone with the link, or Sign in with Google.':'No usable links found.'));
+  st.textContent=added
+    ? '✓ '+added+' file(s) imported.'+(failed?' Some failed — check the activity log.':'')
+    : (auto?'✓ No new files in saved folders.'
+      :(failed?'Import failed — share the folder as Anyone with the link, or Sign in with Google.'
+        :(dupes?'✓ Already in your list — that link is imported ('+dupes+' skipped as duplicates).'
+          :'No usable links found. Paste a Drive file link (…/file/d/ID/view) or a folder link (…/drive/folders/ID).')));
   meta.textContent=folders+' folder(s) checked · +'+added+' new · '+secs+'s · last check '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit',hour12:true});
   setTimeout(()=>{pw.style.display='none';pb.style.width='0%'},1500);
   if(!auto)box.value='';
