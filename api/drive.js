@@ -58,17 +58,25 @@ export default async function handler(req) {
   let ct = r.headers.get('content-type') || '';
   if (/text\/html/i.test(ct)) {
     const html = await r.text();
-    const action = (html.match(/action="([^"]+)"/) || [])[1];
-    if (action) {
-      const u = new URL(action.replace(/&amp;/g, '&'));
-      for (const m of html.matchAll(/name="([^"]+)"\s+value="([^"]*)"/g)) u.searchParams.set(m[1], m[2]);
-      if (ALLOWED.includes(u.hostname)) {
-        try { r = await fetch(u.toString(), { redirect: 'follow' }) } catch (e) { return bad('confirm step failed: ' + e.message, 502) }
-        ct = r.headers.get('content-type') || '';
+    /* A private file gets a sign-in page, which also has a <form action=…> — parsing
+       it must never throw, or the whole request 500s instead of saying "not shared". */
+    try {
+      const action = (html.match(/action="([^"]+)"/) || [])[1];
+      if (action) {
+        const u = new URL(action.replace(/&amp;/g, '&'), r.url || target); // may be relative
+        for (const m of html.matchAll(/name="([^"]+)"\s+value="([^"]*)"/g)) u.searchParams.set(m[1], m[2]);
+        if (ALLOWED.includes(u.hostname)) {
+          r = await fetch(u.toString(), { redirect: 'follow' });
+          ct = r.headers.get('content-type') || '';
+        }
       }
-    }
+    } catch (e) { /* fall through to the clear message below */ }
+
     if (/text\/html/i.test(ct)) {
-      return bad('Drive served a web page, not the file — it is probably not shared as "Anyone with the link"', 403);
+      const signin = /accounts\.google\.com|ServiceLogin|signin/i.test(html);
+      return bad(signin
+        ? 'This Drive file is private — Google served a sign-in page instead of the file. Open it in Drive → Share → "Anyone with the link".'
+        : 'Drive served a web page, not the file — check it is shared as "Anyone with the link".', 403);
     }
   }
 
