@@ -181,7 +181,8 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
     <div id="logo">LAUNCH<span>ER</span></div>
     <div id="syncState">not synced</div>
     <div id="lastSync" style="padding:0 22px 8px;font-size:11px;color:var(--dim)"></div>
-    <div style="padding:0 22px 16px"><label>Ad account</label><select id="acctSel" onchange="pickAccount()" style="font-size:13px"><option value="">Syncing…</option></select></div>
+    <div style="padding:0 22px 16px"><label>Ad account</label><select id="acctSel" onchange="pickAccount()" style="font-size:13px"><option value="">Syncing…</option></select>
+      <button class="btn" style="width:100%;margin-top:8px;font-size:12.5px" onclick="openSettings()">⚙ Settings — sign in / paste token</button></div>
     <div class="step active" data-pane="media"><div class="n">1</div><div><div class="lbl">Videos & photos</div><div class="sub2" id="ss-media">add your files</div></div></div>
     <div class="step" data-pane="camp"><div class="n">2</div><div><div class="lbl">Campaign</div><div class="sub2" id="ss-camp">where the ads go</div></div></div>
     <div class="step" data-pane="adsets"><div class="n">3</div><div><div class="lbl">Ad sets</div><div class="sub2" id="ss-adsets">who sees them</div></div></div>
@@ -193,7 +194,6 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
     <a class="navlink" href="#" onclick="openTT();return false">⇪ Sync to TikTok</a>
     <a class="navlink" href="#" onclick="openDup();return false">⧉ Duplicate to another account</a>
     <button class="navlink" onclick="copyTeamLink(event)">Copy team link</button>
-    <button class="navlink" onclick="openSettings()">Settings</button>
   </nav>
 
   <main id="canvas">
@@ -237,6 +237,10 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
         <div class="hint">Pick an ad account in step 2 first, then Browse — click any ad to add it as-is (same post, same social proof). IDs work too.</div>
       </div>
 
+      <div id="gridBar" style="display:none;align-items:center;justify-content:space-between;margin:18px 0 8px">
+        <b style="font-size:13px" id="gridCount"></b>
+        <button class="btn" onclick="clearAllMedia()">🗑 Remove all files</button>
+      </div>
       <div class="grid" id="mediaGrid"></div>
       <div class="stepnav"><span></span><button class="btn primary" onclick="goStep('camp')">Next: Campaign →</button></div>
     </section>
@@ -969,6 +973,10 @@ async function clearAllMedia(){
 function renderMedia(){
   const g=document.getElementById('mediaGrid'); g.innerHTML='';
   const cb=document.getElementById('clearAllBtn'); if(cb) cb.style.display=S.media.length?'inline-block':'none';
+  const gb=document.getElementById('gridBar');
+  if(gb){gb.style.display=S.media.length?'flex':'none';
+    const gc=document.getElementById('gridCount');
+    if(gc)gc.textContent=S.media.length+' file'+(S.media.length>1?'s':'')+' in this launch';}
   S.media.forEach((m,i)=>{
     if(!m.uiId)m.uiId=++UIID;
     const d=document.createElement('div');
