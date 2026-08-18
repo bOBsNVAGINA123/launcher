@@ -787,8 +787,13 @@ function explainError(e){
 async function gget(path){
   if(!cfg.meta){openSettings();throw new Error('Your Facebook session expired — hit Continue with Facebook, everything you filled in stays')}
   const sep=path.includes('?')?'&':'?';
-  let r; try{ r=await fetch(`${GRAPH}/${path}${sep}access_token=${cfg.meta}`) }
-  catch(e){ throw new Error('META_NET: could not reach graph.facebook.com ('+e.message+')') }
+  /* GETs are safe to repeat, so ride out a blip instead of failing the whole launch */
+  let r,lastErr;
+  for(let a=0;a<3;a++){
+    try{ r=await fetch(`${GRAPH}/${path}${sep}access_token=${cfg.meta}`); lastErr=null; break }
+    catch(e){ lastErr=e; if(a<2) await new Promise(z=>setTimeout(z,600*(a+1))) }
+  }
+  if(lastErr) throw new Error('META_NET: could not reach graph.facebook.com ('+lastErr.message+')');
   const j=await r.json();
   if(j.error){
     if(j.error.code===190){cfg.meta='';log('Login expired — hit Continue with Facebook','err');openSettings()}
@@ -799,8 +804,17 @@ async function gget(path){
 async function gpost(path,payload){
   if(!cfg.meta){openSettings();throw new Error('Your Facebook session expired — hit Continue with Facebook, everything you filled in stays')}
   const body=new URLSearchParams({...payload,access_token:cfg.meta});
-  let r; try{ r=await fetch(`${GRAPH}/${path}`,{method:'POST',body}) }
-  catch(e){ throw new Error('META_NET: could not reach graph.facebook.com ('+e.message+')') }
+  /* One retry on a network-level failure. "Failed to fetch" means no response came
+     back, which almost always means the request never landed — so a repeat is far
+     more likely to fix a blip than to duplicate anything. It IS possible the first
+     one landed and only the reply was lost, so the retry is logged: if you ever see
+     two identical ad sets, this line is why. */
+  let r,lastErr;
+  for(let a=0;a<2;a++){
+    try{ r=await fetch(`${GRAPH}/${path}`,{method:'POST',body}); lastErr=null; break }
+    catch(e){ lastErr=e; if(a===0){ log('Network blip on '+path+' — retrying once','busy'); await new Promise(z=>setTimeout(z,1200)) } }
+  }
+  if(lastErr) throw new Error('META_NET: could not reach graph.facebook.com ('+lastErr.message+')');
   const j=await r.json();
   if(j.error) throw metaErr(j);
   return j;
