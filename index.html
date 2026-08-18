@@ -772,8 +772,8 @@ function explainError(e){
     fix:'Raise the budget amount (step 2 or 3) and launch again. For conversions in EGP the daily minimum is typically around 100+ EGP per ad set.'
   };
   if(/^META_NET/.test(m)) return {
-    why:'Could not reach Meta (graph.facebook.com) — nothing was half-created beyond what the log shows.',
-    fix:'Check your internet and hit Launch again. Already-uploaded media is remembered and won\'t re-upload.'
+    why:'The browser could not reach <b>graph.facebook.com</b> — nothing was half-created beyond what the log shows. If the rest of the page works, your internet is fine and something local is blocking Facebook requests.',
+    fix:'Most likely, in order:<br>1. <b>An ad blocker or privacy extension</b> (uBlock, AdGuard, Ghostery, Brave Shields, Privacy Badger) — they block facebook.com by default. Turn it off for this site, or open the launcher in a <b>private/incognito window with extensions disabled</b>.<br>2. A <b>VPN or company wifi</b> that filters Facebook — switch network or turn the VPN off.<br>3. Genuinely offline.<br><br>Test it: open <a href="https://graph.facebook.com/v21.0/" target="_blank">graph.facebook.com/v21.0/</a> in a new tab. If you see a small block of JSON, the connection is fine and it is #1. If the tab fails to load, it is #2 or #3.<br><br>Then hit Launch again — already-uploaded media is remembered and won\'t re-upload.'
   };
   if(/fetch|network/i.test(m)) return {
     why:'A download failed before Meta was ever called — this is almost always the media file, not your internet.<br><span class="mono" style="font-size:12px">'+esc(m)+'</span>',
