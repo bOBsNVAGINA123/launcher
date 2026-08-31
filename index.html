@@ -2489,7 +2489,8 @@ async function launch(){
     }
     loOk('t-ads',adIds.length+' ads created');
     log('DONE. '+adIds.length+' ad(s) created as '+status+'.','ok');
-    const amLink='https://adsmanager.facebook.com/adsmanager/manage/ads?act='+S.acct;
+    /* deep-link straight to the ads just created, not the whole account */
+    const amLink='https://adsmanager.facebook.com/adsmanager/manage/ads?act='+S.acct+(adIds.length&&adIds.length<=50?'&selected_ad_ids='+adIds.join(','):'&selected_campaign_ids='+campId);
     if(!adIds.length)throw new Error('0 ads were created — nothing actually launched. Usually this means every creative failed to prepare (red "processing failed" badges in step 1) or no ad sets were picked in step 3. Fix that and hit Launch again.');
     loFinish(true,'LAUNCHED 🎉',adIds.length+' ad'+(adIds.length>1?'s':'')+' created as '+(status==='PAUSED'?'PAUSED — flip them on in Ads Manager when ready':'ACTIVE — they start once Meta approves them')+'.',amLink);
     saveLaunch(campId,campName,targets,adIds,tags);
