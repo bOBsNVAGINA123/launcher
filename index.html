@@ -819,7 +819,56 @@ async function gpost(path,payload){
   if(j.error) throw metaErr(j);
   return j;
 }
+/* Meta's one-shot multipart POST to /advideos falls over on big files — in practice it
+   stops accepting anything past ~200MB. Above the threshold, use Meta's resumable
+   protocol instead: start -> transfer each chunk -> finish. Meta hands back the exact
+   byte range it wants next, so we just slice between the offsets it gives us and never
+   pick a chunk size ourselves. Small files keep the one-shot path: it already works and
+   costs one request instead of three. */
+const VID_CHUNK_OVER=90*1024*1024;
+async function uploadVideoChunked(acct,file,onProgress){
+  const url=`${GRAPH}/act_${acct}/advideos`;
+  const post=async fd=>{
+    fd.append('access_token',cfg.meta);
+    const r=await fetch(url,{method:'POST',body:fd});
+    const j=await r.json();
+    if(j.error) throw metaErr(j);
+    return j;
+  };
+  const sfd=new FormData();
+  sfd.append('upload_phase','start'); sfd.append('file_size',file.size);
+  const st=await post(sfd);
+  const sid=st.upload_session_id;
+  let off=+st.start_offset, end=+st.end_offset;
+  while(off<end){
+    const mk=()=>{
+      const fd=new FormData();
+      fd.append('upload_phase','transfer');
+      fd.append('upload_session_id',sid);
+      fd.append('start_offset',off);
+      fd.append('video_file_chunk',file.slice(off,end),file.name);
+      return fd;
+    };
+    /* A dropped chunk is safe to resend — start_offset says exactly where it goes, so a
+       repeat overwrites rather than duplicates. Worth one retry: losing a blip 4GB into
+       an upload would otherwise throw the whole transfer away. */
+    let j=null;
+    for(let a=0;a<2;a++){
+      try{ j=await post(mk()); break }
+      catch(e){ if(a) throw e; log('Upload chunk stalled at '+(off/1048576).toFixed(0)+' MB — retrying','busy'); await new Promise(z=>setTimeout(z,1500)) }
+    }
+    off=+j.start_offset; end=+j.end_offset;
+    if(onProgress) onProgress(Math.min(99,Math.round(off/file.size*100)));
+  }
+  const ffd=new FormData();
+  ffd.append('upload_phase','finish'); ffd.append('upload_session_id',sid);
+  ffd.append('name',file.name.replace(/\.[^.]+$/,''));
+  await post(ffd);
+  if(onProgress) onProgress(100);
+  return {id:st.video_id};
+}
 function uploadVideoFile(acct,file,onProgress){
+  if(file&&file.size>VID_CHUNK_OVER) return uploadVideoChunked(acct,file,onProgress);
   return new Promise((resolve,reject)=>{
     const fd=new FormData();
     fd.append('source',file);
