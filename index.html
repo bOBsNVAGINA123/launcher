@@ -507,6 +507,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
 
 <!-- settings modal -->
 <div class="modal" id="modal"><div class="mbox">
+  <button onclick="closeSettings()" title="Close (Esc)" style="float:right;font-size:22px;line-height:1;color:var(--dim);padding:0 2px">&times;</button>
   <h2>Sign in</h2>
   <div class="note">One-time: your Meta App ID is prefilled. After the first login it's one click, forever. Teammates: share the page link and add them under App Roles in the Meta app (or paste a token below).</div>
   <div class="warn" style="margin-bottom:14px"><b>Heads-up:</b> your Meta app must be in <b>Live mode</b> to create ads. If launches fail with a "development mode" error: <a href="https://developers.facebook.com/apps/" target="_blank">developers.facebook.com/apps</a> → your app → flip the App Mode toggle at the top from Development to <b>Live</b> (it may ask for a Privacy Policy URL under Settings → Basic — any valid policy page works). One time, two minutes.</div>
@@ -731,6 +732,8 @@ function openSettings(){
   document.getElementById('modal').classList.add('show');
 }
 function closeSettings(){document.getElementById('modal').classList.remove('show')}
+document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeSettings()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSettings()});
 function saveSettings(){
   cfg.meta=document.getElementById('cfgMeta').value.trim()||cfg.meta;
   cfg.appId=document.getElementById('cfgAppId').value.trim();
@@ -2659,8 +2662,9 @@ async function whoAmI(){
     document.getElementById('syncState').textContent=j.name+' · syncing…';
   }catch(e){
     if(/expired|invalid|2500|190/i.test(e.message)){
-      log('Session expired. One click to log back in.','err');
-      cfg.meta='';openSettings();
+      log('Session expired. Settings → sign in again when you need to launch.','err');
+      cfg.meta='';
+      if(!sessionStorage.getItem('sawExpired')){sessionStorage.setItem('sawExpired','1');openSettings()}
     }
   }
 }
