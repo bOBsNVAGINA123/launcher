@@ -56,3 +56,12 @@ g.buildElLayer('h','drop',1);
 assert.equal(sale().t,'MY OWN WORDS','user edits survive a re-render');
 
 console.log('sale-message checks passed');
+
+// --- centred copy: distance ties, so the chip must go to the row with less text
+state.els[K]=[]; g.stageHTMLraw=()=>'';
+API.set('drop',false);
+state.els[K]=[{id:1,k:'t',x:50,y:8},{id:2,k:'t',x:50,y:20},{id:3,k:'t',x:50,y:92}];
+assert.deepEqual(API.corner('drop'),[21,92],'two texts up top, one at the foot -> go low');
+state.els[K]=[{id:1,k:'t',x:50,y:88},{id:2,k:'t',x:50,y:78},{id:3,k:'t',x:50,y:8}];
+assert.equal(API.corner('drop')[1],8,'and the other way round');
+console.log('corner tie-break checks passed');
