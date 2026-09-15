@@ -2692,9 +2692,11 @@ function bridgeLogShow(){
     log(ts+'  '+(r.ev||'?').toUpperCase().padEnd(8)+' '+(r.name||'?')+kb+(r.why?' — '+r.why:''),r.ev==='imported'?'ok':(r.ev==='sent'?'':'err'));
   });
 }
-let bridgeBusy=false;
+let bridgeBusy=false,bridgeAgain=false;
 async function drainBridge(){
-  if(bridgeBusy)return;bridgeBusy=true;
+  /* a ping that lands mid-drain must not be swallowed — remember it and re-run once */
+  if(bridgeBusy){bridgeAgain=true;return}
+  bridgeBusy=true;
   try{
     const db=await bridgeDB('launcher_bridge');
     const items=await new Promise(res=>{const out=[];const c=db.transaction('inbox').objectStore('inbox').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){out.push({key:cu.key,v:cu.value});cu.continue()}else res(out)}});
@@ -2730,7 +2732,7 @@ async function drainBridge(){
     const sk=rows.filter(r=>r.ev!=='imported').length;
     log(added+' creative(s) imported from Content Studio'+(sk?' · '+sk+' skipped (Activity log → Export log)':''),added?'ok':'err');
   }catch(e){log('Content Studio import failed: '+e.message,'err')}
-  finally{bridgeBusy=false}
+  finally{bridgeBusy=false;if(bridgeAgain){bridgeAgain=false;drainBridge()}}
 }
 drainBridge();
 window.addEventListener('storage',e=>{if(e.key==='launcher_bridge_ping')drainBridge()});

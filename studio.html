@@ -4939,10 +4939,12 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
      +'<button id="syBatch" class="syb" title="render the active design once per product and send them all to the Launcher">⚡ Batch → Launcher</button>'
      +'<button id="syBatchDl" class="syb" title="same batch, but download the renders">⚡⬇</button>'
      +'<button id="syMarpipe" class="syb" title="preview a product × design grid">🧪 Preview grid</button>'
+     +'<button id="syLog" class="syb" title="every creative this Studio sent to the Launcher, and what the Launcher did with it">📋 Export log</button>'
      +'<label class="syb" title="pull every image per product, not just the first" style="gap:5px"><input type="checkbox" id="syAllImg" style="margin:0;accent-color:#7ea2ff">every image</label></div>'
    +'<div id="syGrid"></div>'
    +'<div id="syExcl" style="font-size:10px;margin:6px 0 0;min-height:12px"></div>'
-   +'<div id="syStatus" style="font-size:10px;color:#8b8470;margin:5px 0 2px;min-height:12px"></div>';
+   +'<div id="syStatus" style="font-size:10px;color:#8b8470;margin:5px 0 2px;min-height:12px"></div>'
+   +'<div id="syLogBox" style="display:none;font-size:10px;line-height:1.7;max-height:220px;overflow:auto;background:#0f1116;border:1px solid #262a33;border-radius:8px;padding:7px 8px;margin-top:5px"></div>';
   const dh=document.getElementById('dhLib');
   slots.parentNode.insertBefore(box,dh||slots);
   const stat=m=>{document.getElementById('syStatus').textContent=m};
@@ -5020,6 +5022,26 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
     stat('🚀 '+picked.length+' sent — open the Launcher, they land in Media automatically');
    }catch(e){stat('⚠ '+e.message)}
   };
+  /* export log — what left this Studio, and what the Launcher did with it */
+  {const lb=document.getElementById('syLog');if(lb)lb.onclick=async()=>{
+   const box=document.getElementById('syLogBox');
+   if(box.style.display==='block'){box.style.display='none';return}
+   let L=[];try{L=JSON.parse(localStorage.getItem('launcher_bridge_log')||'[]')}catch(e){}
+   let waiting=0;
+   try{const db=await bridgeDB();
+    waiting=await new Promise(res=>{let n=0;const c=db.transaction('inbox').objectStore('inbox').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){n++;cu.continue()}else res(n)}});}catch(e){}
+   const esc=t=>String(t).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+   const sent=L.filter(r=>r.ev==='sent').length,imp=L.filter(r=>r.ev==='imported').length,sk=L.length-sent-imp;
+   const head='<div style="color:#7ea2ff;font-weight:700;margin-bottom:4px">'+sent+' sent \u00b7 '+imp+' picked up by the Launcher \u00b7 '+sk+' skipped'
+    +(waiting?'<div style="color:#e0a96d;font-weight:400;margin-top:2px">'+waiting+' still waiting \u2014 open the Launcher tab to pull them in</div>':'')+'</div>';
+   box.innerHTML=head+(L.length?L.slice(-80).reverse().map(r=>
+    '<div style="display:flex;gap:6px"><span style="color:#6b7280;flex:none">'+new Date(r.t||0).toLocaleTimeString()+'</span>'
+    +'<span style="flex:none;width:58px;color:'+(r.ev==='imported'?'#7fd7a3':r.ev==='sent'?'#c3c9d4':'#e0a96d')+'">'+esc(r.ev||'?')+'</span>'
+    +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.name||'?')+'</span>'
+    +(r.why?'<span style="flex:none;color:#6b7280">'+esc(r.why)+'</span>':'')+'</div>').join('')
+    :'<div style="color:#8b8470">nothing has been sent yet</div>');
+   box.style.display='block';
+  };}
   /* every-image toggle */
   const ai=document.getElementById('syAllImg');
   if(ai){ai.checked=ALLIMG;
@@ -5231,9 +5253,10 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   paintSources();paintGrid();
   /* the Launcher's leg of the bridge — same rules: delete the keys we took (never a
      blanket clear, which eats anything that lands mid-drain) and drain live on the ping. */
-  let sbBusy=false;
+  let sbBusy=false,sbAgain=false;
   async function drainStudioInbox(){
-   if(sbBusy)return;sbBusy=true;
+   if(sbBusy){sbAgain=true;return}
+   sbBusy=true;
    try{
     const db=await new Promise((res,rej)=>{const r=indexedDB.open('studio_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
     const items=await new Promise(res=>{const out=[];const c=db.transaction('inbox').objectStore('inbox').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){out.push({key:cu.key,v:cu.value});cu.continue()}else res(out)}});
@@ -5242,7 +5265,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
     await new Promise(res=>{const t=db.transaction('inbox','readwrite');const st=t.objectStore('inbox');items.forEach(x=>st.delete(x.key));t.oncomplete=res});
     bridgeLogAdd(items.map(x=>({t:Date.now(),ev:'imported',name:x.v.name,size:x.v.blob?x.v.blob.size:0,why:'launcher \u2192 studio',from:'studio'})));
     paintSources();paintGrid();stat(items.length+' photo(s) arrived from the Launcher');
-   }catch(e){}finally{sbBusy=false}
+   }catch(e){}finally{sbBusy=false;if(sbAgain){sbAgain=false;drainStudioInbox()}}
   }
   drainStudioInbox();
   window.addEventListener('storage',e=>{if(e.key==='studio_bridge_ping')drainStudioInbox()});

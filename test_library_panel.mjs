@@ -19,6 +19,6 @@ for(const id of ['syUrl','syAddCol','syProgWrap','syAnother','syAddDrive','syAdd
 assert(/#syGrid\{[^}]*auto-fill/.test(panel),'grid should be responsive (auto-fill)');
 assert(!/id="syGrid" style="display:grid/.test(panel),'grid styles belong in the stylesheet, not inline');
 // every secondary action is a chip, and exactly two primaries remain
-assert.equal((panel.match(/class="syb"/g)||[]).length,10,'secondary actions should all be chips');
+assert.equal((panel.match(/class="syb"/g)||[]).length,11,'secondary actions should all be chips');
 assert.equal((panel.match(/class="btn ghost sybig"/g)||[]).length,2,'exactly two primary buttons');
 console.log('library panel checks passed —',present.size,'ids intact');
