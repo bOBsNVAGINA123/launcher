@@ -210,8 +210,10 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
       <div style="margin-top:10px;display:flex;gap:8px">
         <button class="btn" onclick="openCS()">✂ Edit videos — trim · music · speed · merge</button>
         <button class="btn" id="clearAllBtn" style="display:none" onclick="clearAllMedia()">🗑 Remove all files</button>
+        <button class="btn" id="bridgeLogBtn" onclick="bridgeLogShow()" title="every creative the Content Studio sent, and what happened to it">📋 Export log</button>
         <span class="hint" style="align-self:center">or hit ✎ on any file below</span>
       </div>
+      <div id="bridgeLogBox" style="display:none;margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;font-size:12px;line-height:1.7;max-height:260px;overflow:auto"></div>
 
       <div class="card" style="margin-top:16px">
         <h3 class="sec" style="margin-top:0">Import from Google Drive</h3>
@@ -495,7 +497,6 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
       <button id="launchBtn" disabled onclick="launch()">LAUNCH</button>
     </div>
     <button id="consoleToggle" onclick="document.getElementById('console').classList.toggle('show')">Activity log ▾</button>
-    <button id="bridgeLogBtn" style="display:block;width:100%;text-align:left;padding:8px 22px;font-size:11.5px;color:var(--dim);border-top:1px solid var(--line)" onclick="document.getElementById('console').classList.add('show');bridgeLogShow()">Export log · what the Content Studio sent ▾</button>
     <div id="console"></div>
   </aside>
 </div>
@@ -2681,16 +2682,25 @@ function bridgeLogAdd(rows){
     rows.forEach(r=>L.push(r));
     localStorage.setItem('launcher_bridge_log',JSON.stringify(L.slice(-400)));}catch(e){}
 }
-function bridgeLogShow(){
+async function bridgeLogShow(){
+  const box=document.getElementById('bridgeLogBox');
+  if(box.style.display==='block'){box.style.display='none';return}
   let L=[];try{L=JSON.parse(localStorage.getItem('launcher_bridge_log')||'[]')}catch(e){}
-  if(!L.length){log('Export log is empty — nothing has been sent from the Content Studio yet.');return}
-  const sent=L.filter(r=>r.ev==='sent').length,imp=L.filter(r=>r.ev==='imported').length,skip=L.filter(r=>r.ev!=='sent'&&r.ev!=='imported').length;
-  log('— Export log · '+sent+' sent · '+imp+' imported · '+skip+' skipped —');
-  L.slice(-60).forEach(r=>{
-    const ts=new Date(r.t||0).toLocaleString();
-    const kb=r.size?' · '+Math.round(r.size/1024)+'KB':'';
-    log(ts+'  '+(r.ev||'?').toUpperCase().padEnd(8)+' '+(r.name||'?')+kb+(r.why?' — '+r.why:''),r.ev==='imported'?'ok':(r.ev==='sent'?'':'err'));
-  });
+  let waiting=0;
+  try{const db=await bridgeDB('launcher_bridge');
+    waiting=await new Promise(res=>{let n=0;const c=db.transaction('inbox').objectStore('inbox').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){n++;cu.continue()}else res(n)}});}catch(e){}
+  const esc=t=>String(t).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+  const sent=L.filter(r=>r.ev==='sent').length,imp=L.filter(r=>r.ev==='imported').length,sk=L.length-sent-imp;
+  const col=ev=>ev==='imported'?'var(--ok)':ev==='sent'?'var(--mut)':'var(--err)';
+  box.innerHTML='<div style="font-weight:700;margin-bottom:6px">'+sent+' sent by the Content Studio · '+imp+' imported here · '+sk+' skipped'
+     +(waiting?'<div style="color:var(--err);font-weight:400;margin-top:2px">'+waiting+' still waiting — they import on their own; reload if they don\'t</div>':'')+'</div>'
+    +(L.length?L.slice(-80).reverse().map(r=>
+      '<div style="display:flex;gap:8px"><span style="flex:none;color:var(--dim)">'+new Date(r.t||0).toLocaleTimeString()+'</span>'
+      +'<span style="flex:none;width:64px;color:'+col(r.ev)+'">'+esc(r.ev||'?')+'</span>'
+      +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.name||'?')+'</span>'
+      +(r.why?'<span style="flex:none;color:var(--dim)">'+esc(r.why)+'</span>':'')+'</div>').join('')
+    :'<div style="color:var(--dim)">Nothing has been sent from the Content Studio yet.</div>');
+  box.style.display='block';
 }
 let bridgeBusy=false,bridgeAgain=false;
 async function drainBridge(){
