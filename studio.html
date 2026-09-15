@@ -2918,11 +2918,28 @@ document.querySelectorAll('#aspectseg button').forEach(b=>b.onclick=()=>{
 
 /* ============ export ============ */
 function dl(url,name){const a=document.createElement('a');a.download=name;a.href=url;a.click()}
-/* drop a blob into the Launcher inbox (IndexedDB bridge). The Launcher imports it on open. */
-async function bridgePut(name,blob){
- const db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
- await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').put({name:name,blob:blob,t:Date.now()});t.oncomplete=res});
+/* ============ Launcher bridge (IndexedDB inbox + shared export log) ============ */
+/* Every send goes through bridgePutRecs so it lands in the log and pings any open Launcher tab. */
+function bridgeDB(){return new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function bridgeLogAdd(rows){
+ try{const L=JSON.parse(localStorage.getItem('launcher_bridge_log')||'[]');
+  rows.forEach(r=>L.push(r));
+  localStorage.setItem('launcher_bridge_log',JSON.stringify(L.slice(-400)));}catch(e){}
 }
+function bridgePutRecs(db,recs){
+ return new Promise((res,rej)=>{
+  const t=db.transaction('inbox','readwrite'),st=t.objectStore('inbox');
+  recs.forEach(r=>{if(!r.t)r.t=Date.now();st.put(r)});
+  t.onerror=()=>rej(t.error||new Error('bridge write failed'));
+  t.oncomplete=()=>{
+   bridgeLogAdd(recs.map(r=>({t:r.t,ev:'sent',name:r.name||(r.preset?'(launcher preset)':'(untitled)'),size:r.blob?r.blob.size:0,from:'studio'})));
+   /* storage event = the cross-tab signal an already-open Launcher listens on */
+   try{localStorage.setItem('launcher_bridge_ping',String(Date.now()))}catch(e){}
+   res();
+  };
+ });
+}
+async function bridgePut(name,blob){await bridgePutRecs(await bridgeDB(),[{name:name,blob:blob}])}
 
 /* ============ Playmore product copy packs ============ */
 const USP_CHIPS_BASE=['MADE IN EGYPT','FREE DELIVERY OVER 999 EGP','FREE 30-DAY RETURNS','MADE FOR EVERYDAY PLAY'];
@@ -4992,13 +5009,13 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    if(!picked.length)picked=SHOWN.slice(0,100);
    if(!picked.length){stat('nothing to send');return}
    try{
-    const db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-    await new Promise(res=>{const t=db.transaction('inbox','readwrite');const st2=t.objectStore('inbox');
-     picked.forEach(it=>{
-      if(it.driveId)st2.put({type:'drive',driveId:it.driveId,name:it.title,kind:it.kind||'image',t:Date.now()});
-      else if(it.file)st2.put({name:it.title,blob:it.file,t:Date.now()});
-      else if(it.img)st2.put({type:'url',url:it.img,name:it.title,kind:'image',t:Date.now()});
-     });t.oncomplete=res});
+    const recs=[];
+    picked.forEach(it=>{
+     if(it.driveId)recs.push({type:'drive',driveId:it.driveId,name:it.title,kind:it.kind||'image'});
+     else if(it.file)recs.push({name:it.title,blob:it.file});
+     else if(it.img)recs.push({type:'url',url:it.img,name:it.title,kind:'image'});
+    });
+    await bridgePutRecs(await bridgeDB(),recs);
     sel.clear();paintGrid();
     stat('🚀 '+picked.length+' sent — open the Launcher, they land in Media automatically');
    }catch(e){stat('⚠ '+e.message)}
@@ -5057,7 +5074,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    const bakSlots=JSON.stringify(state.slots),bakMeta=JSON.stringify(window.PX_SLOTMETA||{});
    const clean=n=>String(n||'ad').replace(/[^\w\-. ]+/g,'_').slice(0,60);
    let db=null;
-   if(!download)db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+   if(!download)db=await bridgeDB();
    let ok=0;
    for(let i=0;i<picked.length;i++){
     const it=picked[i];
@@ -5071,7 +5088,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
      const blob=await new Promise(r=>c.toBlob(r,'image/png'));
      const name=clean(it.title)+'_'+ACTIVE+'_'+state.aspect+'.png';
      if(download){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();await new Promise(r=>setTimeout(r,300))}
-     else await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').put({name,blob,t:Date.now()});t.oncomplete=res});
+     else await bridgePutRecs(db,[{name,blob}]);
      ok++;
     }catch(e){}
    }
@@ -5098,7 +5115,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    if(!on.length){mpMsg('tap the previews you like first');return}
    const bakSlots=JSON.stringify(state.slots),bakMeta=JSON.stringify(window.PX_SLOTMETA||{});
    let db=null;
-   if(!download)db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+   if(!download)db=await bridgeDB();
    let ok=0;
    for(let i=0;i<on.length;i++){
     mpMsg('full-res '+(i+1)+'/'+on.length+' · '+on[i].it.title.slice(0,30)+'…');
@@ -5108,7 +5125,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
      const blob=await new Promise(r=>c.toBlob(r,'image/png'));
      const name=mpClean(on[i].it.title)+'_'+on[i].f+'_'+state.aspect+'.png';
      if(download){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();await new Promise(r=>setTimeout(r,300))}
-     else await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').put({name,blob,t:Date.now()});t.oncomplete=res});
+     else await bridgePutRecs(db,[{name,blob}]);
      ok++;
     }catch(e){}
    }
@@ -5212,15 +5229,23 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
 
   /* ---------- boot: paint cache, then auto-resync in background ---------- */
   paintSources();paintGrid();
-  (async()=>{try{
+  /* the Launcher's leg of the bridge — same rules: delete the keys we took (never a
+     blanket clear, which eats anything that lands mid-drain) and drain live on the ping. */
+  let sbBusy=false;
+  async function drainStudioInbox(){
+   if(sbBusy)return;sbBusy=true;
+   try{
     const db=await new Promise((res,rej)=>{const r=indexedDB.open('studio_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-    const items=await new Promise(res=>{const out=[];const c=db.transaction('inbox').objectStore('inbox').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){out.push(cu.value);cu.continue()}else res(out)}});
-    if(items.length){
-      items.forEach((it,i)=>INBOX.push({title:it.name,file:new File([it.blob],it.name),thumb:null,key:'inbox_'+i+'_'+it.name}));
-      paintSources();paintGrid();stat(items.length+' photo(s) arrived from the Launcher');
-      await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').clear();t.oncomplete=res});
-    }
-  }catch(e){}})();
+    const items=await new Promise(res=>{const out=[];const c=db.transaction('inbox').objectStore('inbox').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){out.push({key:cu.key,v:cu.value});cu.continue()}else res(out)}});
+    if(!items.length)return;
+    items.forEach(({key,v:it},i)=>INBOX.push({title:it.name,file:new File([it.blob],it.name),thumb:null,key:'inbox_'+key+'_'+it.name}));
+    await new Promise(res=>{const t=db.transaction('inbox','readwrite');const st=t.objectStore('inbox');items.forEach(x=>st.delete(x.key));t.oncomplete=res});
+    bridgeLogAdd(items.map(x=>({t:Date.now(),ev:'imported',name:x.v.name,size:x.v.blob?x.v.blob.size:0,why:'launcher \u2192 studio',from:'studio'})));
+    paintSources();paintGrid();stat(items.length+' photo(s) arrived from the Launcher');
+   }catch(e){}finally{sbBusy=false}
+  }
+  drainStudioInbox();
+  window.addEventListener('storage',e=>{if(e.key==='studio_bridge_ping')drainStudioInbox()});
   (async()=>{
    try{const rows=await idbAll();
     for(const r of rows){const f={key:r.key,name:r.handle.name,handle:r.handle,files:[],last:0,stale:true};FOLDERS.push(f);
@@ -5251,8 +5276,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
     if(typeof busyShow==='function'){busyShow('Sending to Launcher');busySet(.3)}
     const c=await capture(ACTIVE,3);
     const blob=await new Promise(r=>c.toBlob(r,'image/png'));
-    const db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-    await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').put({name:ACTIVE+'_'+state.aspect+'_'+Date.now()+'.png',blob:blob,t:Date.now()});t.oncomplete=res});
+    await bridgePutRecs(await bridgeDB(),[{name:ACTIVE+'_'+state.aspect+'_'+Date.now()+'.png',blob:blob}]);
     if(typeof busySet==='function')busySet(1,'Sent — open the Launcher, it lands in Media automatically');
    }catch(e){alert('Send to Launcher failed: '+e.message)}
    finally{if(typeof busyHide==='function')setTimeout(busyHide,900)}
@@ -6743,8 +6767,8 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
     var fl=(typeof filled==='function')?filled():[]; var n=Math.min(fl.length,24);
     if(!n){alert('Load some product photos first (Content Studio → sync a Playmore collection).');return;}
     if(typeof busyShow==='function'){busyShow('Generating '+n+' creatives → Launcher');busySet(.05);}
-    var db=await new Promise(function(res,rej){var r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=function(){r.result.createObjectStore('inbox',{autoIncrement:true})};r.onsuccess=function(){res(r.result)};r.onerror=function(){rej(r.error)}});
-    function put(rec){return new Promise(function(res){var t=db.transaction('inbox','readwrite');t.objectStore('inbox').put(rec);t.oncomplete=res});}
+    var db=await bridgeDB();
+    function put(rec){return bridgePutRecs(db,[rec]);}
     await put({preset:true,acct:ACCT,paused:true,t:Date.now()});
     var oldRot=state.rot;
     for(var r=0;r<n;r++){

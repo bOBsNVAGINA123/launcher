@@ -495,6 +495,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
       <button id="launchBtn" disabled onclick="launch()">LAUNCH</button>
     </div>
     <button id="consoleToggle" onclick="document.getElementById('console').classList.toggle('show')">Activity log ▾</button>
+    <button id="bridgeLogBtn" style="display:block;width:100%;text-align:left;padding:8px 22px;font-size:11.5px;color:var(--dim);border-top:1px solid var(--line)" onclick="document.getElementById('console').classList.add('show');bridgeLogShow()">Export log · what the Content Studio sent ▾</button>
     <div id="console"></div>
   </aside>
 </div>
@@ -2670,36 +2671,70 @@ gResume();
 gWarm();
 toggleNewAdset(); /* create-ad-set box open by default */
 paint();
-/* import creatives sent from the Content Studio */
-(async()=>{try{
-  const db=await new Promise((res,rej)=>{const r=indexedDB.open('launcher_bridge',1);r.onupgradeneeded=()=>r.result.createObjectStore('inbox',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-  const items=await new Promise(res=>{const out=[];const c=db.transaction('inbox').objectStore('inbox').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){out.push(cu.value);cu.continue()}else res(out)}});
-  if(items.length){
-    items.forEach(it=>{
-      if(it.preset){try{if(it.acct)localStorage.setItem('presetAcct',it.acct);}catch(e){}try{var ls=document.getElementById('launchStatus');if(ls&&it.paused!==false)ls.value='PAUSED';}catch(e){}return;}
+/* ============ Content Studio bridge ============
+   Drains the IndexedDB inbox. Runs at boot AND live — the Studio writes a
+   localStorage ping on every send, which fires a storage event in this tab.
+   Each record is deleted by its own key after it is handled, so anything the
+   Studio writes mid-drain survives instead of being wiped by a blanket clear(). */
+function bridgeLogAdd(rows){
+  try{const L=JSON.parse(localStorage.getItem('launcher_bridge_log')||'[]');
+    rows.forEach(r=>L.push(r));
+    localStorage.setItem('launcher_bridge_log',JSON.stringify(L.slice(-400)));}catch(e){}
+}
+function bridgeLogShow(){
+  let L=[];try{L=JSON.parse(localStorage.getItem('launcher_bridge_log')||'[]')}catch(e){}
+  if(!L.length){log('Export log is empty — nothing has been sent from the Content Studio yet.');return}
+  const sent=L.filter(r=>r.ev==='sent').length,imp=L.filter(r=>r.ev==='imported').length,skip=L.filter(r=>r.ev!=='sent'&&r.ev!=='imported').length;
+  log('— Export log · '+sent+' sent · '+imp+' imported · '+skip+' skipped —');
+  L.slice(-60).forEach(r=>{
+    const ts=new Date(r.t||0).toLocaleString();
+    const kb=r.size?' · '+Math.round(r.size/1024)+'KB':'';
+    log(ts+'  '+(r.ev||'?').toUpperCase().padEnd(8)+' '+(r.name||'?')+kb+(r.why?' — '+r.why:''),r.ev==='imported'?'ok':(r.ev==='sent'?'':'err'));
+  });
+}
+let bridgeBusy=false;
+async function drainBridge(){
+  if(bridgeBusy)return;bridgeBusy=true;
+  try{
+    const db=await bridgeDB('launcher_bridge');
+    const items=await new Promise(res=>{const out=[];const c=db.transaction('inbox').objectStore('inbox').openCursor();c.onsuccess=()=>{const cu=c.result;if(cu){out.push({key:cu.key,v:cu.value});cu.continue()}else res(out)}});
+    if(!items.length)return;
+    const rows=[],done=[];let added=0;
+    const note=(it,ev,why)=>rows.push({t:Date.now(),ev:ev,name:it.name||(it.preset?'(launcher preset)':'(untitled)'),size:it.blob?it.blob.size:0,why:why||'',from:'launcher'});
+    items.forEach(({key,v:it})=>{
+      done.push(key);
+      if(it.preset){try{if(it.acct)localStorage.setItem('presetAcct',it.acct);}catch(e){}try{var ls=document.getElementById('launchStatus');if(ls&&it.paused!==false)ls.value='PAUSED';}catch(e){}note(it,'imported','account preset');return;}
       if(it.type==='drive'&&it.driveId){
-        if(S.media.some(x=>x.driveId===it.driveId))return;
-        S.media.push({kind:it.kind||'image',src:'drive',driveId:it.driveId,url:driveDirect(it.driveId),name:it.name,link:'',adName:(it.name||'').replace(/\.[^.]+$/,''),target:''});return;
+        if(S.media.some(x=>x.driveId===it.driveId)){note(it,'skipped','already in Media');return}
+        S.media.push({kind:it.kind||'image',src:'drive',driveId:it.driveId,url:driveDirect(it.driveId),name:it.name,link:'',adName:(it.name||'').replace(/\.[^.]+$/,''),target:''});added++;note(it,'imported');return;
       }
       if(it.type==='url'&&it.url){
-        if(S.media.some(x=>x.url===it.url))return;
-        S.media.push({kind:'image',src:'drive',url:it.url,name:it.name||'image',preview:it.url,link:'',adName:(it.name||'image').replace(/\.[^.]+$/,''),target:''});return;
+        if(S.media.some(x=>x.url===it.url)){note(it,'skipped','already in Media');return}
+        S.media.push({kind:'image',src:'drive',url:it.url,name:it.name||'image',preview:it.url,link:'',adName:(it.name||'image').replace(/\.[^.]+$/,''),target:''});added++;note(it,'imported');return;
       }
-      if(!it.blob)return;
+      if(!it.blob){note(it,'dropped','no file in the record');return}
       /* videos from the Content Studio arrive here too - detect kind from name/blob type instead of forcing image/png */
       const bk=kindOf(it.name,it.blob.type||'')||'image';
       const bt=it.blob.type||(bk==='video'?'video/mp4':'image/png');
       const f=new File([it.blob],it.name,{type:bt});
-      if(S.media.some(x=>x.name===it.name))return;
+      if(S.media.some(x=>x.name===it.name)){note(it,'skipped','a file with this name is already in Media');return}
       /* the catalog grid ships a product URL + ad name with each render — keep them */
       const rec={kind:bk,src:'local',file:f,name:it.name,size:f.size,link:it.link||'',adName:it.adName||it.name.replace(/\.[^.]+$/,''),target:''};
       if(bk==='image')rec.preview=URL.createObjectURL(f);
-      S.media.push(rec);});
-    sortMedia();renderMedia();paint();
-    log(items.length+' creative(s) imported from Content Studio','ok');
-    await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').clear();t.oncomplete=res});
-  }
-}catch(e){}})();
+      S.media.push(rec);added++;note(it,'imported');
+    });
+    /* only the keys we actually handled — never a blanket clear() */
+    await new Promise(res=>{const t=db.transaction('inbox','readwrite');const st=t.objectStore('inbox');done.forEach(k=>st.delete(k));t.oncomplete=res});
+    bridgeLogAdd(rows);
+    if(added){sortMedia();renderMedia();paint();}
+    const sk=rows.filter(r=>r.ev!=='imported').length;
+    log(added+' creative(s) imported from Content Studio'+(sk?' · '+sk+' skipped (Activity log → Export log)':''),added?'ok':'err');
+  }catch(e){log('Content Studio import failed: '+e.message,'err')}
+  finally{bridgeBusy=false}
+}
+drainBridge();
+window.addEventListener('storage',e=>{if(e.key==='launcher_bridge_ping')drainBridge()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)drainBridge()});
 /* import media queued in the local Content Miner (content-miner/app.py on :8765) */
 (async()=>{try{
   const r=await fetch('http://localhost:8765/api/bridge/take');if(!r.ok)return;
@@ -3084,7 +3119,9 @@ async function editMedia(i){
       if(!blob&&m.driveId) blob=await proxyFetchBlob('https://drive.google.com/thumbnail?id='+m.driveId+'&sz=w2000');
       if(!blob){log('No image data to edit','err');return}
       const db=await bridgeDB('studio_bridge');
-      await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').put({name:m.name,blob});t.oncomplete=res});
+      await new Promise(res=>{const t=db.transaction('inbox','readwrite');t.objectStore('inbox').put({name:m.name,blob,t:Date.now()});t.oncomplete=res});
+      bridgeLogAdd([{t:Date.now(),ev:'sent',name:m.name,size:blob.size||0,why:'launcher \u2192 studio',from:'launcher'}]);
+      try{localStorage.setItem('studio_bridge_ping',String(Date.now()))}catch(e){}
       log('"'+m.name+'" sent to the Content Studio — open Content Studio (left menu) and it lands in the Synced library automatically','ok');
       alert('Sent to Content Studio ✓\\nOpen the Content Studio (left menu) — the photo is waiting in the Synced library.');
     }catch(e){log('Send failed: '+e.message,'err')}
