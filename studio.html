@@ -4783,10 +4783,11 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
     for(const p of PROX){try{const r=await fetch(p(api));if(r.ok){j=await r.json();break}last=new Error('HTTP '+r.status)}catch(e){last=e}}
     if(!j)throw last||new Error('Could not read that product');
     const price=(j.variants&&j.variants[0]&&j.variants[0].price!=null)?String(Math.round(j.variants[0].price)/100):'';
+    const cmp=(j.variants&&j.variants[0]&&j.variants[0].compare_at_price!=null)?String(Math.round(j.variants[0].compare_at_price)/100):'';
     const raw=(j.images||[]).map(im=>/^\/\//.test(im)?'https:'+im:im).filter(Boolean);
     const imgs=raw.map(hiRes);
     if(!imgs.length)throw new Error('Product loaded but has no images');
-    const prods=imgs.map((u2,k)=>({title:j.title+(imgs.length>1?' \u00b7 '+(k+1):''),price,img:u2,fb:raw[k],img2:imgs[k+1]||''}));
+    const prods=imgs.map((u2,k)=>({title:j.title+(imgs.length>1?' \u00b7 '+(k+1):''),price,cmp,img:u2,fb:raw[k],img2:imgs[k+1]||''}));
     return {url,origin,handle:'product_'+handle,name:'\ud83d\udecd '+j.title,products:prods,last:Date.now()};
    }
    const m=url.match(/^(https?:\/\/[^\/]+)\/.*?collections\/([\w\-\.%]+)/i)||url.match(/^(https?:\/\/[^\/]+)\/?$/);
@@ -4801,13 +4802,14 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
     const batch=[];
     (j.products||[]).forEach(p=>{
      const price=(p.variants&&p.variants[0]&&p.variants[0].price)||'';
+     const cmp=(p.variants&&p.variants[0]&&p.variants[0].compare_at_price)||'';
      const raw=(p.images||[]).map(im=>im.src).filter(Boolean);
      const imgs=raw.map(hiRes);
      if(!imgs.length)return;
      if(ALLIMG){
-      imgs.forEach((u,k)=>batch.push({title:p.title+(imgs.length>1?' \u00b7 '+(k+1):''),price,img:u,fb:raw[k],img2:imgs[k+1]||''}));
+      imgs.forEach((u,k)=>batch.push({title:p.title+(imgs.length>1?' \u00b7 '+(k+1):''),price,cmp,img:u,fb:raw[k],img2:imgs[k+1]||''}));
      }else{
-      batch.push({title:p.title,price,img:imgs[0],fb:raw[0],img2:imgs[1]||''});
+      batch.push({title:p.title,price,cmp,img:imgs[0],fb:raw[0],img2:imgs[1]||''});
      }
     });
     prods=prods.concat(batch);
@@ -4865,7 +4867,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    try{state.slots[t].disp=await makeThumb(data)}catch(e){state.slots[t].disp=data}
    try{const c=await sampleColor(data);if(c)state.slotColors[t]=c}catch(e){}
    if(item.title&&!item.file){window.PX_SLOTMETA=window.PX_SLOTMETA||{};
-    window.PX_SLOTMETA[t]={t:item.title.replace(/\s*·\s*\d+$/,''),p:item.price||'',dims:{},d:''}}
+    window.PX_SLOTMETA[t]={t:item.title.replace(/\s*·\s*\d+$/,''),p:item.price||'',c:item.cmp||'',dims:{},d:''}}
   }
 
   /* ---------- folders (File System Access API) ---------- */
@@ -4914,7 +4916,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   function items(){
    const q=(document.getElementById('sySearch').value||'').toLowerCase();
    const out=[];
-   COLS.forEach(c=>{if(!enOn('col_'+c.handle))return;c.products.forEach(p=>{if(!q||p.title.toLowerCase().indexOf(q)>=0)out.push({title:p.title,img:p.img,thumb:p.img,kind:p.kind||'image',driveId:p.driveId||null,price:p.price||'',img2:p.img2||'',fb:p.fb||null,key:'c'+c.handle+(p.driveId||p.img)})})});
+   COLS.forEach(c=>{if(!enOn('col_'+c.handle))return;c.products.forEach(p=>{if(!q||p.title.toLowerCase().indexOf(q)>=0)out.push({title:p.title,img:p.img,thumb:p.img,kind:p.kind||'image',driveId:p.driveId||null,price:p.price||'',cmp:p.cmp||'',img2:p.img2||'',fb:p.fb||null,key:'c'+c.handle+(p.driveId||p.img)})})});
    if(enOn('inbox'))INBOX.forEach(it=>{if(!q||it.title.toLowerCase().indexOf(q)>=0)out.push(it)});
    FOLDERS.forEach(f=>{if(!enOn('fol_'+f.key))return;(f.files||[]).forEach(fl=>{if(!q||fl.name.toLowerCase().indexOf(q)>=0)out.push({title:fl.name,file:fl,thumb:null,key:'f'+f.key+fl.name+fl.size})})});
    return out;
@@ -5001,7 +5003,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    state.slots[1].src=d;state.slots[1].disp=d;
    if(d2){state.slots[2].src=d2;state.slots[2].disp=d2}
    window.PX_SLOTMETA=window.PX_SLOTMETA||{};
-   const meta={t:(it.title||'').replace(/\s*\u00b7\s*\d+$/,''),p:it.price||'',dims:{},d:''};
+   const meta={t:(it.title||'').replace(/\s*\u00b7\s*\d+$/,''),p:it.price||'',c:it.cmp||'',dims:{},d:''};
    window.PX_SLOTMETA[1]=meta;window.PX_SLOTMETA[2]=meta;
    try{const c0=await sampleColor(d);if(c0)state.slotColors[1]=c0}catch(e){}
   }
@@ -6732,5 +6734,154 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
  if(document.readyState==='complete')setTimeout(init,1200); else window.addEventListener('load',function(){setTimeout(init,1200);});
 })();
 </script>
+<script>
+/* ===== v19 patch: SALE formats — price / compare-at price / discount read straight off the synced link ===== */
+(function(){
+ if(typeof FORMATS==='undefined'||typeof stageHTMLraw!=='function')return;
+ var CUR=' LE';
+ var NEW={sl_split:'Sale · Split Detail',sl_tag:'Sale · Price Tag',sl_slash:'Sale · Was → Now',
+          sl_burst:'Sale · % Burst',sl_ticket:'Sale · Coupon Ticket',sl_stack:'Sale · Deal Stack'};
+ for(var k in NEW){FORMATS[k]={label:NEW[k]};if(typeof POOL!=='undefined')POOL[k]='photo';}
+ if(typeof LAYOUTP!=='undefined'){
+  LAYOUTP.sl_split={min:38,max:64,def:48,lbl:'panel width'};
+  LAYOUTP.sl_tag={min:44,max:76,def:58,lbl:'tag size'};
+  LAYOUTP.sl_slash={min:40,max:70,def:56,lbl:'photo height'};
+  LAYOUTP.sl_burst={min:26,max:48,def:36,lbl:'burst size'};
+  LAYOUTP.sl_ticket={min:52,max:84,def:68,lbl:'ticket size'};
+  LAYOUTP.sl_stack={min:30,max:52,def:40,lbl:'tiles size'};
+ }
+
+ /* ---- price detection: PX_SLOTMETA.p = price, .c = compare-at (both injected by the store sync) ---- */
+ function n2(v){var n=parseFloat(String(v==null?'':v).replace(/[^0-9.]/g,''));return isFinite(n)&&n>0?n:0}
+ function gr(n){return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',')}
+ function deal(def){
+  var fl=filled(),i=(typeof slotFor==='function'?slotFor(def||1):(def||1)),M=window.PX_SLOTMETA||{};
+  var m=M[i]||M[fl[0]]||{},now=n2(m.p),was=n2(m.c);
+  if(was&&now&&was<now){var t=was;was=now;now=t}
+  if(!now&&!was)return{t:m.t||'',now:'499'+CUR,was:'1,599'+CUR,off:'69% OFF',save:'SAVE 1,100'+CUR,pct:69};
+  var on=was>now;
+  return{t:m.t||'',now:gr(now)+CUR,was:on?gr(was)+CUR:'',off:on?Math.round((was-now)/was*100)+'% OFF':'',
+         save:on?'SAVE '+gr(was-now)+CUR:'',pct:on?Math.round((was-now)/was*100):0};
+ }
+
+ var _sale=stageHTMLraw;
+ stageHTMLraw=function(f){
+  if(!NEW[f])return _sale.apply(this,arguments);
+  var a=state.aspect,W=DIMS[a][0],H=DIMS[a][1];
+  var open='<div class="stage" data-w="'+W+'" data-h="'+H+'" style="width:'+W+'px;height:'+H+'px;';
+  function P(role,def,style){return C(f,role,def,style,true,0)}
+  function L(d){return (typeof lay==='function'?lay(f):d)}
+  var d=deal(1);
+
+  /* 1) SPLIT DETAIL — white spec panel + full-bleed macro crop (ONEFOURONE layout) */
+  if(f==='sl_split'){
+   var pw=Math.round(W*L(48)/100),pad=Math.round(W*0.055),iw=pw-pad*2;
+   return open+'background:'+surf(f,'bg','#ffffff')+'">'
+    +'<div style="position:absolute;left:'+pw+'px;top:0;width:'+(W-pw)+'px;height:'+H+'px;overflow:hidden">'+P('det',2,'position:absolute;inset:0')+'</div>'
+    +CAP(f,'brand','OURKIDS®','left:'+pad+'px;top:'+Math.round(H*0.055)+'px;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(W*0.033)+'px;letter-spacing:-.01em;color:#111')
+    +'<div style="position:absolute;left:'+pad+'px;top:'+Math.round(H*0.14)+'px;width:'+iw+'px;height:'+Math.round(H*0.33)+'px;overflow:hidden">'+P('bg',1,'position:absolute;inset:0')+'</div>'
+    +CAP(f,'nm',d.t||'Everyday\nBlue Linen Shirt','left:'+pad+'px;top:'+Math.round(H*0.53)+'px;width:'+iw+'px;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.047)+'px;line-height:1.2;color:#111')
+    +'<div style="position:absolute;left:'+pad+'px;top:'+Math.round(H*0.655)+'px;border:'+Math.max(3,Math.round(W*0.005))+'px solid #111;border-radius:100px;padding:'+Math.round(W*0.016)+'px '+Math.round(W*0.05)+'px;z-index:6">'
+     +CAP(f,'pnow',d.now,'position:relative;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(W*0.075)+'px;letter-spacing:-.02em;color:#111')+'</div>'
+    +(d.was?CAP(f,'pwas',d.was,'left:'+pad+'px;top:'+Math.round(H*0.755)+'px;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(W*0.05)+'px;text-decoration:line-through;color:#111'):'')
+    +CAP(f,'site','OURKIDS.COM','left:'+pad+'px;top:'+Math.round(H*0.92)+'px;font-family:\'DM Sans\',sans-serif;font-weight:500;font-size:'+Math.round(W*0.026)+'px;letter-spacing:.05em;color:#111')
+    +'</div>';
+  }
+
+  /* 2) PRICE TAG — full-bleed photo, tilted hang-tag, round % badge */
+  if(f==='sl_tag'){
+   var tw=Math.round(W*L(58)/100),th=Math.round(tw*0.62),tx=Math.round(W*0.07),ty=H-th-Math.round(H*0.09),bd=Math.round(W*0.22);
+   return open+'background:#ddd">'+P('bg',1,'position:absolute;inset:0')
+    +'<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.38) 0%,rgba(0,0,0,0) 38%,rgba(0,0,0,.42) 100%)"></div>'
+    +CAP(f,'aff','SALE','left:0;top:'+Math.round(H*0.05)+'px;width:'+W+'px;justify-content:center;text-align:center;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(W*0.12)+'px;letter-spacing:.12em;color:#fff')
+    +(d.pct?'<div style="position:absolute;left:'+Math.round(W*0.71)+'px;top:'+Math.round(H*0.17)+'px;width:'+bd+'px;height:'+bd+'px;border-radius:50%;background:'+surf(f,'acc','#e0352b')+';z-index:6">'
+      +CAP(f,'poff',d.pct+'%\nOFF','left:0;top:'+Math.round(bd*0.24)+'px;width:'+bd+'px;justify-content:center;text-align:center;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(bd*0.25)+'px;line-height:1.05;color:#fff')+'</div>':'')
+    +'<div style="position:absolute;left:'+tx+'px;top:'+ty+'px;width:'+tw+'px;height:'+th+'px;background:#fff;border-radius:'+Math.round(tw*0.05)+'px;box-shadow:0 18px 50px rgba(0,0,0,.32);transform:rotate(-3deg);z-index:7">'
+     +'<div style="position:absolute;left:'+Math.round(tw*0.06)+'px;top:'+Math.round(th*0.5-tw*0.028)+'px;width:'+Math.round(tw*0.056)+'px;height:'+Math.round(tw*0.056)+'px;border-radius:50%;border:2px solid #111"></div>'
+     +CAP(f,'nm',d.t||'Everyday Linen Shirt','left:'+Math.round(tw*0.18)+'px;top:'+Math.round(th*0.13)+'px;width:'+Math.round(tw*0.76)+'px;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(tw*0.058)+'px;color:#111')
+     +CAP(f,'pnow',d.now,'left:'+Math.round(tw*0.18)+'px;top:'+Math.round(th*0.33)+'px;font-family:\'Anton\',sans-serif;font-size:'+Math.round(tw*0.19)+'px;letter-spacing:-.01em;color:#111')
+     +(d.was?CAP(f,'pwas',d.was,'left:'+Math.round(tw*0.18)+'px;top:'+Math.round(th*0.73)+'px;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(tw*0.065)+'px;text-decoration:line-through;color:#8a8a8a'):'')
+     +(d.save?CAP(f,'psave',d.save,'left:'+Math.round(tw*0.55)+'px;top:'+Math.round(th*0.75)+'px;width:'+Math.round(tw*0.39)+'px;justify-content:flex-end;text-align:right;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(tw*0.052)+'px;color:'+surf(f,'acc','#e0352b')):'')
+    +'</div></div>';
+  }
+
+  /* 3) WAS -> NOW — photo band over a solid price block */
+  if(f==='sl_slash'){
+   var ph=Math.round(H*L(56)/100),acc=surf(f,'acc','#111111');
+   return open+'background:'+acc+'">'
+    +'<div style="position:absolute;left:0;top:0;width:'+W+'px;height:'+ph+'px;overflow:hidden">'+P('bg',1,'position:absolute;inset:0')+'</div>'
+    +CAP(f,'hl',d.off||'SALE','left:0;top:'+(ph+Math.round(H*0.035))+'px;width:'+W+'px;justify-content:center;text-align:center;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(W*0.10)+'px;letter-spacing:.02em;color:#fff')
+    +(d.was?CAP(f,'pwas',d.was,'left:0;top:'+(ph+Math.round(H*0.115))+'px;width:'+W+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.055)+'px;text-decoration:line-through;color:rgba(255,255,255,.6)'):'')
+    +CAP(f,'pnow',d.now,'left:0;top:'+(ph+Math.round(H*0.155))+'px;width:'+W+'px;justify-content:center;text-align:center;font-family:\'Anton\',sans-serif;font-size:'+Math.round(W*0.185)+'px;color:#fff')
+    +CAP(f,'nm',d.t||'','left:'+Math.round(W*0.1)+'px;top:'+(ph+Math.round(H*0.275))+'px;width:'+Math.round(W*0.8)+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:500;font-size:'+Math.round(W*0.034)+'px;color:rgba(255,255,255,.82)')
+    +'<div style="position:absolute;left:'+Math.round(W*0.28)+'px;top:'+Math.round(H*0.885)+'px;width:'+Math.round(W*0.44)+'px;background:#fff;border-radius:100px;padding:'+Math.round(W*0.02)+'px 0;z-index:6">'
+     +CAP(f,'cta','SHOP NOW','position:relative;width:100%;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;letter-spacing:.1em;font-size:'+Math.round(W*0.034)+'px;color:#111')+'</div>'
+    +'</div>';
+  }
+
+  /* 4) % BURST — starburst badge over the photo, price strip at the foot */
+  if(f==='sl_burst'){
+   var bd2=Math.round(W*L(36)/100),bx=Math.round(W*0.58),by=Math.round(H*0.09),acc2=surf(f,'acc','#ffd400'),sh=Math.round(H*0.16);
+   var star='';
+   [45,22].forEach(function(deg){star+='<div style="position:absolute;left:'+bx+'px;top:'+by+'px;width:'+bd2+'px;height:'+bd2+'px;background:'+acc2+';transform:rotate('+deg+'deg);z-index:5"></div>'});
+   return open+'background:#ddd">'+P('bg',1,'position:absolute;inset:0')+star
+    +'<div style="position:absolute;left:'+bx+'px;top:'+by+'px;width:'+bd2+'px;height:'+bd2+'px;border-radius:50%;background:'+acc2+';z-index:6">'
+     +CAP(f,'poff',(d.pct?d.pct+'%':'SALE')+'\nOFF','left:0;top:'+Math.round(bd2*0.26)+'px;width:'+bd2+'px;justify-content:center;text-align:center;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(bd2*0.23)+'px;line-height:1.05;color:#111')+'</div>'
+    +'<div style="position:absolute;left:0;top:'+(H-sh)+'px;width:'+W+'px;height:'+sh+'px;background:#fff;z-index:6">'
+     +CAP(f,'nm',d.t||'Everyday Linen Shirt','left:'+Math.round(W*0.06)+'px;top:'+Math.round(sh*0.34)+'px;width:'+Math.round(W*0.48)+'px;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.038)+'px;color:#111')
+     +CAP(f,'pnow',d.now,'left:'+Math.round(W*0.56)+'px;top:'+Math.round(sh*0.18)+'px;width:'+Math.round(W*0.38)+'px;justify-content:flex-end;text-align:right;font-family:\'Anton\',sans-serif;font-size:'+Math.round(W*0.085)+'px;color:#111')
+     +(d.was?CAP(f,'pwas',d.was,'left:'+Math.round(W*0.56)+'px;top:'+Math.round(sh*0.66)+'px;width:'+Math.round(W*0.38)+'px;justify-content:flex-end;text-align:right;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.034)+'px;text-decoration:line-through;color:#8a8a8a'):'')
+    +'</div></div>';
+  }
+
+  /* 5) COUPON TICKET — perforated voucher, save amount on the stub */
+  if(f==='sl_ticket'){
+   var cw=Math.round(W*L(68)/100),ch=Math.round(cw*1.26),cx=Math.round((W-cw)/2),cy=Math.round((H-ch)/2),
+       half=Math.round(ch*0.52),nr=Math.round(cw*0.07),bg=surf(f,'bg','#0f5132');
+   return open+'background:'+bg+'">'
+    +CAP(f,'aff','LIMITED TIME','left:0;top:'+Math.max(10,cy-Math.round(H*0.055))+'px;width:'+W+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;letter-spacing:.24em;font-size:'+Math.round(W*0.03)+'px;color:rgba(255,255,255,.85)')
+    +'<div style="position:absolute;left:'+cx+'px;top:'+cy+'px;width:'+cw+'px;height:'+ch+'px;background:#fdfbf5;border-radius:'+Math.round(cw*0.045)+'px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.32);z-index:6">'
+     +'<div style="position:absolute;left:0;top:0;width:'+cw+'px;height:'+half+'px;overflow:hidden">'+P('bg',1,'position:absolute;inset:0')+'</div>'
+     +'<div style="position:absolute;left:'+Math.round(cw*0.06)+'px;width:'+Math.round(cw*0.88)+'px;top:'+half+'px;height:0;border-top:3px dashed #cbc4b4"></div>'
+     +CAP(f,'nm',d.t||'Everyday Linen Shirt','left:0;top:'+(half+Math.round(ch*0.05))+'px;width:'+cw+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(cw*0.055)+'px;color:#1b1b1b')
+     +CAP(f,'pnow',d.now,'left:0;top:'+(half+Math.round(ch*0.11))+'px;width:'+cw+'px;justify-content:center;text-align:center;font-family:\'Anton\',sans-serif;font-size:'+Math.round(cw*0.185)+'px;color:#1b1b1b')
+     +(d.was?CAP(f,'pwas',d.was,'left:0;top:'+(half+Math.round(ch*0.28))+'px;width:'+cw+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(cw*0.058)+'px;text-decoration:line-through;color:#9a948a'):'')
+     +(d.save?'<div style="position:absolute;left:'+Math.round(cw*0.18)+'px;top:'+(half+Math.round(ch*0.35))+'px;width:'+Math.round(cw*0.64)+'px;background:'+bg+';border-radius:100px;padding:'+Math.round(cw*0.026)+'px 0">'
+       +CAP(f,'psave',d.save,'position:relative;width:100%;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;letter-spacing:.08em;font-size:'+Math.round(cw*0.045)+'px;color:#fff')+'</div>':'')
+    +'</div>'
+    +'<div style="position:absolute;left:'+Math.round(cx-nr/2)+'px;top:'+Math.round(cy+half-nr/2)+'px;width:'+nr+'px;height:'+nr+'px;border-radius:50%;background:'+bg+';z-index:7"></div>'
+    +'<div style="position:absolute;left:'+Math.round(cx+cw-nr/2)+'px;top:'+Math.round(cy+half-nr/2)+'px;width:'+nr+'px;height:'+nr+'px;border-radius:50%;background:'+bg+';z-index:7"></div>'
+    +'</div>';
+  }
+
+  /* 6) DEAL STACK — three products, each with its OWN detected was/now */
+  if(f==='sl_stack'){
+   var pad2=Math.round(W*0.05),gap=Math.round(W*0.028),cwv=Math.round((W-pad2*2-gap*2)/3),
+       chv=Math.round(cwv*L(40)/34),topH=Math.round(H*0.5-chv*0.42),tiles='',best=0;
+   for(var q=0;q<3;q++){var dq=deal(q+1);if(dq.pct>best)best=dq.pct;
+    var lx=pad2+q*(cwv+gap);
+    tiles+='<div style="position:absolute;left:'+lx+'px;top:'+topH+'px;width:'+cwv+'px;height:'+chv+'px;overflow:hidden;background:#e9e5dc">'+P('t'+(q+1),q+1,'position:absolute;inset:0')+'</div>'
+     +CAP(f,'n'+(q+1),dq.t||'Product '+(q+1),'left:'+lx+'px;top:'+(topH+chv+Math.round(H*0.014))+'px;width:'+cwv+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:500;font-size:'+Math.round(W*0.024)+'px;color:#555')
+     +CAP(f,'p'+(q+1),dq.now,'left:'+lx+'px;top:'+(topH+chv+Math.round(H*0.042))+'px;width:'+cwv+'px;justify-content:center;text-align:center;font-family:\'Anton\',sans-serif;font-size:'+Math.round(W*0.055)+'px;color:#111')
+     +(dq.was?CAP(f,'w'+(q+1),dq.was,'left:'+lx+'px;top:'+(topH+chv+Math.round(H*0.078))+'px;width:'+cwv+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.026)+'px;text-decoration:line-through;color:#9a9a9a'):'');
+   }
+   return open+'background:'+surf(f,'bg','#f4f1ea')+'">'
+    +CAP(f,'hl','SALE','left:0;top:'+Math.round(H*0.06)+'px;width:'+W+'px;justify-content:center;text-align:center;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(W*0.13)+'px;letter-spacing:.04em;color:#111')
+    +CAP(f,'aff',best?'UP TO '+best+'% OFF':'NEW PRICES','left:0;top:'+Math.round(H*0.175)+'px;width:'+W+'px;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;letter-spacing:.18em;font-size:'+Math.round(W*0.03)+'px;color:'+surf(f,'acc','#e0352b'))
+    +tiles
+    +'<div style="position:absolute;left:'+Math.round(W*0.26)+'px;top:'+Math.round(H*0.88)+'px;width:'+Math.round(W*0.48)+'px;background:#111;border-radius:100px;padding:'+Math.round(W*0.02)+'px 0;z-index:6">'
+     +CAP(f,'cta','SHOP THE SALE','position:relative;width:100%;justify-content:center;text-align:center;font-family:\'DM Sans\',sans-serif;font-weight:700;letter-spacing:.1em;font-size:'+Math.round(W*0.032)+'px;color:#fff')+'</div>'
+    +'</div>';
+  }
+  return _sale.apply(this,arguments);
+ };
+
+ function _rebuild(){try{if(typeof buildFmtList==='function')buildFmtList()}catch(e){}}
+ if(document.readyState==='complete')_rebuild();
+ window.addEventListener('load',function(){setTimeout(_rebuild,400);setTimeout(_rebuild,1500)});
+ setTimeout(_rebuild,1700);
+})();
+</script>
+
 </body>
 </html>
