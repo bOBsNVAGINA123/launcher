@@ -180,7 +180,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
   <nav id="steps">
     <div id="logo">LAUNCH<span>ER</span></div>
     <div id="syncState">not synced</div>
-    <div id="buildStamp" style="font-size:9.5px;color:var(--dim);letter-spacing:.02em;margin-top:2px" title="if this is older than the fix you were told about, you are on a cached tab — hard reload">build 15 Sep 20:31</div>
+    <div id="buildStamp" style="font-size:9.5px;color:var(--dim);letter-spacing:.02em;margin-top:2px" title="if this is older than the fix you were told about, you are on a cached tab — hard reload">build 15 Sep 20:36</div>
     <div id="lastSync" style="padding:0 22px 8px;font-size:11px;color:var(--dim)"></div>
     <div style="padding:0 22px 16px"><label>Ad account</label><select id="acctSel" onchange="pickAccount()" style="font-size:13px"><option value="">Syncing…</option></select>
       <button class="btn" style="width:100%;margin-top:8px;font-size:12.5px" onclick="openSettings()">⚙ Settings — sign in / paste token</button></div>
@@ -733,6 +733,9 @@ function openSettings(){
   document.getElementById('modal').classList.add('show');
 }
 function closeSettings(){document.getElementById('modal').classList.remove('show')}
+/* auto-opened on boot and on an expired token, i.e. on EVERY load once the token is gone —
+   the modal covers the app, so ask once per tab; Settings in the left rail is always there */
+function nagSignIn(){if(sessionStorage.getItem('sawSignIn'))return;sessionStorage.setItem('sawSignIn','1');openSettings()}
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeSettings()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSettings()});
 function saveSettings(){
@@ -2665,7 +2668,7 @@ async function whoAmI(){
     if(/expired|invalid|2500|190/i.test(e.message)){
       log('Session expired. Settings → sign in again when you need to launch.','err');
       cfg.meta='';
-      if(!sessionStorage.getItem('sawExpired')){sessionStorage.setItem('sawExpired','1');openSettings()}
+      nagSignIn();
     }
   }
 }
@@ -2785,7 +2788,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)drainBridg
 }catch(e){}})();
 /* auto-recheck saved Drive folders */
 if((cfg.driveFolders||[]).length) setTimeout(()=>importDrive(true),800);
-if(cfg.meta){whoAmI().then(syncAll)} else {setTimeout(()=>{log('Hit Continue with Facebook to load everything','busy');openSettings()},400)}
+if(cfg.meta){whoAmI().then(syncAll)} else {setTimeout(()=>{log('Hit Continue with Facebook to load everything','busy');nagSignIn()},400)}
 </script>
 
 <script>
