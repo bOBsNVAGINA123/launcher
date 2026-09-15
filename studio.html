@@ -4907,19 +4907,23 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    +'<div style="display:flex;gap:6px;margin-bottom:6px"><button id="syMarpipe" class="btn ghost" style="flex:1;border-color:#d17ecf">🧪 Marpipe replica — preview product × design grid</button></div>'
    +'<label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#aeb4bf;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="syAllImg"> pull <b>every</b> image per product (not just the first)</label>'
    +'<div id="syGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;max-height:230px;overflow:auto;padding-right:3px"></div>'
+   +'<div id="syExcl" style="font-size:10px;margin:5px 0 0;min-height:12px"></div>'
    +'<div id="syStatus" style="font-size:10px;color:#8b8470;margin:6px 0 2px;min-height:12px"></div>';
   const dh=document.getElementById('dhLib');
   slots.parentNode.insertBefore(box,dh||slots);
   const stat=m=>{document.getElementById('syStatus').textContent=m};
 
   let FILTER='';const ENABLED=new Set();const enOn=k=>!ENABLED.size||ENABLED.has(k);
+  /* products excluded from the library — hidden everywhere, because items() feeds every button */
+  const HIDE=new Set(JSON.parse(localStorage.getItem('sy_hidden')||'[]'));let SHOWHID=false;
+  const saveHide=()=>localStorage.setItem('sy_hidden',JSON.stringify([...HIDE]));
   function items(){
    const q=(document.getElementById('sySearch').value||'').toLowerCase();
    const out=[];
    COLS.forEach(c=>{if(!enOn('col_'+c.handle))return;c.products.forEach(p=>{if(!q||p.title.toLowerCase().indexOf(q)>=0)out.push({title:p.title,img:p.img,thumb:p.img,kind:p.kind||'image',driveId:p.driveId||null,price:p.price||'',cmp:p.cmp||'',img2:p.img2||'',fb:p.fb||null,key:'c'+c.handle+(p.driveId||p.img)})})});
    if(enOn('inbox'))INBOX.forEach(it=>{if(!q||it.title.toLowerCase().indexOf(q)>=0)out.push(it)});
    FOLDERS.forEach(f=>{if(!enOn('fol_'+f.key))return;(f.files||[]).forEach(fl=>{if(!q||fl.name.toLowerCase().indexOf(q)>=0)out.push({title:fl.name,file:fl,thumb:null,key:'f'+f.key+fl.name+fl.size})})});
-   return out;
+   return SHOWHID?out:out.filter(it=>!HIDE.has(it.key));
   }
   const OURL=new Map();
   function thumbOf(it){if(it.thumb)return it.thumb;if(!OURL.has(it.key))OURL.set(it.key,URL.createObjectURL(it.file));return OURL.get(it.key)}
@@ -4943,12 +4947,27 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   function paintGrid(){
    SHOWN=items();
    const g=document.getElementById('syGrid');
-   g.innerHTML=SHOWN.slice(0,240).map((it,i)=>'<div class="syp" data-i="'+i+'" style="cursor:pointer;border:2px solid '+(sel.has(it.key)?'#7ea2ff':'transparent')+';border-radius:8px;background:#0d0e12;padding:3px;position:relative">'
+   g.innerHTML=SHOWN.slice(0,240).map((it,i)=>{const hid=HIDE.has(it.key);
+    return '<div class="syp" data-i="'+i+'" style="cursor:pointer;border:2px solid '+(sel.has(it.key)?'#7ea2ff':'transparent')+';border-radius:8px;background:#0d0e12;padding:3px;position:relative'+(hid?';opacity:.32':'')+'">'
     +(it.kind==='video'?'<span style="position:absolute;top:5px;left:5px;font-size:9px;background:rgba(0,0,0,.7);color:#fff;padding:1px 4px;border-radius:4px;z-index:1">🎬</span>':'')
+    +'<span class="syx" data-h="'+i+'" title="'+(hid?'put this product back':'exclude this product everywhere')+'" style="position:absolute;top:3px;right:3px;width:16px;height:16px;line-height:15px;text-align:center;font-size:11px;font-weight:700;background:rgba(0,0,0,.66);color:#fff;border-radius:5px;z-index:2">'+(hid?'↺':'×')+'</span>'
     +'<div style="height:52px;border-radius:5px;background:#0d0e12 center/cover;background-image:url(\''+thumbOf(it)+'\')"></div>'
-    +'<div style="font-size:9px;color:#aeb4bf;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+it.title+'</div></div>').join('')
+    +'<div style="font-size:9px;color:#aeb4bf;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+it.title+'</div></div>'}).join('')
     +(SHOWN.length>240?'<div style="grid-column:1/-1;font-size:10px;color:#6b7280;padding:4px">'+(SHOWN.length-240)+' more — use search</div>':'');
    g.querySelectorAll('.syp').forEach(el=>el.onclick=()=>{const it=SHOWN[+el.dataset.i];sel.has(it.key)?sel.delete(it.key):sel.add(it.key);paintGrid()});
+   g.querySelectorAll('.syx').forEach(el=>el.onclick=ev=>{ev.stopPropagation();const it=SHOWN[+el.dataset.h];
+    if(HIDE.has(it.key))HIDE.delete(it.key);else{HIDE.add(it.key);sel.delete(it.key)}
+    saveHide();paintGrid()});
+   paintExcl();
+  }
+  function paintExcl(){
+   const e=document.getElementById('syExcl');if(!e)return;
+   if(!HIDE.size){e.innerHTML='';return}
+   e.innerHTML='<span style="color:#8b8f98">'+HIDE.size+' product'+(HIDE.size>1?'s':'')+' excluded</span>'
+    +' · <span id="syShowHid" style="cursor:pointer;color:#7ea2ff">'+(SHOWHID?'hide them again':'show them')+'</span>'
+    +' · <span id="syClrHid" style="cursor:pointer;color:#c98">put all back</span>';
+   e.querySelector('#syShowHid').onclick=()=>{SHOWHID=!SHOWHID;paintGrid()};
+   e.querySelector('#syClrHid').onclick=()=>{HIDE.clear();saveHide();SHOWHID=false;paintGrid()};
   }
   document.getElementById('syToLauncher').onclick=async()=>{
    let picked=SHOWN.filter(it=>sel.has(it.key));
@@ -6763,6 +6782,7 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
   return{t:m.t||'',now:gr(now)+CUR,was:on?gr(was)+CUR:'',off:on?Math.round((was-now)/was*100)+'% OFF':'',
          save:on?'SAVE '+gr(was-now)+CUR:'',pct:on?Math.round((was-now)/was*100):0};
  }
+ window.SALE_DEAL=deal;   /* the v21 sale-message patch reads the same detection */
 
  var _sale=stageHTMLraw;
  stageHTMLraw=function(f){
@@ -6778,13 +6798,11 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
    var pw=Math.round(W*L(48)/100),pad=Math.round(W*0.055),iw=pw-pad*2;
    return open+'background:'+surf(f,'bg','#ffffff')+'">'
     +'<div style="position:absolute;left:'+pw+'px;top:0;width:'+(W-pw)+'px;height:'+H+'px;overflow:hidden">'+P('det',2,'position:absolute;inset:0')+'</div>'
-    +CAP(f,'brand','OURKIDS®','left:'+pad+'px;top:'+Math.round(H*0.055)+'px;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(W*0.033)+'px;letter-spacing:-.01em;color:#111')
-    +'<div style="position:absolute;left:'+pad+'px;top:'+Math.round(H*0.14)+'px;width:'+iw+'px;height:'+Math.round(H*0.33)+'px;overflow:hidden">'+P('bg',1,'position:absolute;inset:0')+'</div>'
+    +'<div style="position:absolute;left:'+pad+'px;top:'+Math.round(H*0.09)+'px;width:'+iw+'px;height:'+Math.round(H*0.38)+'px;overflow:hidden">'+P('bg',1,'position:absolute;inset:0')+'</div>'
     +CAP(f,'nm',d.t||'Everyday\nBlue Linen Shirt','left:'+pad+'px;top:'+Math.round(H*0.53)+'px;width:'+iw+'px;font-family:\'DM Sans\',sans-serif;font-weight:700;font-size:'+Math.round(W*0.047)+'px;line-height:1.2;color:#111')
     +'<div style="position:absolute;left:'+pad+'px;top:'+Math.round(H*0.655)+'px;border:'+Math.max(3,Math.round(W*0.005))+'px solid #111;border-radius:100px;padding:'+Math.round(W*0.016)+'px '+Math.round(W*0.05)+'px;z-index:6">'
      +CAP(f,'pnow',d.now,'position:relative;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(W*0.075)+'px;letter-spacing:-.02em;color:#111')+'</div>'
     +(d.was?CAP(f,'pwas',d.was,'left:'+pad+'px;top:'+Math.round(H*0.755)+'px;font-family:\'Archivo\',sans-serif;font-weight:900;font-size:'+Math.round(W*0.05)+'px;text-decoration:line-through;color:#111'):'')
-    +CAP(f,'site','OURKIDS.COM','left:'+pad+'px;top:'+Math.round(H*0.92)+'px;font-family:\'DM Sans\',sans-serif;font-weight:500;font-size:'+Math.round(W*0.026)+'px;letter-spacing:.05em;color:#111')
     +'</div>';
   }
 
@@ -6880,6 +6898,147 @@ const DH_PRODUCTS=[{"title": "Solara Trio", "handle": "solara-trio-1", "price": 
  if(document.readyState==='complete')_rebuild();
  window.addEventListener('load',function(){setTimeout(_rebuild,400);setTimeout(_rebuild,1500)});
  setTimeout(_rebuild,1700);
+})();
+</script>
+
+<style>
+/* ===== v20 patch: light / dark UI. The app palette is variable-driven, so light is
+   mostly a :root swap; the block under it mops up the panels that hardcode a dark hex. ===== */
+html[data-theme="light"]{
+ --bg:#ffffff;--bg2:#f2f2f4;--panel:#fbfbfc;--panel2:#eeeef1;--card:#ffffff;
+ --line:#e3e3e7;--line2:#cccdd3;--txt:#111214;--mut:#5f6470;--mut2:#8b909c;
+ --acc:#111214;--acc2:#35373d;--accInk:#ffffff;--violet:#111214;
+ --sh:0 8px 30px rgba(16,18,22,.09);--sh2:0 20px 60px rgba(16,18,22,.16)}
+html[data-theme="light"] .brand .dot{background:#111214;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+html[data-theme="light"] .topbar{background:rgba(255,255,255,.86)}
+html[data-theme="light"] .thumb,html[data-theme="light"] .colorrow input[type=color]{background-color:#f0f0f3}
+html[data-theme="light"] .btn.violet{background:#111214;color:#fff;border-color:#111214}
+html[data-theme="light"] .mini:hover{background:#e8e8ec}
+html[data-theme="light"] .drop.on{background:#f0f0f3}
+html[data-theme="light"] .gcard .gframe{background:#f0f0f3;box-shadow:0 8px 26px rgba(16,18,22,.12)}
+html[data-theme="light"] #capBar{background:#ffffff;border-color:#d8d8de;box-shadow:0 10px 30px rgba(16,18,22,.2)}
+html[data-theme="light"] #capBar button{background:#f2f2f5;color:#111214;border-color:#d8d8de}
+html[data-theme="light"] #syncLib,html[data-theme="light"] #dhLib{background:#fbfbfc!important;border-color:#e3e3e7!important}
+html[data-theme="light"] #syUrl,html[data-theme="light"] #sySearch{background:#ffffff!important;color:#111214!important;border-color:#cccdd3!important}
+html[data-theme="light"] .syp{background-color:#f2f2f4!important}
+html[data-theme="light"] .float input[type=color],html[data-theme="light"] #cellEd .thumbs div,
+html[data-theme="light"] .scene .sthumb,html[data-theme="light"] .scene .scopy input,
+html[data-theme="light"] .strow select,html[data-theme="light"] .strow input{background-color:#f0f0f3}
+html[data-theme="light"] #syAnother{background:#f2f2f4!important;color:#2b4bcd!important}
+/* ponytail: substring match on the style attribute mops up the panels that bake a dark hex
+   inline; keep it to hexes only ever used as a BACKGROUND, and add new ones here rather than
+   re-theming 3k lines of inline styles. */
+html[data-theme="light"] [style*="background:#14161c"],
+html[data-theme="light"] [style*="background:#101218"],
+html[data-theme="light"] [style*="background:#0d0e12"]{
+ background-color:#f2f2f4!important;border-color:#dcdce2!important}
+html[data-theme="light"] [style*="color:#e8e9ec"],html[data-theme="light"] [style*="color:#aeb4bf"],
+html[data-theme="light"] [style*="color:#cdd2db"]{color:#23252b!important}
+#uiTheme{margin-left:auto}
+</style>
+<script>
+(function(){
+ var KEY='ui_theme';
+ function set(t){document.documentElement.setAttribute('data-theme',t);
+  try{localStorage.setItem(KEY,t)}catch(e){}
+  var b=document.getElementById('uiTheme');if(b)b.textContent=(t==='light'?'🌙 Dark':'☀️ Light');}
+ function init(){
+  var bar=document.querySelector('.topbar');
+  if(!bar||document.getElementById('uiTheme')){setTimeout(init,600);return}
+  var b=document.createElement('button');b.id='uiTheme';b.className='mini';
+  b.title='Switch the builder between light and dark — the creative on the canvas never changes';
+  bar.appendChild(b);
+  b.onclick=function(){set(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light')};
+  var saved='dark';try{saved=localStorage.getItem(KEY)||'dark'}catch(e){}
+  set(saved);
+ }
+ if(document.readyState==='complete')init();else window.addEventListener('load',init);
+ setTimeout(init,900);
+})();
+</script>
+
+<script>
+/* ===== v21 patch: "Apply sale message" on the NORMAL formats — same overlay-element
+   plumbing as the free-shipping badge, text derived from the detected price, and
+   parked in whichever corner the format's own text isn't already using. ===== */
+(function(){
+ if(typeof state==='undefined'||typeof els!=='function')return;
+ var SALE_SCOPE='all';
+
+ function text(){
+  var d=window.SALE_DEAL?window.SALE_DEAL(1):null;
+  if(!d)return 'SALE\nUP TO 50% OFF';
+  if(d.pct)return d.pct+'% OFF\n'+d.was+'  →  '+d.now;
+  return 'NOW '+d.now;
+ }
+ function has(f){return (state.els[fKey(f)]||[]).some(function(e){return e.saleEl})}
+
+ /* park it in the corner furthest from whatever text the format already draws */
+ function corner(f){
+  var W=DIMS[state.aspect][0],H=DIMS[state.aspect][1],pts=[],m,
+      re=/<div class="cap"[^>]*style="([^"]*)"/g,html='';
+  try{html=stageHTMLraw(f)}catch(e){}
+  while((m=re.exec(html))){var st=m[1],
+   l=/(?:^|;)left:(-?\d+(?:\.\d+)?)px/.exec(st),
+   r=/(?:^|;)right:(-?\d+(?:\.\d+)?)px/.exec(st),
+   t=/(?:^|;)top:(-?\d+(?:\.\d+)?)px/.exec(st),
+   w=/(?:^|;)width:(\d+(?:\.\d+)?)px/.exec(st);
+   var x=l?(+l[1]+(w?+w[1]/2:0)):(r?W-+r[1]:W/2);
+   pts.push([x/W*100,(t?+t[1]:H/2)/H*100]);
+  }
+  (state.els[fKey(f)]||[]).forEach(function(e){pts.push([e.x,e.y])});
+  var best=null,bd=-1;
+  [[21,8],[79,8],[21,92],[79,92]].forEach(function(c){
+   var d=1e9;pts.forEach(function(p){var dx=p[0]-c[0],dy=p[1]-c[1];d=Math.min(d,dx*dx+dy*dy)});
+   if(d>bd){bd=d;best=c}});
+  return best||[21,8];
+ }
+
+ function setOn(f,on){
+  els(f);var arr=state.els[fKey(f)],i=arr.findIndex(function(e){return e.saleEl}),t=text();
+  if(on){
+   if(i<0){var c=corner(f);
+    arr.push({id:eid++,k:'t',saleEl:true,auto:t,t:t,f:'badge',s:state.aspect==='feed'?30:32,
+              x:c[0],y:c[1],c:'#ffffff',sh:false,rot:0,bg:'#d92b1f',ff:'Archivo Black',b:0,mw:520});
+   }else{arr[i].t=t;arr[i].auto=t}
+  }else if(i>=0)arr.splice(i,1);
+ }
+
+ /* keep the message honest when the slots change (Marpipe batch swaps a product per render),
+    but never stomp on text the user typed over it */
+ function refresh(f){var t=text();
+  (state.els[fKey(f)]||[]).forEach(function(e){if(e.saleEl&&e.t===e.auto){e.t=t;e.auto=t}})}
+ if(typeof buildElLayer==='function'){var _b=buildElLayer;
+  buildElLayer=function(host,f,scale){try{refresh(f)}catch(e){}return _b.apply(this,arguments)}}
+
+ function toggle(){
+  if(typeof commitPre==='function')commitPre();
+  var on=!has(ACTIVE);
+  if(SALE_SCOPE==='all')eachAspect(function(){for(var f in FORMATS)setOn(f,on)});
+  else eachAspect(function(){setOn(ACTIVE,on)});
+  renderStage();if(typeof renderMirrorNow==='function')renderMirrorNow();
+  var st=document.getElementById('copyStatus');
+  if(st){st.textContent=(on?'Added':'Removed')+' sale message · '+(SALE_SCOPE==='all'?'all designs':(FORMATS[ACTIVE]&&FORMATS[ACTIVE].label||ACTIVE));st.style.color='#ff9d94'}
+ }
+
+ window.SALE_MSG={set:setOn,corner:corner,text:text,has:has};
+
+ function init(){
+  var anchor=document.getElementById('uspStrip');
+  if(!anchor||document.getElementById('saleMsg')){setTimeout(init,600);return}
+  var row=anchor.parentNode.cloneNode(false);
+  row.innerHTML='<button class="cbtn" id="saleMsg" style="background:#3a1614;border-color:#8c2f28;color:#ffd9d5;flex:1">🔥 Apply sale message</button>'
+   +'<div id="saleScope" style="display:flex;gap:4px">'
+   +'<button data-sscope="one" style="border:1px solid #2a2e38;border-radius:7px;padding:6px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:#1c1f26;color:#cfd2d8">This</button>'
+   +'<button data-sscope="all" style="border:1px solid #2a2e38;border-radius:7px;padding:6px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:#2b4bcd;color:#fff">All</button></div>';
+  anchor.parentNode.parentNode.insertBefore(row,anchor.parentNode.nextSibling);
+  document.getElementById('saleMsg').onclick=toggle;
+  var sw=document.getElementById('saleScope');
+  sw.querySelectorAll('button').forEach(function(b){b.onclick=function(){SALE_SCOPE=b.dataset.sscope;
+   sw.querySelectorAll('button').forEach(function(x){var on=x.dataset.sscope===SALE_SCOPE;
+    x.style.background=on?'#2b4bcd':'#1c1f26';x.style.color=on?'#fff':'#cfd2d8'})}});
+ }
+ if(document.readyState==='complete')setTimeout(init,900);else window.addEventListener('load',function(){setTimeout(init,900)});
 })();
 </script>
 
