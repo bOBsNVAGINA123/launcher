@@ -180,7 +180,7 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
   <nav id="steps">
     <div id="logo">LAUNCH<span>ER</span></div>
     <div id="syncState">not synced</div>
-    <div id="buildStamp" style="font-size:9.5px;color:var(--dim);letter-spacing:.02em;margin-top:2px" title="if this is older than the fix you were told about, you are on a cached tab — hard reload">build 15 Sep 20:36</div>
+    <div id="buildStamp" style="font-size:9.5px;color:var(--dim);letter-spacing:.02em;margin-top:2px" title="if this is older than the fix you were told about, you are on a cached tab — hard reload">build 15 Sep 20:52</div>
     <div id="lastSync" style="padding:0 22px 8px;font-size:11px;color:var(--dim)"></div>
     <div style="padding:0 22px 16px"><label>Ad account</label><select id="acctSel" onchange="pickAccount()" style="font-size:13px"><option value="">Syncing…</option></select>
       <button class="btn" style="width:100%;margin-top:8px;font-size:12.5px" onclick="openSettings()">⚙ Settings — sign in / paste token</button></div>
@@ -202,7 +202,17 @@ h3.sec{font-size:15px;font-weight:700;margin:22px 0 10px}
 
     <!-- ================= STEP 1: MEDIA ================= -->
     <section class="pane show" id="pane-media">
-      <h2>Add your videos & photos</h2>
+      <h2>What are you launching?</h2>
+      <div class="sub">Pick this first — it decides what steps 2 and 3 ask you for.</div>
+      <div class="card" style="margin-bottom:18px">
+        <div class="seg" id="planSeg">
+          <button id="plan-adsets" onclick="planMode('adsets')">Ads into ad sets that already exist</button>
+          <button id="plan-one" class="on" onclick="planMode('one')">A new ad set in one campaign</button>
+          <button id="plan-multi" onclick="planMode('multi')">The same new ad set in several campaigns</button>
+        </div>
+        <div class="hint" id="planHint" style="margin-top:8px"></div>
+      </div>
+      <h2>Add your videos &amp; photos</h2>
       <div class="sub">Every file becomes its own ad (or one carousel — you pick in step 4). Drag files in, or import from Google Drive.</div>
       <div id="drop" onclick="document.getElementById('fileInput').click()">
         <div class="big">Drop videos & photos here</div>
@@ -606,6 +616,7 @@ const PROXIES=[u=>'/api/drive?url='+encodeURIComponent(u), u=>'https://api.allor
 const S={
   media:[],                 // {kind, src, file?, url?, name, size?, id?, hash?, thumb?, link?, state?}
   accounts:[], acct:null, acctName:'', currency:'EGP',
+  plan:'one', multiCamps:[],   // 'adsets' | 'one' | 'multi' — what step 1 asks up front
   campMode:'exist', camp:null, campName:'', campMeta:null, newCamp:false,
   adsets:[], selAdsets:[], newAdset:false, extraAdsets:[],
   pages:[], page:'', pixels:[],
@@ -1654,6 +1665,20 @@ async function loadAudiences(){
   }catch(e){log('Audiences: '+e.message,'err')}
 }
 async function pickCampaign(c,el){
+  if(S.plan==='multi'){
+    const i=S.multiCamps.findIndex(x=>x.id===c.id);
+    if(i>=0) S.multiCamps.splice(i,1);
+    else S.multiCamps.push({id:c.id,name:c.name,meta:{objective:c.objective,cbo:!!(c.daily_budget||c.lifetime_budget),bid_strategy:c.bid_strategy||'LOWEST_COST_WITHOUT_CAP'}});
+    el.classList.toggle('sel');
+    /* step 3 reads goal / conversion-location lists off ONE campaign — use the first ticked */
+    const f=S.multiCamps[0];
+    S.camp=f?f.id:null; S.campName=f?f.name:''; S.campMeta=f?f.meta:null; S.newCamp=false; S.selAdsets=[];
+    document.getElementById('campInfo').textContent=S.multiCamps.length
+      ? S.multiCamps.length+' campaign'+(S.multiCamps.length>1?'s':'')+' ticked — the new ad set is created in each: '+S.multiCamps.map(x=>x.name).join(', ')
+      : 'Tick every campaign that should get this ad set.';
+    refreshLocations(); refreshAdsetConditionals(); paint();
+    return;
+  }
   document.querySelectorAll('#campaignList .lrow').forEach(x=>x.classList.remove('sel'));
   el.classList.add('sel');
   S.camp=c.id;S.campName=c.name;S.newCamp=false;S.selAdsets=[];
@@ -1706,6 +1731,33 @@ async function loadAllAdsets(){
     });
     log(S.adsets.length+' ad sets across all campaigns','ok');
   }catch(e){L.innerHTML='<div class="hint">'+esc(e.message)+'</div>'}
+}
+/* which campaigns the new ad set(s) get created in. 'multi' = one copy per ticked campaign. */
+function campTargetsFor(plan,multi,campId,campName,campMeta){
+  return (plan==='multi'&&multi&&multi.length)
+    ? multi.map(c=>({id:c.id,name:c.name,meta:c.meta}))
+    : [{id:campId,name:campName,meta:campMeta}];
+}
+const PLAN_HINT={
+  adsets:'Step 2 is optional. Go to step 3, hit "Show ad sets from ALL campaigns" and tick any of them — they can sit in different campaigns. Every ad is created in each ticked ad set.',
+  one:'Pick an existing campaign in step 2 (or create one), then define the audience in step 3.',
+  multi:'Tick SEVERAL campaigns in step 2. The audience you define in step 3 is created once inside every ticked campaign, and every ad goes into all of them.'};
+function planMode(p){
+  S.plan=p;
+  ['adsets','one','multi'].forEach(k=>document.getElementById('plan-'+k).classList.toggle('on',k===p));
+  document.getElementById('planHint').textContent=PLAN_HINT[p];
+  if(p!=='multi') S.multiCamps=[];
+  if(p==='multi'){
+    if(S.campMode!=='exist') destMode('exist');
+    if(!S.newAdset) toggleNewAdset();
+    document.getElementById('campInfo').textContent='Tick every campaign that should get this ad set.';
+  }
+  if(p==='adsets'){
+    if(S.newAdset) toggleNewAdset();
+    if(S.acct) loadAllAdsets();
+  }
+  document.querySelectorAll('#campaignList .lrow').forEach(x=>x.classList.remove('sel'));
+  paint();
 }
 function destMode(m){
   S.campMode=m; S.newCamp=(m==='new');
@@ -1930,7 +1982,14 @@ function validate(){
   lights.media=S.media.length>0;
   if(!S.media.length) issues.push('Add at least one video or photo (step 1)');
   if(!S.acct) issues.push('Pick an ad account (step 2)');
-  if(S.campMode==='exist'){
+  if(S.plan==='multi'){
+    lights.camp=!!(S.acct&&S.multiCamps.length);
+    if(S.acct&&!S.multiCamps.length) issues.push('Tick the campaigns that should each get this ad set (step 2)');
+    if(!(S.newAdset&&val('newAdsetName'))) issues.push('Name the ad set that goes into every ticked campaign (step 3)');
+  } else if(S.plan==='adsets'){
+    lights.camp=!!S.acct;
+    if(S.acct&&!S.selAdsets.length&&!(S.newAdset&&val('newAdsetName'))) issues.push('Tick the ad sets that should get these ads (step 3)');
+  } else if(S.campMode==='exist'){
     lights.camp=!!(S.acct&&S.camp);
     if(S.acct&&!S.camp) issues.push('Pick a campaign or switch to Create new (step 2)');
   } else {
@@ -1999,9 +2058,16 @@ function paint(){
   const v=validate();
   const nc=S.campMode==='new';
   const bidTxt={volume:'Highest volume',highest_value:'Highest value',cost_cap:'Cost per result '+(val('bidGoalAmt')||'?')+' '+S.currency,min_roas:'ROAS floor '+(val('roasGoalAmt')||'?')+'x',bid_cap:'Bid cap '+(val('bidGoalAmt')||'?')+' '+S.currency}[val('bidSel')||'volume'];
-  const campLine=nc? (val('newCampName')?`NEW · ${val('newCampName')} · ${activeCBO()?(val('budgetAmt')||'?')+' '+S.currency+'/'+val('budgetType')+' CBO':'ABO'} · ${bidTxt}`:'') : (S.campName? S.campName+(S.campMeta?` · ${S.campMeta.cbo?'CBO':'ABO'}`:'') :'');
+  const campLine=S.plan==='multi'? (S.multiCamps.length?S.multiCamps.length+' campaigns · '+S.multiCamps.map(c=>c.name).join(', '):'')
+    : S.plan==='adsets'? (S.selAdsets.length?'existing ad sets — no campaign touched':'')
+    : nc? (val('newCampName')?`NEW · ${val('newCampName')} · ${activeCBO()?(val('budgetAmt')||'?')+' '+S.currency+'/'+val('budgetType')+' CBO':'ABO'} · ${bidTxt}`:'') : (S.campName? S.campName+(S.campMeta?` · ${S.campMeta.cbo?'CBO':'ABO'}`:'') :'');
   const asNames=[...S.selAdsets.map(a=>a.name)];
-  if(S.newAdset&&val('newAdsetName')) asNames.push('NEW '+val('newAdsetName'));
+  const nCamps=(S.plan==='multi'&&S.multiCamps.length)?S.multiCamps.length:1;
+  if(S.newAdset&&val('newAdsetName')){
+    const nn='NEW '+val('newAdsetName');
+    /* multi: the same audience is created once per ticked campaign, so it counts n times */
+    for(let i=0;i<nCamps;i++) asNames.push(nCamps>1?nn+' · '+S.multiCamps[i].name:nn);
+  }
   const pg=S.pages.find(p=>p.id===S.page);
   const vids=S.media.filter(x=>x.kind==='video').length, imgs=S.media.filter(x=>x.kind==='image').length;
   const customLinks=S.media.filter(m=>m.link).length;
@@ -2384,13 +2450,13 @@ async function launch(){
   const status=document.getElementById('launchStatus').value;
   loOpen('Launching…','Each step below reports live progress. Don’t close the tab.');
   /* pre-register the fixed tasks so the bar is meaningful */
-  if(S.campMode==='new') loTask('t-camp','Create campaign',val('newCampName'));
+  if(S.campMode==='new'&&S.plan!=='multi') loTask('t-camp','Create campaign',val('newCampName'));
   if(S.newAdset&&val('newAdsetName')) loTask('t-adset','Create audience',val('newAdsetName'));
   /* media tasks are registered inside prepareMedia */
   try{
     /* 1. campaign */
     let campId=S.camp, campName=S.campName, cbo=activeCBO(), bidMode='volume';
-    if(S.campMode==='new'){
+    if(S.campMode==='new'&&S.plan!=='multi'){
       campName=val('newCampName');
       bidMode=val('bidSel');
       if(bidMode==='highest_value') bidMode=val('roasGoalAmt')?'min_roas':'volume';
@@ -2416,7 +2482,10 @@ async function launch(){
     const newNames=[];
     if(S.newAdset&&val('newAdsetName')) newNames.push(val('newAdsetName').trim());
     (S.extraAdsets||[]).forEach(n=>{if(n&&n.trim())newNames.push(n.trim())});
-    async function newAdsetPayload(nm){
+    async function newAdsetPayload(nm,cid,cmeta){
+      /* multi-campaign: budget level and bid strategy belong to THAT campaign, not the first one */
+      const cbo=(S.plan==='multi'&&cmeta)?cmeta.cbo:activeCBO();
+      const campId=cid;
       const cc=(val('newAdsetCountry')||'EG').toUpperCase();
       const goal=newAdsetGoal();
       const px=val('newAdsetPixel');
@@ -2464,7 +2533,7 @@ async function launch(){
       /* --- bid strategy on the ad set: read the campaign's REAL strategy, never send NaN --- */
       let effBs = S.campMode==='new'
         ? ({cost_cap:'COST_CAP',bid_cap:'LOWEST_COST_WITH_BID_CAP',min_roas:'LOWEST_COST_WITH_MIN_ROAS'}[bidMode]||'LOWEST_COST_WITHOUT_CAP')
-        : ((S.campMeta&&S.campMeta.bid_strategy)||'');
+        : ((cmeta&&cmeta.bid_strategy)||(S.campMeta&&S.campMeta.bid_strategy)||'');
       if(S.campMode!=='new'){
         try{const cj=await gget(`${campId}?fields=bid_strategy`); if(cj&&cj.bid_strategy) effBs=cj.bid_strategy;}catch(e){}
       }
@@ -2501,12 +2570,18 @@ async function launch(){
       }
       return pl;
     }
-    for(let ni=0;ni<newNames.length;ni++){
-      const nm=newNames[ni];
-      const pl=await newAdsetPayload(nm);
-      loStart('t-adset'); log('Creating ad set '+nm,'busy');
-      const as=await gpost(`act_${S.acct}/adsets`,pl);
-      targets.push({id:as.id,name:nm,_new:true,localId:'NEW'+ni}); log('Ad set '+as.id+' \u2014 '+nm,'ok'); loOk('t-adset','created \u00b7 '+nm);
+    /* one campaign normally; in 'multi' every ticked campaign gets its own copy of each ad set.
+       localId stays keyed to the ad set NAME, so a card aimed at "NEW: x" hits x in every campaign. */
+    const campTargets=campTargetsFor(S.plan,S.multiCamps,campId,campName,S.campMeta);
+    for(const ct of campTargets){
+      for(let ni=0;ni<newNames.length;ni++){
+        const nm=newNames[ni];
+        const pl=await newAdsetPayload(nm,ct.id,ct.meta);
+        loStart('t-adset'); log('Creating ad set '+nm+(campTargets.length>1?' in '+ct.name:''),'busy');
+        const as=await gpost(`act_${S.acct}/adsets`,pl);
+        targets.push({id:as.id,name:nm+(campTargets.length>1?' \u00b7 '+ct.name:''),_new:true,localId:'NEW'+ni});
+        log('Ad set '+as.id+' \u2014 '+nm,'ok'); loOk('t-adset','created \u00b7 '+nm+(campTargets.length>1?' \u00b7 '+ct.name:''));
+      }
     }
     /* 3. media */
     await prepareMedia(true);
@@ -2680,6 +2755,7 @@ refreshLocations();
 gResume();
 gWarm();
 toggleNewAdset(); /* create-ad-set box open by default */
+planMode(S.plan);
 paint();
 /* ============ Content Studio bridge ============
    Drains the IndexedDB inbox. Runs at boot AND live — the Studio writes a
